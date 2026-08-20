@@ -8,16 +8,16 @@
     "scheme": "aeghin",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "bundleIdentifier": "com.aeghinsteam.aeghin"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#F77F00",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.aeghinsteam.aeghin"
     },
     "web": {
       "output": "static",
@@ -28,15 +28,29 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#F77F00",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 140,
+          "dark": {
+            "image": "./assets/images/splash-icon.png",
+            "backgroundColor": "#F77F00"
+          }
         }
-      ]
+      ],
+      "@clerk/expo",
+      "expo-secure-store",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "9f21aa97-004f-46e1-a69e-b9b7e5026b04"
+      }
+    },
+    "owner": "aeghins-team"
   }
 }

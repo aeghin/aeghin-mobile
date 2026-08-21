@@ -5,6 +5,7 @@
   "dependencies": {
     "@clerk/expo": "^4.5.1",
     "@expo/ui": "~57.0.6",
+    "@tanstack/react-query": "^5.101.4",
     "expo": "~57.0.6",
     "expo-auth-session": "~57.0.8",
     "expo-constants": "~57.0.5",

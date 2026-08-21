@@ -12,8 +12,6 @@ export default function SignInScreen() {
         mode="signInOrUp"
         logo={<Logo size={LOGO_HEIGHT} />}
         logoMaxHeight={LOGO_HEIGHT}
-        // There is nothing behind this screen to dismiss back to — it is the
-        // whole signed-out state.
         isDismissible={false}
       />
     </View>

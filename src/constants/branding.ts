@@ -1,7 +1,3 @@
-/**
- * Brand tokens, taken from assets/images/aeghin-icon.svg — the orange there is
- * the source of truth, so keep this in sync if the mark ever changes.
- */
 export const brand = {
   orange: "#F77F00",
   orangePressed: "#D96E00",
@@ -15,8 +11,6 @@ export type Palette = {
   textMuted: string;
 };
 
-// Explicitly typed rather than `as const`: the two schemes have to stay
-// assignable to one another so a `Palette` can be passed around.
 export const palette: Record<"light" | "dark", Palette> = {
   light: {
     background: "#FFFFFF",

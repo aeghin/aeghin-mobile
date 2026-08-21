@@ -6,6 +6,8 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 
+import { QueryProvider } from "@/components/query-provider";
+
 SplashScreen.preventAutoHideAsync();
 SplashScreen.setOptions({ duration: 300, fade: true });
 
@@ -25,8 +27,10 @@ const publishableKey = requirePublishableKey();
 export default function RootLayout() {
   return (
     <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-      <StatusBar style="auto" />
-      <RootNavigator />
+      <QueryProvider>
+        <StatusBar style="auto" />
+        <RootNavigator />
+      </QueryProvider>
     </ClerkProvider>
   );
 }
@@ -47,7 +51,11 @@ function RootNavigator() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Protected guard={isAuthFlowComplete}>
-        <Stack.Screen name="index" />
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen
+          name="organizations/[id]"
+          options={{ headerShown: true, headerBackTitle: "Back" }}
+        />
       </Stack.Protected>
 
       <Stack.Protected guard={!isAuthFlowComplete}>

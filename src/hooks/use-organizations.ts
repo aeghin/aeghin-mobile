@@ -2,7 +2,10 @@ import { useAuth } from "@clerk/expo";
 import { useQuery } from "@tanstack/react-query";
 
 import { apiGet } from "@/lib/api";
-import type { OrganizationSummary } from "@/types/organization";
+import type {
+  OrganizationDetail,
+  OrganizationSummary,
+} from "@/types/organization";
 
 type OrganizationsResponse = {
   organizations: OrganizationSummary[];
@@ -26,6 +29,30 @@ export function useOrganizations() {
         "/api/mobile/v1/organizations",
       );
       return organizations;
+    },
+  });
+}
+
+/**
+ * One organization's detail, for the signed-in caller.
+ *
+ * `userId` is in the key for cache scoping only — it is never sent, for the
+ * same reason as {@link useOrganizations}.
+ *
+ * Nesting under the list's `["organizations", userId]` key means invalidating
+ * the list also invalidates any open detail entry.
+ */
+export function useOrganizationDetails(orgId: string) {
+  const { userId } = useAuth();
+
+  return useQuery({
+    queryKey: ["organizations", userId, "detail", orgId],
+    enabled: Boolean(userId && orgId),
+    queryFn: async () => {
+      const response = await apiGet<{ organization: OrganizationDetail }>(
+        `/api/mobile/v1/organizations/${orgId}`,
+      );
+      return response.organization;
     },
   });
 }

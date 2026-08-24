@@ -1,7 +1,8 @@
-import { useUser } from "@clerk/expo";
+import { useAuth, useUser } from "@clerk/expo";
 import { UserButton } from "@clerk/expo/native";
 import { useRouter } from "expo-router";
 import { SymbolView } from "expo-symbols";
+import { useEffect, useRef } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -18,17 +19,44 @@ import { OrganizationRow } from "@/components/organization-row";
 import { brand } from "@/constants/branding";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { useTheme } from "@/hooks/use-theme";
+import { readLastOrganizationId } from "@/lib/last-organization";
 
 export default function HomeScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { user } = useUser();
+  const { userId } = useAuth();
 
   const { data, isPending, isError, error, refetch, isRefetching } =
     useOrganizations();
 
   const organizations = data ?? [];
   const onCreate = () => {};
+
+  const hasRestored = useRef(false);
+
+  /**
+   * Reopens the organization this account was last in, once per mount.
+   *
+   * The stored id is read here rather than during render — it is a native
+   * storage hit, and a render may be discarded before it commits. The
+   * membership check means an organization the user has since left is ignored
+   * rather than pushed into a 404.
+   */
+  useEffect(() => {
+    if (hasRestored.current || isPending || !userId) {
+      return;
+    }
+    hasRestored.current = true;
+
+    const lastOrganizationId = readLastOrganizationId(userId);
+    if (
+      lastOrganizationId &&
+      data?.some((organization) => organization.id === lastOrganizationId)
+    ) {
+      router.push(`/organizations/${lastOrganizationId}`);
+    }
+  }, [data, isPending, userId, router]);
 
   return (
     <SafeAreaView

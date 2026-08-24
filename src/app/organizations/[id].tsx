@@ -1,6 +1,6 @@
 import { useAuth } from "@clerk/expo";
-import { useQuery } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams } from "expo-router";
+import { useEffect } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -12,33 +12,25 @@ import {
 import { Card, Row, SectionLabel } from "@/components/list";
 import { OrgAvatar } from "@/components/org-avatar";
 import { RoleBadge } from "@/components/role-badge";
+import { useOrganizationDetails } from "@/hooks/use-organizations";
 import { useTheme } from "@/hooks/use-theme";
-import { ApiError, apiGet } from "@/lib/api";
-import type { OrganizationDetail } from "@/types/organization";
+import { ApiError } from "@/lib/api";
+import { rememberLastOrganizationId } from "@/lib/last-organization";
 
 export default function OrganizationDetailScreen() {
   const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { userId } = useAuth();
 
-  /**
-   * `userId` is in the key for cache scoping only — it is never sent. The server
-   * reads the caller from the token; keying on it stops one account's cached
-   * detail from being shown to the next person who signs in on this device.
-   *
-   * Nesting under the list's `["organizations", userId]` key means invalidating
-   * the list also invalidates any open detail entry.
-   */
-  const { data: organization, error } = useQuery({
-    queryKey: ["organizations", userId, id],
-    enabled: Boolean(userId && id),
-    queryFn: async () => {
-      const response = await apiGet<{ organization: OrganizationDetail }>(
-        `/api/mobile/v1/organizations/${id}`,
-      );
-      return response.organization;
-    },
-  });
+  const { data: organization, error } = useOrganizationDetails(id);
+
+  const organizationId = organization?.id;
+
+  useEffect(() => {
+    if (userId && organizationId) {
+      rememberLastOrganizationId(userId, organizationId);
+    }
+  }, [userId, organizationId]);
 
   if (error) {
     // A 404 means the caller is not a member. The row should not have been
@@ -113,9 +105,13 @@ export default function OrganizationDetailScreen() {
           ]}
         >
           <Stat value={memberCount} label="Members" />
-          <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
+          <View
+            style={[styles.statDivider, { backgroundColor: theme.border }]}
+          />
           <Stat value={upcomingEventCount} label="Upcoming" />
-          <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
+          <View
+            style={[styles.statDivider, { backgroundColor: theme.border }]}
+          />
           <Stat value={songCount} label="Songs" />
         </View>
 
@@ -209,7 +205,9 @@ function Stat({ value, label }: StatProps) {
   return (
     <View style={styles.stat}>
       <Text style={[styles.statValue, { color: theme.text }]}>{value}</Text>
-      <Text style={[styles.statLabel, { color: theme.textMuted }]}>{label}</Text>
+      <Text style={[styles.statLabel, { color: theme.textMuted }]}>
+        {label}
+      </Text>
     </View>
   );
 }

@@ -53,8 +53,16 @@ function RootNavigator() {
       <Stack.Protected guard={isAuthFlowComplete}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen
-          name="organizations/[id]"
+          name="organizations/[id]/index"
           options={{ headerShown: true, headerBackTitle: "Back" }}
+        />
+        <Stack.Screen
+          name="organizations/[id]/members"
+          options={{
+            headerShown: true,
+            headerBackTitle: "Back",
+            title: "Members",
+          }}
         />
       </Stack.Protected>
 

@@ -9,6 +9,12 @@ export type Palette = {
   border: string;
   text: string;
   textMuted: string;
+  /** Owner accent. Mirrors the web app's `--gold` token, which also shifts by scheme. */
+  gold: string;
+  /** iOS systemGroupedBackground: the page *behind* inset cards. */
+  groupedBackground: string;
+  /** A card sitting on `groupedBackground`. Deliberately lighter than `surface`. */
+  card: string;
 };
 
 export const palette: Record<"light" | "dark", Palette> = {
@@ -18,6 +24,9 @@ export const palette: Record<"light" | "dark", Palette> = {
     border: "#E4E4E7",
     text: "#111113",
     textMuted: "#6B6B75",
+    gold: "#C4A03E",
+    groupedBackground: "#F2F2F7",
+    card: "#FFFFFF",
   },
   dark: {
     background: "#0E0E10",
@@ -25,5 +34,8 @@ export const palette: Record<"light" | "dark", Palette> = {
     border: "#2A2A2F",
     text: "#F5F5F6",
     textMuted: "#9A9AA3",
+    gold: "#D8B353",
+    groupedBackground: "#0E0E10",
+    card: "#1C1C1E",
   },
 };

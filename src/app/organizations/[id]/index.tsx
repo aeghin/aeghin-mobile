@@ -1,5 +1,5 @@
 import { useAuth } from "@clerk/expo";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect } from "react";
 import {
   ActivityIndicator,
@@ -19,6 +19,7 @@ import { rememberLastOrganizationId } from "@/lib/last-organization";
 
 export default function OrganizationDetailScreen() {
   const theme = useTheme();
+  const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { userId } = useAuth();
 
@@ -122,7 +123,12 @@ export default function OrganizationDetailScreen() {
               label="Members"
               symbol={{ ios: "person.2.fill", android: "group" }}
               value={String(memberCount)}
-              onPress={() => {}}
+              onPress={() =>
+                router.push({
+                  pathname: "/organizations/[id]/members",
+                  params: { id },
+                })
+              }
             />
             {canManage ? (
               <Row

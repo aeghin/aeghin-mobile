@@ -1,12 +1,5 @@
-/** Mirrors the `OrgRole` enum in the Next app's Prisma schema. */
 export type OrgRole = "OWNER" | "ADMIN" | "MEMBER";
 
-/**
- * One row of the home list.
- *
- * Shape expected from `GET /api/mobile/v1/organizations` — the caller's own
- * organizations, so `role` is always the signed-in user's membership role.
- */
 export type OrganizationSummary = {
   id: string;
   name: string;
@@ -16,11 +9,19 @@ export type OrganizationSummary = {
   memberCount: number;
 };
 
-/** Shape expected from `GET /api/mobile/v1/organizations/:id`. */
 export type OrganizationDetail = OrganizationSummary & {
-  /** ISO 8601 — straight off `Organization.createdAt`. */
   createdAt: string;
   upcomingEventCount: number;
   songCount: number;
   pendingInvitationCount: number;
+};
+
+export type OrganizationMember = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string;
+  imageUrl: string | null;
+  role: OrgRole;
 };

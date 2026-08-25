@@ -15,13 +15,28 @@ const ROW_PADDING = 14;
 
 type CardProps = {
   children: ReactNode;
+  /**
+   * Where the hairlines between rows start. Defaults to the {@link Row} icon
+   * column; pass a different value when the rows lead with something wider,
+   * so the separators still line up with the text rather than the artwork.
+   */
+  separatorInset?: number;
+  /**
+   * Renders on `theme.card` instead of `theme.surface`, for screens whose page
+   * sits on `theme.groupedBackground` and need the card to read as raised.
+   */
+  elevated?: boolean;
 };
 
 /**
  * A grouped container in the iOS inset-list tradition: one rounded surface with
  * hairline separators drawn between its rows, inset past the icon column.
  */
-export function Card({ children }: CardProps) {
+export function Card({
+  children,
+  separatorInset = ROW_PADDING + ICON_COLUMN,
+  elevated = false,
+}: CardProps) {
   const theme = useTheme();
   const rows = Children.toArray(children);
 
@@ -29,13 +44,21 @@ export function Card({ children }: CardProps) {
     <View
       style={[
         styles.card,
-        { backgroundColor: theme.surface, borderColor: theme.border },
+        {
+          backgroundColor: elevated ? theme.card : theme.surface,
+          borderColor: theme.border,
+        },
       ]}
     >
       {rows.map((row, index) => (
         <Fragment key={index}>
           {index > 0 ? (
-            <View style={[styles.separator, { backgroundColor: theme.border }]} />
+            <View
+              style={[
+                styles.separator,
+                { backgroundColor: theme.border, marginLeft: separatorInset },
+              ]}
+            />
           ) : null}
           {row}
         </Fragment>
@@ -128,7 +151,6 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: StyleSheet.hairlineWidth,
-    marginLeft: ROW_PADDING + ICON_COLUMN,
   },
   row: {
     flexDirection: "row",

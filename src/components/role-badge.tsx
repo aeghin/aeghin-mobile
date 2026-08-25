@@ -1,53 +1,56 @@
+import { SymbolView } from "expo-symbols";
 import { StyleSheet, Text, View } from "react-native";
 
-import { brand } from "@/constants/branding";
 import { useTheme } from "@/hooks/use-theme";
+import { getRoleConfig } from "@/lib/config/roles";
 import type { OrgRole } from "@/types/organization";
 
 type RoleBadgeProps = {
   role: OrgRole;
 };
 
-const LABELS: Record<OrgRole, string> = {
-  OWNER: "Owner",
-  ADMIN: "Admin",
-  MEMBER: "Member",
-};
+const SYMBOL_SIZE = 11;
 
 /**
- * The signed-in user's role in an organization. Owner and admin carry the brand
- * tint; member stays neutral so the list doesn't read as all-important.
+ * The signed-in user's role in an organization. Label, symbol and colors all
+ * come from `getRoleConfig`, so this badge and its web twin stay in step.
  */
 export function RoleBadge({ role }: RoleBadgeProps) {
   const theme = useTheme();
-  const isPrivileged = role === "OWNER" || role === "ADMIN";
+  const { symbol, label, background, border, foreground } = getRoleConfig(
+    role,
+    theme,
+  );
 
   return (
     <View
-      style={[
-        styles.badge,
-        isPrivileged
-          ? { backgroundColor: `${brand.orange}1F` }
-          : { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: StyleSheet.hairlineWidth },
-      ]}
+      style={[styles.badge, { backgroundColor: background, borderColor: border }]}
     >
-      <Text
-        style={[
-          styles.label,
-          { color: isPrivileged ? brand.orange : theme.textMuted },
-        ]}
-      >
-        {LABELS[role]}
-      </Text>
+      <SymbolView
+        name={{ ios: symbol.ios, android: symbol.android, web: symbol.android }}
+        size={SYMBOL_SIZE}
+        tintColor={foreground}
+        fallback={<View style={styles.symbolFallback} />}
+      />
+
+      <Text style={[styles.label, { color: foreground }]}>{label}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   badge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  symbolFallback: {
+    width: SYMBOL_SIZE,
+    height: SYMBOL_SIZE,
   },
   label: {
     fontSize: 11,

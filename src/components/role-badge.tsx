@@ -1,6 +1,5 @@
-import { SymbolView } from "expo-symbols";
-import { StyleSheet, Text, View } from "react-native";
-
+import { AppSymbol } from "@/components/app-symbol";
+import { Badge, BadgeText } from "@/components/ui/badge";
 import { useTheme } from "@/hooks/use-theme";
 import { getRoleConfig } from "@/lib/config/roles";
 import type { OrgRole } from "@/types/organization";
@@ -12,50 +11,25 @@ type RoleBadgeProps = {
 const SYMBOL_SIZE = 11;
 
 /**
- * The signed-in user's role in an organization. Label, symbol and colors all
- * come from `getRoleConfig`, so this badge and its web twin stay in step.
+ * Someone's role in an organization. Label, symbol and colours all come from
+ * `getRoleConfig`, so this badge and its web twin stay in step.
  */
 export function RoleBadge({ role }: RoleBadgeProps) {
   const theme = useTheme();
-  const { symbol, label, background, border, foreground } = getRoleConfig(
+  const { symbol, label, badgeClass, textClass, tint } = getRoleConfig(
     role,
     theme,
   );
 
   return (
-    <View
-      style={[styles.badge, { backgroundColor: background, borderColor: border }]}
+    <Badge
+      variant="outline"
+      className={`gap-1 rounded-md px-2 py-[3px] ${badgeClass}`}
     >
-      <SymbolView
-        name={{ ios: symbol.ios, android: symbol.android, web: symbol.android }}
-        size={SYMBOL_SIZE}
-        tintColor={foreground}
-        fallback={<View style={styles.symbolFallback} />}
-      />
-
-      <Text style={[styles.label, { color: foreground }]}>{label}</Text>
-    </View>
+      <AppSymbol name={symbol} size={SYMBOL_SIZE} tint={tint} />
+      <BadgeText className={`text-[11px] font-bold tracking-wider ${textClass}`}>
+        {label}
+      </BadgeText>
+    </Badge>
   );
 }
-
-const styles = StyleSheet.create({
-  badge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  symbolFallback: {
-    width: SYMBOL_SIZE,
-    height: SYMBOL_SIZE,
-  },
-  label: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
-  },
-});

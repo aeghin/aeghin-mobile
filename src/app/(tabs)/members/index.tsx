@@ -1,26 +1,22 @@
 import { useUser } from "@clerk/expo";
-import { useLocalSearchParams } from "expo-router";
-import { SymbolView } from "expo-symbols";
 import { useState } from "react";
-import {
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { RefreshControl, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Card, type RowSymbol } from "@/components/list";
+import { AppSymbol, type AppSymbolName } from "@/components/app-symbol";
+import { InsetCard } from "@/components/inset-list";
 import {
   MEMBER_SEPARATOR_INSET,
   MemberRow,
   MemberRowSkeleton,
 } from "@/components/member-row";
+import { AppHeader } from "@/components/app-header";
+import { useCurrentOrganization } from "@/components/organization-provider";
+import { Input, InputField, InputSlot } from "@/components/ui/input";
+import { Text } from "@/components/ui/text";
+import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
 import { useMembersList } from "@/hooks/use-members-list";
-import { useOrganizationDetails } from "@/hooks/use-organizations";
 import { useTheme } from "@/hooks/use-theme";
 import type { OrgRole, OrganizationMember } from "@/types/organization";
 
@@ -30,19 +26,24 @@ const ROLE_ORDER: OrgRole[] = ["OWNER", "ADMIN", "MEMBER"];
 /** Stable identity so an empty roster does not remake the array each render. */
 const NO_MEMBERS: OrganizationMember[] = [];
 
+/** Field height plus its padding — what the list must clear at the bottom. */
+const SEARCH_DOCK_HEIGHT = 62;
+
 export default function OrganizationMembersScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { user } = useUser();
 
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // The organization comes from the provider, not from a route param: the tabs
+  // are permanent and have no `[id]` segment above them to read.
+  const { organization } = useCurrentOrganization();
+  const id = organization?.id ?? "";
 
   const { data, isPending, isError, refetch, isRefetching } =
     useMembersList(id);
 
-  // Already cached by the screen you arrived from, so the placeholder list is
+  // The summary already carries `memberCount`, so the placeholder list is
   // usually the exact length of the real one and nothing shifts on arrival.
-  const { data: organization } = useOrganizationDetails(id);
   const skeletonCount = Math.min(Math.max(organization?.memberCount ?? 4, 3), 8);
 
   const [query, setQuery] = useState("");
@@ -63,14 +64,23 @@ export default function OrganizationMembersScreen() {
   );
 
   return (
-    <View style={[styles.screen, { backgroundColor: theme.groupedBackground }]}>
+    <VStack className="flex-1 bg-grouped">
+      <AppHeader />
+
       <ScrollView
-        style={styles.fill}
-        contentContainerStyle={[
-          styles.content,
+        className="flex-1"
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          // The card is white and so is the nav bar. Without a band of page
+          // between them they touch and read as one surface, as if the header
+          // ran on into the first row.
+          paddingTop: 18,
           // Clears the docked field so the last row can always scroll free.
-          { paddingBottom: SEARCH_DOCK_HEIGHT + insets.bottom + 16 },
-        ]}
+          paddingBottom: SEARCH_DOCK_HEIGHT + insets.bottom + 16,
+          // Lets the spinner and the empty states stretch to the full viewport,
+          // so a short state centres itself instead of hugging the header.
+          flexGrow: 1,
+        }}
         // No search controller in the nav bar, so the header is opaque and the
         // screen already starts below it. "automatic" is only needed when the
         // bar overlays this view.
@@ -86,15 +96,15 @@ export default function OrganizationMembersScreen() {
         }
       >
         {isPending ? (
-          <Card elevated separatorInset={MEMBER_SEPARATOR_INSET}>
+          <InsetCard elevated separatorInset={MEMBER_SEPARATOR_INSET}>
             {Array.from({ length: skeletonCount }, (_, index) => (
               <MemberRowSkeleton key={index} index={index} />
             ))}
-          </Card>
+          </InsetCard>
         ) : roster.length === 0 ? (
           <EmptyState {...emptyStateFor({ isError, needle })} />
         ) : (
-          <Card elevated separatorInset={MEMBER_SEPARATOR_INSET}>
+          <InsetCard elevated separatorInset={MEMBER_SEPARATOR_INSET}>
             {roster.map((member) => (
               <MemberRow
                 key={member.id}
@@ -102,37 +112,37 @@ export default function OrganizationMembersScreen() {
                 isYou={member.email.toLowerCase() === myEmail}
               />
             ))}
-          </Card>
+          </InsetCard>
         )}
       </ScrollView>
 
-      <View style={[styles.dock, { paddingBottom: insets.bottom + 10 }]}>
-        <View
-          style={[
-            styles.field,
-            { backgroundColor: theme.card, borderColor: theme.border },
-          ]}
-        >
-          <SymbolView
-            name={{ ios: "magnifyingglass", android: "search", web: "search" }}
-            size={17}
-            tintColor={theme.textMuted}
-            fallback={<View />}
-          />
-          <TextInput
+      <VStack
+        className="absolute inset-x-0 bottom-0 px-4 pt-2.5"
+        style={{ paddingBottom: insets.bottom + 10 }}
+      >
+        <Input className="h-[42px] gap-2 rounded-full border-border bg-card px-3 dark:bg-card">
+          <InputSlot>
+            <AppSymbol
+              name={{ ios: "magnifyingglass", android: "search" }}
+              size={17}
+              tint={theme.textMuted}
+            />
+          </InputSlot>
+
+          <InputField
             value={query}
             onChangeText={setQuery}
             placeholder="Search members"
             placeholderTextColor={theme.textMuted}
-            style={[styles.input, { color: theme.text }]}
+            className="text-base text-foreground"
             autoCapitalize="none"
             autoCorrect={false}
             clearButtonMode="while-editing"
             returnKeyType="search"
           />
-        </View>
-      </View>
-    </View>
+        </Input>
+      </VStack>
+    </VStack>
   );
 }
 
@@ -142,7 +152,7 @@ function searchText(member: OrganizationMember): string {
 }
 
 type EmptyStateProps = {
-  symbol: RowSymbol;
+  symbol: AppSymbolName;
   title: string;
   body: string;
 };
@@ -181,75 +191,12 @@ function EmptyState({ symbol, title, body }: EmptyStateProps) {
   const theme = useTheme();
 
   return (
-    <View style={styles.empty}>
-      <SymbolView
-        name={{ ios: symbol.ios, android: symbol.android, web: symbol.android }}
-        size={40}
-        tintColor={theme.textMuted}
-        fallback={<View />}
-      />
-      <Text style={[styles.emptyTitle, { color: theme.text }]}>{title}</Text>
-      <Text style={[styles.emptyBody, { color: theme.textMuted }]}>{body}</Text>
-    </View>
+    <VStack space="sm" className="flex-1 items-center justify-center">
+      <AppSymbol name={symbol} size={40} tint={theme.textMuted} />
+      <Text className="text-[17px] font-semibold text-foreground">{title}</Text>
+      <Text className="max-w-[260px] text-center text-sm text-muted-foreground">
+        {body}
+      </Text>
+    </VStack>
   );
 }
-
-/** Field height plus its padding — what the list must clear at the bottom. */
-const SEARCH_DOCK_HEIGHT = 62;
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
-  fill: {
-    flex: 1,
-  },
-  dock: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-  },
-  field: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    height: 42,
-    paddingHorizontal: 12,
-    borderRadius: 21,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    padding: 0,
-  },
-  content: {
-    paddingHorizontal: 16,
-    // The card is white and so is the nav bar. Without a band of page between
-    // them they touch and read as one surface, as if the header ran on into the
-    // first row. This is the standard inset above a grouped list's first card.
-    paddingTop: 18,
-    paddingBottom: 40,
-    // Lets the spinner and the empty states stretch to the full viewport, so a
-    // short state centres itself instead of hugging the header above a void.
-    flexGrow: 1,
-  },
-  empty: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  emptyTitle: {
-    fontSize: 17,
-    fontWeight: "600",
-  },
-  emptyBody: {
-    fontSize: 14,
-    textAlign: "center",
-    maxWidth: 260,
-  },
-});

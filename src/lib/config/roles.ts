@@ -1,28 +1,24 @@
-import type { RowSymbol } from "@/components/list";
+import type { AppSymbolName } from "@/components/app-symbol";
 import type { Palette } from "@/constants/branding";
 import type { OrgRole } from "@/types/organization";
 
-/**
- * Admin's accent. The web config uses Tailwind's blue-500/600 here; this app's
- * palette has no blue, so the value is pinned locally rather than invented at
- * each call site. Move it into `branding.ts` if a second screen needs it.
- */
-const ADMIN_BLUE = "#2563EB";
-
 export type RoleConfig = {
-  symbol: RowSymbol;
+  symbol: AppSymbolName;
   label: string;
-  background: string;
-  border: string;
-  foreground: string;
+  /** The badge's surface and hairline. */
+  badgeClass: string;
+  /** The badge's label colour. */
+  textClass: string;
+  /** The same colour resolved to a hex, for native props like `tintColor`. */
+  tint: string;
 };
 
 /**
- * Presentation for the signed-in user's membership role.
+ * Presentation for a membership role.
  *
- * The web twin returns Tailwind class names; React Native has no class names,
- * so this returns resolved colors instead. Member's colors are theme-dependent,
- * which is why the palette comes in as an argument.
+ * The web twin returns Tailwind class names, and now so does this — the two
+ * finally speak the same language. `tint` is the one value that still has to be
+ * resolved, because `SymbolView` colours through a prop rather than a style.
  */
 export const getRoleConfig = (role: OrgRole, theme: Palette): RoleConfig => {
   switch (role) {
@@ -30,25 +26,25 @@ export const getRoleConfig = (role: OrgRole, theme: Palette): RoleConfig => {
       return {
         symbol: { ios: "crown.fill", android: "workspace_premium" },
         label: "Owner",
-        background: `${theme.gold}1F`,
-        border: `${theme.gold}66`,
-        foreground: theme.gold,
+        badgeClass: "border border-gold/40 bg-gold/15",
+        textClass: "text-gold",
+        tint: theme.gold,
       };
     case "ADMIN":
       return {
         symbol: { ios: "shield.fill", android: "shield" },
         label: "Admin",
-        background: `${ADMIN_BLUE}1A`,
-        border: `${ADMIN_BLUE}33`,
-        foreground: ADMIN_BLUE,
+        badgeClass: "border border-admin/30 bg-admin/10",
+        textClass: "text-admin",
+        tint: theme.admin,
       };
     default:
       return {
         symbol: { ios: "person.fill", android: "person" },
         label: "Member",
-        background: theme.surface,
-        border: theme.border,
-        foreground: theme.textMuted,
+        badgeClass: "border border-border bg-surface",
+        textClass: "text-muted-foreground",
+        tint: theme.textMuted,
       };
   }
 };

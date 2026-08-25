@@ -1,18 +1,30 @@
-import { SymbolView } from "expo-symbols";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-
+import { AppSymbol, type AppSymbolName } from "@/components/app-symbol";
 import { OrgAvatar } from "@/components/org-avatar";
 import { RoleBadge } from "@/components/role-badge";
+import { HStack } from "@/components/ui/hstack";
+import { Pressable } from "@/components/ui/pressable";
+import { Text } from "@/components/ui/text";
+import { VStack } from "@/components/ui/vstack";
+import { brand } from "@/constants/branding";
 import { useTheme } from "@/hooks/use-theme";
 import type { OrganizationSummary } from "@/types/organization";
+
+const CHEVRON: AppSymbolName = { ios: "chevron.right", android: "chevron_right" };
+const CHECK: AppSymbolName = { ios: "checkmark", android: "check" };
 
 type OrganizationRowProps = {
   organization: OrganizationSummary;
   onPress: () => void;
+  /** The one the tabs are currently reading from. */
+  isCurrent?: boolean;
 };
 
-/** One organization card in the home list. */
-export function OrganizationRow({ organization, onPress }: OrganizationRowProps) {
+/** One organization card in the picker. */
+export function OrganizationRow({
+  organization,
+  onPress,
+  isCurrent = false,
+}: OrganizationRowProps) {
   const theme = useTheme();
   const { name, description, logoUrl, role, memberCount } = organization;
 
@@ -23,70 +35,38 @@ export function OrganizationRow({ organization, onPress }: OrganizationRowProps)
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${name}, ${role.toLowerCase()}, ${members}`}
-      style={({ pressed }) => [
-        styles.card,
-        {
-          backgroundColor: theme.surface,
-          borderColor: theme.border,
-          opacity: pressed ? 0.65 : 1,
-        },
-      ]}
+      accessibilityState={{ selected: isCurrent }}
+      className={`rounded-2xl border p-3 data-[active=true]:opacity-65 ${
+        isCurrent ? "border-brand/50 bg-brand/5" : "border-border bg-surface"
+      }`}
     >
-      <OrgAvatar name={name} logoUrl={logoUrl} size={48} />
+      <HStack space="md" className="items-center">
+        <OrgAvatar name={name} logoUrl={logoUrl} size={48} />
 
-      <View style={styles.body}>
-        <View style={styles.titleRow}>
-          <Text
-            style={[styles.name, { color: theme.text }]}
-            numberOfLines={1}
-          >
-            {name}
+        <VStack className="flex-1 gap-[3px]">
+          <HStack space="sm" className="items-center">
+            <Text
+              className="shrink text-[17px] font-semibold text-foreground"
+              numberOfLines={1}
+            >
+              {name}
+            </Text>
+            <RoleBadge role={role} />
+          </HStack>
+
+          <Text className="text-[13px] text-muted-foreground" numberOfLines={1}>
+            {description ? `${members} · ${description}` : members}
           </Text>
-          <RoleBadge role={role} />
-        </View>
+        </VStack>
 
-        <Text
-          style={[styles.meta, { color: theme.textMuted }]}
-          numberOfLines={1}
-        >
-          {description ? `${members} · ${description}` : members}
-        </Text>
-      </View>
-
-      <SymbolView
-        name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }}
-        size={14}
-        tintColor={theme.textMuted}
-        fallback={<Text style={{ color: theme.textMuted }}>›</Text>}
-      />
+        {/* The list doubles as the switcher, so the row that is already in
+            use says so rather than offering to navigate to itself. */}
+        {isCurrent ? (
+          <AppSymbol name={CHECK} size={15} tint={brand.orange} />
+        ) : (
+          <AppSymbol name={CHEVRON} size={14} tint={theme.textMuted} />
+        )}
+      </HStack>
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  body: {
-    flex: 1,
-    gap: 3,
-  },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  name: {
-    flexShrink: 1,
-    fontSize: 17,
-    fontWeight: "600",
-  },
-  meta: {
-    fontSize: 13,
-  },
-});

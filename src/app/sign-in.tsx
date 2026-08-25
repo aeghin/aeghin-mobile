@@ -1,19 +1,19 @@
 import { AuthView } from "@clerk/expo/native";
-import { View } from "react-native";
 
 import { Logo } from "@/components/logo";
+import { Box } from "@/components/ui/box";
 
 const LOGO_HEIGHT = 56;
 
 export default function SignInScreen() {
   return (
-    <View style={{ flex: 1 }}>
+    <Box className="flex-1 bg-background">
       <AuthView
         mode="signInOrUp"
         logo={<Logo size={LOGO_HEIGHT} />}
         logoMaxHeight={LOGO_HEIGHT}
         isDismissible={false}
       />
-    </View>
+    </Box>
   );
 }

@@ -11,26 +11,6 @@ import { useTheme } from "@/hooks/use-theme";
 
 const CHEVRON: AppSymbolName = { ios: "chevron.down", android: "expand_more" };
 
-/**
- * Every tab's header: the app on the left, the organization on the right.
- *
- * The two together are what stop a tab from being anonymous — one says whose
- * app this is, the other says which organization you are looking at. The centre
- * is deliberately empty: the tab bar already names the section, and a third
- * label would crowd both ends off the bar.
- *
- * `placement` defaults to `'bottom'`, which on iOS 26 means the *bottom*
- * toolbar. Both halves have to say `'left'` / `'right'` to land in the header.
- *
- * The switcher is a custom view rather than a `Stack.Toolbar.Menu`, because a
- * native `UIMenu` button cannot show a logo *and* a name: any icon on it — the
- * `Icon` child or the `icon` prop, SF Symbol or image alike — suppresses the
- * label, and image icons are not drawn at all, leaving iOS's default "…" glyph.
- * Verified both ways on device. Tapping this opens the picker instead, which
- * costs a tap over a menu but shows every organization's logo, role and member
- * count, and — unlike a `UIMenu` — can fall back to initials for the
- * organizations that have no `logoUrl` yet.
- */
 export function AppHeader() {
   const router = useRouter();
   const theme = useTheme();
@@ -39,9 +19,6 @@ export function AppHeader() {
   return (
     <>
       <Stack.Toolbar placement="left">
-        {/* `hidesSharedBackground` drops the glass capsule iOS 26 draws behind
-            a bar item, so the wordmark sits directly on the bar. The switcher
-            opposite keeps its capsule, because it is the one that is tappable. */}
         <Stack.Toolbar.View hidesSharedBackground>
           <HStack className="items-center gap-2">
             <Logo size={28} trim />

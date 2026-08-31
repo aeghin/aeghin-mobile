@@ -4,6 +4,8 @@ export const brand = {
 } as const;
 
 export type Palette = {
+  /** Which half of the palette this is. Config helpers branch on it. */
+  scheme: "light" | "dark";
   background: string;
   surface: string;
   border: string;
@@ -13,6 +15,10 @@ export type Palette = {
   gold: string;
   /** Admin accent. The web config uses Tailwind blue-500/600 here. */
   admin: string;
+  /** Accept, "fully staffed", "up next" — the web's emerald-600/400. */
+  success: string;
+  /** Expiring invitations and other "act soon" states. Tailwind amber-600/400. */
+  warning: string;
   /** Leave, delete, and the like. iOS system red, which reads on both schemes. */
   destructive: string;
   /** iOS systemGroupedBackground: the page *behind* inset cards. */
@@ -23,6 +29,7 @@ export type Palette = {
 
 export const palette: Record<"light" | "dark", Palette> = {
   light: {
+    scheme: "light",
     background: "#FFFFFF",
     surface: "#F6F6F7",
     border: "#E4E4E7",
@@ -30,11 +37,14 @@ export const palette: Record<"light" | "dark", Palette> = {
     textMuted: "#6B6B75",
     gold: "#C4A03E",
     admin: "#2563EB",
+    success: "#059669",
+    warning: "#D97706",
     destructive: "#FF3B30",
     groupedBackground: "#F2F2F7",
     card: "#FFFFFF",
   },
   dark: {
+    scheme: "dark",
     background: "#0E0E10",
     surface: "#1A1A1D",
     border: "#2A2A2F",
@@ -42,6 +52,8 @@ export const palette: Record<"light" | "dark", Palette> = {
     textMuted: "#9A9AA3",
     gold: "#D8B353",
     admin: "#5B8DEF",
+    success: "#34D399",
+    warning: "#FBBF24",
     destructive: "#FF453A",
     groupedBackground: "#0E0E10",
     card: "#1C1C1E",

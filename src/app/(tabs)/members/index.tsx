@@ -1,5 +1,4 @@
 import { useUser } from "@clerk/expo";
-import { useState } from "react";
 import { RefreshControl, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -11,8 +10,8 @@ import {
   MemberRowSkeleton,
 } from "@/components/member-row";
 import { AppHeader } from "@/components/app-header";
+import { useMembersSearch } from "@/components/members-search-provider";
 import { useCurrentOrganization } from "@/components/organization-provider";
-import { Input, InputField, InputSlot } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
@@ -26,8 +25,8 @@ const ROLE_ORDER: OrgRole[] = ["OWNER", "ADMIN", "MEMBER"];
 /** Stable identity so an empty roster does not remake the array each render. */
 const NO_MEMBERS: OrganizationMember[] = [];
 
-/** Field height plus its padding — what the list must clear at the bottom. */
-const SEARCH_DOCK_HEIGHT = 62;
+/** The bottom accessory's height — what the list must clear underneath it. */
+const SEARCH_ACCESSORY_HEIGHT = 62;
 
 export default function OrganizationMembersScreen() {
   const theme = useTheme();
@@ -46,7 +45,9 @@ export default function OrganizationMembersScreen() {
   // usually the exact length of the real one and nothing shifts on arrival.
   const skeletonCount = Math.min(Math.max(organization?.memberCount ?? 4, 3), 8);
 
-  const [query, setQuery] = useState("");
+  // The field itself is the tab navigator's bottom accessory, mounted up in
+  // the tabs layout. Only the term reaches this screen.
+  const { query } = useMembersSearch();
 
   const members = data ?? NO_MEMBERS;
   const needle = query.trim().toLowerCase();
@@ -76,14 +77,13 @@ export default function OrganizationMembersScreen() {
           // ran on into the first row.
           paddingTop: 18,
           // Clears the docked field so the last row can always scroll free.
-          paddingBottom: SEARCH_DOCK_HEIGHT + insets.bottom + 16,
+          paddingBottom: SEARCH_ACCESSORY_HEIGHT + insets.bottom + 16,
           // Lets the spinner and the empty states stretch to the full viewport,
           // so a short state centres itself instead of hugging the header.
           flexGrow: 1,
         }}
-        // No search controller in the nav bar, so the header is opaque and the
-        // screen already starts below it. "automatic" is only needed when the
-        // bar overlays this view.
+        // The accessory is the navigator's, not this screen's, so it adds no
+        // top inset. The header is opaque and the list already starts below it.
         contentInsetAdjustmentBehavior="never"
         keyboardDismissMode="on-drag"
         refreshControl={
@@ -116,32 +116,6 @@ export default function OrganizationMembersScreen() {
         )}
       </ScrollView>
 
-      <VStack
-        className="absolute inset-x-0 bottom-0 px-4 pt-2.5"
-        style={{ paddingBottom: insets.bottom + 10 }}
-      >
-        <Input className="h-[42px] gap-2 rounded-full border-border bg-card px-3 dark:bg-card">
-          <InputSlot>
-            <AppSymbol
-              name={{ ios: "magnifyingglass", android: "search" }}
-              size={17}
-              tint={theme.textMuted}
-            />
-          </InputSlot>
-
-          <InputField
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Search members"
-            placeholderTextColor={theme.textMuted}
-            className="text-base text-foreground"
-            autoCapitalize="none"
-            autoCorrect={false}
-            clearButtonMode="while-editing"
-            returnKeyType="search"
-          />
-        </Input>
-      </VStack>
     </VStack>
   );
 }

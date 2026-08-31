@@ -2,6 +2,17 @@ import type { AppSymbolName } from "@/components/app-symbol";
 import type { Palette } from "@/constants/branding";
 import type { OrgRole } from "@/types/organization";
 
+/**
+ * Who can act on the organization rather than only on their own schedule.
+ *
+ * Named roles rather than "not a member": the web gates every managed view
+ * this way, and the API answers 403 on the same rule, so a role added later is
+ * shut out until somebody decides otherwise. No organization resolved yet is
+ * not one of them either.
+ */
+export const canManageOrg = (role: OrgRole | undefined): boolean =>
+  role === "OWNER" || role === "ADMIN";
+
 export type RoleConfig = {
   symbol: AppSymbolName;
   label: string;

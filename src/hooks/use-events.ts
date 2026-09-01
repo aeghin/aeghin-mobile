@@ -1,9 +1,9 @@
 import { useAuth } from "@clerk/expo";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
-import { apiGet } from "@/lib/api";
-import type { OrganizationEvent } from "@/types/event";
+import { apiGet, apiPost } from "@/lib/api";
+import type { InvitationStatus, OrganizationEvent } from "@/types/event";
 
 type EventsResponse = {
   events: OrganizationEvent[];
@@ -74,4 +74,95 @@ export function useOrgEvents(orgId: string, canManage: boolean) {
       return events;
     },
   });
+}
+
+/** The two answers an invitation takes. */
+export type InvitationResponse = "accept" | "decline";
+
+export type RespondVariables = {
+  eventId: string;
+  action: InvitationResponse;
+};
+
+/**
+ * Accepts or declines one of the caller's own invitations.
+ *
+ * The route this posts to calls the same server actions the web dashboard
+ * does, so declining here also runs smart scheduling, writes the activity
+ * entry, and emails whoever gets invited in your place.
+ *
+ * Answered optimistically: the card moves the moment the button is pressed,
+ * because watching an invitation leave the Pending tab is most of what the tab
+ * is for. A failure puts the list back exactly as it was and the screen says
+ * why.
+ *
+ * No retries. A decline is not safe to repeat — the second one would find
+ * nothing pending, but the smart-fill it triggered has already invited
+ * somebody.
+ */
+export function useRespondToInvitation(orgId: string) {
+  const { userId } = useAuth();
+  const queryClient = useQueryClient();
+
+  const userEventsKey = ["organizations", userId, "user-events", orgId];
+  const orgEventsKey = ["organizations", userId, "org-events", orgId];
+
+  return useMutation({
+    mutationFn: ({ eventId, action }: RespondVariables) =>
+      apiPost<{ status: InvitationStatus }>(
+        `/api/mobile/v1/organizations/${orgId}/events/${eventId}/respond`,
+        { action },
+      ),
+    retry: false,
+    onMutate: async ({ eventId, action }: RespondVariables) => {
+      // An in-flight refetch would otherwise land after this patch and undo it.
+      await queryClient.cancelQueries({ queryKey: userEventsKey });
+
+      const previous =
+        queryClient.getQueryData<OrganizationEvent[]>(userEventsKey);
+
+      queryClient.setQueryData<OrganizationEvent[]>(userEventsKey, (events) =>
+        events ? applyAnswer(events, eventId, action) : events,
+      );
+
+      return { previous };
+    },
+    onError: (_error, _variables, context) => {
+      // Rolls back from here rather than from the caller: this has to run even
+      // if the screen went away while the request was in flight.
+      if (context?.previous) {
+        queryClient.setQueryData(userEventsKey, context.previous);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: userEventsKey });
+      // Accepting fills one of the event's roles, which is what the All tab's
+      // staffing meter counts. A member's copy of this query is disabled, and
+      // invalidating a disabled query refetches nothing.
+      queryClient.invalidateQueries({ queryKey: orgEventsKey });
+    },
+  });
+}
+
+/** The cached list as it will read once the server has agreed. */
+function applyAnswer(
+  events: OrganizationEvent[],
+  eventId: string,
+  action: InvitationResponse,
+): OrganizationEvent[] {
+  const status: InvitationStatus =
+    action === "accept" ? "ACCEPTED" : "DECLINED";
+
+  return events.map((event) =>
+    event.id === eventId
+      ? {
+          ...event,
+          assignments: event.assignments.map((assignment) =>
+            assignment.status === "PENDING"
+              ? { ...assignment, status }
+              : assignment,
+          ),
+        }
+      : event,
+  );
 }

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { RefreshControl, ScrollView } from "react-native";
+import { useCallback, useState } from "react";
+import { Alert, RefreshControl, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppHeader } from "@/components/app-header";
@@ -30,11 +30,21 @@ import { Box } from "@/components/ui/box";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
-import { useOrgEvents, useUserEvents } from "@/hooks/use-events";
+import {
+  useOrgEvents,
+  useRespondToInvitation,
+  useUserEvents,
+} from "@/hooks/use-events";
 import { useServiceTypes } from "@/hooks/use-service-types";
 import { useTheme } from "@/hooks/use-theme";
+import { ApiError } from "@/lib/api";
 import { canManageOrg } from "@/lib/config/roles";
-import { currentMonthKey, formatMonth, todayKey } from "@/lib/events/format";
+import {
+  currentMonthKey,
+  dayKey,
+  formatMonth,
+  todayKey,
+} from "@/lib/events/format";
 import {
   assignmentFor,
   findUpNext,
@@ -45,11 +55,7 @@ import {
   type EventsTab,
   type TimeScope,
 } from "@/lib/events/schedule";
-import type {
-  InvitationStatus,
-  OrganizationEvent,
-  ServiceType,
-} from "@/types/event";
+import type { OrganizationEvent, ServiceType } from "@/types/event";
 
 /** How much page the tab bar covers once the list has scrolled under it. */
 const TAB_BAR_CLEARANCE = 64;
@@ -92,44 +98,37 @@ export default function EventsScreen() {
   const [serviceId, setServiceId] = useState<string | null>(null);
 
   // ── Answering an invitation ───────────────────────────────────────────
-  // Still local to this screen: accept and decline have no route yet, so an
-  // answer moves the card here and the next refetch forgets it.
-  const [answers, setAnswers] = useState<Record<string, PendingAction>>({});
-  const [busy, setBusy] = useState<{ id: string; action: PendingAction } | null>(
-    null,
-  );
-  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
-
-  useEffect(() => {
-    const pending = timers.current;
-    return () => pending.forEach(clearTimeout);
-  }, []);
-
-  const later = useCallback((run: () => void, ms: number) => {
-    timers.current.push(setTimeout(run, ms));
-  }, []);
+  const respond = useRespondToInvitation(organizationId);
+  const respondMutate = respond.mutate;
 
   const answer = useCallback(
     (id: string, action: PendingAction) => {
-      setBusy({ id, action });
-      // A beat of latency, so the button's loading state is something you can
-      // actually see rather than a frame that flashes past.
-      later(() => {
-        setAnswers((current) => ({ ...current, [id]: action }));
-        setBusy(null);
-      }, 650);
+      // Answering the last invitation empties this tab, and the default below
+      // would then hand the screen to Schedule mid-gesture. Pinning the tab the
+      // answer was given on leaves the person where they were.
+      setTab("pending");
+
+      respondMutate(
+        { eventId: id, action },
+        {
+          // Here rather than in the hook: an alert is worth nothing once the
+          // screen it belongs to has gone. The rollback runs either way.
+          onError: (error) =>
+            Alert.alert("Couldn't answer", answerFailure(error)),
+        },
+      );
     },
-    [later],
+    [respondMutate],
   );
+
+  /** Which card's button is mid-flight, if any. */
+  const busy = respond.isPending ? respond.variables : undefined;
 
   const refetchUserEvents = userEvents.refetch;
   const refetchOrgEvents = orgEvents.refetch;
   const refetchServiceTypes = serviceTypes.refetch;
 
   const refresh = useCallback(() => {
-    // Answers live only in this component, so a refresh has to drop them:
-    // what comes back is what the server actually holds.
-    setAnswers({});
     refetchUserEvents();
     refetchServiceTypes();
     // Refetching by hand fires even a disabled query, and the roster-wide list
@@ -142,8 +141,8 @@ export default function EventsScreen() {
   const services = serviceTypes.data ?? NO_SERVICES;
   // A first load and a failed one both have nothing behind them, and an empty
   // list is what the counts and the tabs below should read in either case.
-  const myEvents = applyAnswers(userEvents.data ?? NO_EVENTS, answers);
-  const allEvents = applyAnswers(orgEvents.data ?? NO_EVENTS, answers);
+  const myEvents = userEvents.data ?? NO_EVENTS;
+  const allEvents = orgEvents.data ?? NO_EVENTS;
 
   const today = todayKey();
   const serviceById = new Map(services.map((service) => [service.id, service]));
@@ -155,8 +154,16 @@ export default function EventsScreen() {
     isInScope(event, scope, month, today) &&
     (scope === "past" || !isEventPast(event, today));
 
-  const isInvitation = (event: OrganizationEvent) =>
-    assignmentFor(event, "PENDING") !== null && !isEventPast(event, today);
+  // An invitation nobody answered in time is not one you can answer now: the
+  // server refuses it, and the web dashboard stopped listing it a day ago.
+  const isInvitation = (event: OrganizationEvent) => {
+    const assignment = assignmentFor(event, "PENDING");
+    return (
+      assignment !== null &&
+      dayKey(assignment.expiresAt) >= today &&
+      !isEventPast(event, today)
+    );
+  };
 
   const invitations = myEvents.filter(isInvitation);
   const accepted = myEvents.filter(
@@ -166,14 +173,9 @@ export default function EventsScreen() {
   // Until the viewer picks a tab, the screen opens on the one that wants
   // something from them. Derived rather than set from an effect, so the frame
   // the data arrives on is already right instead of correcting itself a render
-  // later — and read off the server's list rather than the answered view, so
-  // answering the last invitation leaves you on the tab you answered it on
-  // instead of pulling the page out from under you.
-  const chosenTab =
-    tab ??
-    ((userEvents.data ?? NO_EVENTS).some(isInvitation)
-      ? "pending"
-      : "schedule");
+  // later. Answering pins the tab, so this can read the live list without
+  // moving anyone off the invitation they just answered.
+  const chosenTab = tab ?? (invitations.length > 0 ? "pending" : "schedule");
 
   // A tab can vanish under you when the role changes; derive rather than
   // correct after the fact, so there is never a frame pointing at nothing.
@@ -284,7 +286,7 @@ export default function EventsScreen() {
               event={event}
               service={serviceById.get(event.serviceTypeId)}
               today={today}
-              busy={busy?.id === event.id ? busy.action : undefined}
+              busy={busy?.eventId === event.id ? busy.action : undefined}
               onAccept={() => answer(event.id, "accept")}
               onDecline={() => answer(event.id, "decline")}
             />
@@ -406,31 +408,17 @@ export default function EventsScreen() {
 }
 
 /**
- * Rewrites the assignments the viewer has answered in this session.
+ * What to tell someone whose answer did not land.
  *
- * Accepting an invitation is what moves an event from Pending to My Schedule,
- * and seeing that happen is most of what the Pending tab is for — but there is
- * no accept/decline route yet, so the answer lives here and the next refetch
- * forgets it. Goes out when the mutation lands.
+ * A conflict is the one failure carrying something worth reading: the
+ * invitation expired, was withdrawn, or somebody answered it already. Every
+ * other status says nothing the person can act on, so it becomes advice.
  */
-function applyAnswers(
-  events: OrganizationEvent[],
-  answers: Record<string, PendingAction>,
-): OrganizationEvent[] {
-  return events.map((event) => {
-    const answered = answers[event.id];
-    if (!answered) return event;
-
-    const status: InvitationStatus =
-      answered === "accept" ? "ACCEPTED" : "DECLINED";
-
-    return {
-      ...event,
-      assignments: event.assignments.map((assignment) =>
-        assignment.status === "PENDING" ? { ...assignment, status } : assignment,
-      ),
-    };
-  });
+function answerFailure(error: unknown): string {
+  if (error instanceof ApiError && error.status === 409) {
+    return error.message;
+  }
+  return "Couldn't reach the server. Pull down to refresh and try again.";
 }
 
 function emptyScheduleState({

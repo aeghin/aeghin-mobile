@@ -1,4 +1,4 @@
-import { AppSymbol } from "@/components/app-symbol";
+import { AppIcon } from "@/components/app-icon";
 import { Badge, BadgeText } from "@/components/ui/badge";
 import { useTheme } from "@/hooks/use-theme";
 import { getRoleConfig } from "@/lib/config/roles";
@@ -8,15 +8,15 @@ type RoleBadgeProps = {
   role: OrgRole;
 };
 
-const SYMBOL_SIZE = 11;
+const ICON_SIZE = 11;
 
 /**
- * Someone's role in an organization. Label, symbol and colours all come from
+ * Someone's role in an organization. Label, icon and colours all come from
  * `getRoleConfig`, so this badge and its web twin stay in step.
  */
 export function RoleBadge({ role }: RoleBadgeProps) {
   const theme = useTheme();
-  const { symbol, label, badgeClass, textClass, tint } = getRoleConfig(
+  const { icon, label, badgeClass, textClass, tint } = getRoleConfig(
     role,
     theme,
   );
@@ -26,7 +26,7 @@ export function RoleBadge({ role }: RoleBadgeProps) {
       variant="outline"
       className={`gap-1 rounded-md px-2 py-[3px] ${badgeClass}`}
     >
-      <AppSymbol name={symbol} size={SYMBOL_SIZE} tint={tint} />
+      <AppIcon icon={icon} size={ICON_SIZE} color={tint} />
       <BadgeText className={`text-[11px] font-bold tracking-wider ${textClass}`}>
         {label}
       </BadgeText>

@@ -1,6 +1,7 @@
 import { Stack, useRouter } from "expo-router";
+import ChevronDown from "lucide-react-native/icons/chevron-down";
 
-import { AppSymbol, type AppSymbolName } from "@/components/app-symbol";
+import { AppIcon } from "@/components/app-icon";
 import { Logo } from "@/components/logo";
 import { OrgAvatar } from "@/components/org-avatar";
 import { useCurrentOrganization } from "@/components/organization-provider";
@@ -8,8 +9,6 @@ import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { useTheme } from "@/hooks/use-theme";
-
-const CHEVRON: AppSymbolName = { ios: "chevron.down", android: "expand_more" };
 
 export function AppHeader() {
   const router = useRouter();
@@ -50,7 +49,7 @@ export function AppHeader() {
                 >
                   {organization.name}
                 </Text>
-                <AppSymbol name={CHEVRON} size={11} tint={theme.textMuted} />
+                <AppIcon icon={ChevronDown} size={11} color={theme.textMuted} />
               </HStack>
             </Pressable>
           </Stack.Toolbar.View>

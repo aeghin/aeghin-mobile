@@ -1,4 +1,4 @@
-import { AppSymbol, type AppSymbolName } from "@/components/app-symbol";
+import { AppIcon, type AppIconName } from "@/components/app-icon";
 import { Box } from "@/components/ui/box";
 import { Center } from "@/components/ui/center";
 import { HStack } from "@/components/ui/hstack";
@@ -11,7 +11,7 @@ export type Stat = {
   value: number;
   /** One short line under the number, for what the number counts. */
   description: string;
-  symbol: AppSymbolName;
+  icon: AppIconName;
 };
 
 /**
@@ -20,7 +20,7 @@ export type Stat = {
  * Mirrors the web dashboard's `StatsCard`: label above a large tabular number,
  * a caption below, and a brand-tinted tile holding the icon on the right.
  */
-export function StatCard({ label, value, description, symbol }: Stat) {
+export function StatCard({ label, value, description, icon }: Stat) {
   return (
     <Box className="flex-1 overflow-hidden rounded-2xl border border-border bg-card p-4">
       <HStack space="sm" className="items-start justify-between">
@@ -42,7 +42,7 @@ export function StatCard({ label, value, description, symbol }: Stat) {
         </VStack>
 
         <Center className="h-10 w-10 rounded-xl bg-brand/10">
-          <AppSymbol name={symbol} size={19} tint={brand.orange} />
+          <AppIcon icon={icon} size={19} color={brand.orange} />
         </Center>
       </HStack>
     </Box>

@@ -1,9 +1,14 @@
+import { useRouter } from "expo-router";
+import Calendar from "lucide-react-native/icons/calendar";
+import CircleAlert from "lucide-react-native/icons/circle-alert";
+import CircleCheckBig from "lucide-react-native/icons/circle-check-big";
+import ListFilter from "lucide-react-native/icons/list-filter";
 import { useCallback, useState } from "react";
 import { Alert, RefreshControl, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppHeader } from "@/components/app-header";
-import type { AppSymbolName } from "@/components/app-symbol";
+import type { AppIconName } from "@/components/app-icon";
 import { DayHeading } from "@/components/events/day-heading";
 import {
   EventCard,
@@ -60,12 +65,12 @@ import type { OrganizationEvent, ServiceType } from "@/types/event";
 /** How much page the tab bar covers once the list has scrolled under it. */
 const TAB_BAR_CLEARANCE = 64;
 
-const SYMBOL = {
-  caughtUp: { ios: "checkmark.seal.fill", android: "task_alt" },
-  calendar: { ios: "calendar", android: "calendar_month" },
-  filter: { ios: "line.3.horizontal.decrease", android: "filter_list" },
-  error: { ios: "exclamationmark.triangle.fill", android: "warning" },
-} satisfies Record<string, AppSymbolName>;
+const ICON = {
+  caughtUp: CircleCheckBig,
+  calendar: Calendar,
+  filter: ListFilter,
+  error: CircleAlert,
+} satisfies Record<string, AppIconName>;
 
 /** Stable identity, so an empty result does not remake the array each render. */
 const NO_EVENTS: OrganizationEvent[] = [];
@@ -76,6 +81,7 @@ const NO_SERVICES: ServiceType[] = [];
 export default function EventsScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   // The organization comes from the provider, not from a route param: the tabs
   // are permanent and have no `[id]` segment above them to read.
@@ -119,6 +125,11 @@ export default function EventsScreen() {
       );
     },
     [respondMutate],
+  );
+
+  const openEvent = useCallback(
+    (id: string) => router.push(`/events/${id}`),
+    [router],
   );
 
   /** Which card's button is mid-flight, if any. */
@@ -244,7 +255,7 @@ export default function EventsScreen() {
     if (source.isError) {
       return (
         <EventsEmptyState
-          symbol={SYMBOL.error}
+          icon={ICON.error}
           title="Couldn't load events"
           body="Pull down to try again."
           tone="error"
@@ -260,7 +271,7 @@ export default function EventsScreen() {
       if (visibleInvitations.length === 0) {
         return serviceId ? (
           <EventsEmptyState
-            symbol={SYMBOL.filter}
+            icon={ICON.filter}
             title="Nothing here"
             body="No invitations for this kind of service."
             action={{
@@ -270,7 +281,7 @@ export default function EventsScreen() {
           />
         ) : (
           <EventsEmptyState
-            symbol={SYMBOL.caughtUp}
+            icon={ICON.caughtUp}
             title="You're all caught up"
             body="No invitations are waiting on you."
             tone="success"
@@ -289,6 +300,11 @@ export default function EventsScreen() {
               busy={busy?.eventId === event.id ? busy.action : undefined}
               onAccept={() => answer(event.id, "accept")}
               onDecline={() => answer(event.id, "decline")}
+              // An invitation is not yet a way into the event: the detail
+              // route answers 404 to anyone without an *accepted* assignment,
+              // and the web's own invitation cards link there only for
+              // managers. Offering a tap that 404s would be worse than none.
+              onPress={canManage ? () => openEvent(event.id) : undefined}
             />
           ))}
         </VStack>
@@ -301,6 +317,7 @@ export default function EventsScreen() {
           <UpNextCard
             upNext={upNext}
             service={serviceById.get(upNext.event.serviceTypeId)}
+            onPress={() => openEvent(upNext.event.id)}
           />
         ) : null}
 
@@ -338,6 +355,10 @@ export default function EventsScreen() {
                     event={event}
                     service={serviceById.get(event.serviceTypeId)}
                     showStaffing={activeTab === "all"}
+                    // Both lists that reach here qualify: the All tab is
+                    // managers only, and the Schedule tab is what this person
+                    // has accepted.
+                    onPress={() => openEvent(event.id)}
                   />
                 ))}
               </VStack>
@@ -436,7 +457,7 @@ function emptyScheduleState({
 }) {
   if (filtered) {
     return {
-      symbol: SYMBOL.filter,
+      icon: ICON.filter,
       title: "Nothing here",
       body: "No events of this kind in the period you're looking at.",
       action: { label: "Show all services", onPress: clearFilter },
@@ -445,14 +466,14 @@ function emptyScheduleState({
 
   if (scope === "past") {
     return {
-      symbol: SYMBOL.calendar,
+      icon: ICON.calendar,
       title: "No past events",
       body: `Nothing on the calendar for ${formatMonth(month)}.`,
     };
   }
 
   return {
-    symbol: SYMBOL.calendar,
+    icon: ICON.calendar,
     title: tab === "all" ? "No events" : "No scheduled events",
     body:
       tab === "all"

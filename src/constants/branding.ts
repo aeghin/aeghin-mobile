@@ -21,6 +21,8 @@ export type Palette = {
   warning: string;
   /** Leave, delete, and the like. iOS system red, which reads on both schemes. */
   destructive: string;
+  /** Minor keys in the song library. The web's violet-700/400. */
+  violet: string;
   /** iOS systemGroupedBackground: the page *behind* inset cards. */
   groupedBackground: string;
   /** A card sitting on `groupedBackground`. Deliberately lighter than `surface`. */
@@ -40,6 +42,7 @@ export const palette: Record<"light" | "dark", Palette> = {
     success: "#059669",
     warning: "#D97706",
     destructive: "#FF3B30",
+    violet: "#6D28D9",
     groupedBackground: "#F2F2F7",
     card: "#FFFFFF",
   },
@@ -55,6 +58,7 @@ export const palette: Record<"light" | "dark", Palette> = {
     success: "#34D399",
     warning: "#FBBF24",
     destructive: "#FF453A",
+    violet: "#A78BFA",
     groupedBackground: "#0E0E10",
     card: "#1C1C1E",
   },
@@ -66,7 +70,7 @@ export const palette: Record<"light" | "dark", Palette> = {
  * Tailwind's `<alpha-value>` colors need the channels unwrapped so a utility
  * like `bg-primary/20` can compose its own alpha. Every token below is fed
  * through this, which is what keeps the className tokens and the raw hex values
- * used by native props (SymbolView, RefreshControl, NativeTabs) from drifting.
+ * taken as props (lucide's `color`, RefreshControl, NativeTabs) from drifting.
  */
 export function toRgbChannels(hex: string): string {
   const value = parseInt(hex.replace("#", ""), 16);
@@ -77,4 +81,29 @@ export function toRgbChannels(hex: string): string {
 export function withAlpha(hex: string, alpha: number): string {
   const [r, g, b] = toRgbChannels(hex).split(" ");
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/**
+ * The opaque colour that `overlay` at `alpha` shows as when it sits on `base`.
+ *
+ * Gradients need this. React Native interpolates a stop's *alpha* along the
+ * ramp, and a stop declared `rgba(…, 0.05)` lands far stronger than 5% — the
+ * hero's 5% wash measured ~25% on device. Blending to an opaque colour up front
+ * takes alpha out of the interpolation entirely, and is what the web's own
+ * `from-card via-card to-<c>-500/5` resolves to anyway: a translucent tint over
+ * an opaque card.
+ */
+export function blendOver(base: string, overlay: string, alpha: number): string {
+  const channels = (hex: string) =>
+    toRgbChannels(hex).split(" ").map(Number) as [number, number, number];
+
+  const [br, bg, bb] = channels(base);
+  const [or, og, ob] = channels(overlay);
+
+  const mix = (from: number, to: number) =>
+    Math.round(from + (to - from) * alpha)
+      .toString(16)
+      .padStart(2, "0");
+
+  return `#${mix(br, or)}${mix(bg, og)}${mix(bb, ob)}`.toUpperCase();
 }

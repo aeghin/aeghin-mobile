@@ -1,4 +1,4 @@
-import { AppSymbol, type AppSymbolName } from "@/components/app-symbol";
+import { AppIcon, type AppIconName } from "@/components/app-icon";
 import { Center } from "@/components/ui/center";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
@@ -9,7 +9,7 @@ import { useTheme } from "@/hooks/use-theme";
 export type EmptyTone = "neutral" | "success" | "error";
 
 type EventsEmptyStateProps = {
-  symbol: AppSymbolName;
+  icon: AppIconName;
   title: string;
   body: string;
   tone?: EmptyTone;
@@ -24,7 +24,7 @@ type EventsEmptyStateProps = {
  * bordered panel reads as an answer.
  */
 export function EventsEmptyState({
-  symbol,
+  icon,
   title,
   body,
   tone = "neutral",
@@ -45,7 +45,7 @@ export function EventsEmptyState({
         className="mb-1 h-12 w-12 rounded-full"
         style={{ backgroundColor: withAlpha(accent, tone === "neutral" ? 0.1 : 0.14) }}
       >
-        <AppSymbol name={symbol} size={22} tint={accent} />
+        <AppIcon icon={icon} size={22} color={accent} />
       </Center>
 
       <Text className="text-[15px] font-semibold text-foreground">{title}</Text>

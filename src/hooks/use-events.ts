@@ -3,11 +3,26 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
 import { apiGet, apiPost } from "@/lib/api";
-import type { InvitationStatus, OrganizationEvent } from "@/types/event";
+import type {
+  EventDetails,
+  InvitationStatus,
+  OrganizationEvent,
+} from "@/types/event";
 
 type EventsResponse = {
   events: OrganizationEvent[];
 };
+
+type EventDetailsResponse = {
+  event: EventDetails;
+};
+
+/** Shared by the detail query and the mutation that has to expire it. */
+const eventDetailsKey = (
+  userId: string | null | undefined,
+  orgId: string,
+  eventId: string,
+) => ["organizations", userId, "event-details", orgId, eventId];
 
 /**
  * Every event in one organization the signed-in user has been invited to —
@@ -76,6 +91,40 @@ export function useOrgEvents(orgId: string, canManage: boolean) {
   });
 }
 
+/**
+ * One event in full — the detail screen's only request.
+ *
+ * The route answers 404 to anybody who may not read the event, which is a
+ * manager or somebody who has *accepted* an assignment. A pending invitation
+ * is not yet a way in, so the invitation card only offers the screen to
+ * managers; see `src/app/(tabs)/(events)/index.tsx`.
+ *
+ * Keyed beside the two list queries so answering an invitation can expire all
+ * three together, and so signing out clears this with everything else.
+ */
+export function useEventDetails(orgId: string, eventId: string) {
+  const { userId } = useAuth();
+
+  useEffect(() => {
+    if (__DEV__ && (!orgId || !eventId)) {
+      console.warn(
+        "useEventDetails: called without an orgId or eventId; query disabled.",
+      );
+    }
+  }, [eventId, orgId]);
+
+  return useQuery({
+    queryKey: eventDetailsKey(userId, orgId, eventId),
+    enabled: Boolean(userId && orgId && eventId),
+    queryFn: async () => {
+      const { event } = await apiGet<EventDetailsResponse>(
+        `/api/mobile/v1/organizations/${orgId}/events/${eventId}`,
+      );
+      return event;
+    },
+  });
+}
+
 /** The two answers an invitation takes. */
 export type InvitationResponse = "accept" | "decline";
 
@@ -134,12 +183,19 @@ export function useRespondToInvitation(orgId: string) {
         queryClient.setQueryData(userEventsKey, context.previous);
       }
     },
-    onSettled: () => {
+    onSettled: (_data, _error, { eventId }) => {
       queryClient.invalidateQueries({ queryKey: userEventsKey });
       // Accepting fills one of the event's roles, which is what the All tab's
       // staffing meter counts. A member's copy of this query is disabled, and
       // invalidating a disabled query refetches nothing.
       queryClient.invalidateQueries({ queryKey: orgEventsKey });
+      // The answer changes a row on the event's own roster, and declining can
+      // add somebody else's. Nothing is patched into this one by hand: a
+      // decline's replacement is the server's to pick, so the screen would be
+      // guessing at half the change.
+      queryClient.invalidateQueries({
+        queryKey: eventDetailsKey(userId, orgId, eventId),
+      });
     },
   });
 }

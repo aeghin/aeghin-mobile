@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { AppSymbol, type AppSymbolName } from "@/components/app-symbol";
+import { AppIcon, type AppIconName } from "@/components/app-icon";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Text } from "@/components/ui/text";
@@ -38,11 +38,11 @@ function toneColor(tone: PillTone, theme: Palette): string {
 type PillProps = {
   label: string;
   tone?: PillTone;
-  symbol?: AppSymbolName;
+  icon?: AppIconName;
 };
 
 /** A tinted capsule. Status, countdowns, "Past" — anything one word wide. */
-export function Pill({ label, tone = "neutral", symbol }: PillProps) {
+export function Pill({ label, tone = "neutral", icon }: PillProps) {
   const theme = useTheme();
   const color = toneColor(tone, theme);
   const neutral = tone === "neutral";
@@ -54,7 +54,7 @@ export function Pill({ label, tone = "neutral", symbol }: PillProps) {
         backgroundColor: neutral ? theme.surface : withAlpha(color, 0.14),
       }}
     >
-      {symbol ? <AppSymbol name={symbol} size={10} tint={color} /> : null}
+      {icon ? <AppIcon icon={icon} size={10} color={color} /> : null}
       <Text
         className="text-[11px] font-semibold tracking-[0.1px]"
         style={{ color }}
@@ -116,17 +116,17 @@ export function RoleChip({ role }: { role: VolunteerRole }) {
 }
 
 type MetaLineProps = {
-  symbol: AppSymbolName;
+  icon: AppIconName;
   children: ReactNode;
 };
 
 /** One icon-led line of secondary detail: a date, a time, a place. */
-export function MetaLine({ symbol, children }: MetaLineProps) {
+export function MetaLine({ icon, children }: MetaLineProps) {
   const theme = useTheme();
 
   return (
     <HStack className="items-center gap-1.5">
-      <AppSymbol name={symbol} size={12} tint={theme.textMuted} />
+      <AppIcon icon={icon} size={12} color={theme.textMuted} />
       <Text
         className="flex-1 text-[12.5px] text-muted-foreground"
         numberOfLines={1}

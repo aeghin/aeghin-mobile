@@ -1,4 +1,12 @@
-import { AppSymbol, type AppSymbolName } from "@/components/app-symbol";
+import Calendar from "lucide-react-native/icons/calendar";
+import Check from "lucide-react-native/icons/check";
+import Clock from "lucide-react-native/icons/clock";
+import ClockAlert from "lucide-react-native/icons/clock-alert";
+import Hourglass from "lucide-react-native/icons/hourglass";
+import MapPin from "lucide-react-native/icons/map-pin";
+import X from "lucide-react-native/icons/x";
+
+import { AppIcon, type AppIconName } from "@/components/app-icon";
 import {
   MetaLine,
   Pill,
@@ -23,17 +31,6 @@ import {
 } from "@/lib/events/format";
 import { assignmentFor } from "@/lib/events/schedule";
 import type { OrganizationEvent, ServiceType } from "@/types/event";
-
-const CALENDAR: AppSymbolName = { ios: "calendar", android: "calendar_month" };
-const CLOCK: AppSymbolName = { ios: "clock", android: "schedule" };
-const PIN: AppSymbolName = { ios: "mappin.and.ellipse", android: "place" };
-const CHECK: AppSymbolName = { ios: "checkmark", android: "check" };
-const CROSS: AppSymbolName = { ios: "xmark", android: "close" };
-const HOURGLASS: AppSymbolName = { ios: "hourglass", android: "hourglass_empty" };
-const EXPIRING: AppSymbolName = {
-  ios: "clock.badge.exclamationmark",
-  android: "pending_actions",
-};
 
 export type PendingAction = "accept" | "decline";
 
@@ -96,9 +93,9 @@ export function PendingEventCard({
           </Text>
 
           <VStack className="gap-1.5">
-            <MetaLine symbol={CALENDAR}>{formatDateRange(event.dates)}</MetaLine>
-            <MetaLine symbol={CLOCK}>{formatTimeRange(event.dates)}</MetaLine>
-            <MetaLine symbol={PIN}>{event.location}</MetaLine>
+            <MetaLine icon={Calendar}>{formatDateRange(event.dates)}</MetaLine>
+            <MetaLine icon={Clock}>{formatTimeRange(event.dates)}</MetaLine>
+            <MetaLine icon={MapPin}>{event.location}</MetaLine>
           </VStack>
 
           <HStack className="items-center gap-2 pt-0.5">
@@ -117,7 +114,7 @@ export function PendingEventCard({
               <Pill
                 label={expiry.label}
                 tone={expiry.urgent ? "danger" : "neutral"}
-                symbol={expiry.urgent ? EXPIRING : HOURGLASS}
+                icon={expiry.urgent ? ClockAlert : Hourglass}
               />
             ) : null}
           </HStack>
@@ -130,7 +127,7 @@ export function PendingEventCard({
         <AnswerButton
           kind="accept"
           label="Accept"
-          symbol={CHECK}
+          icon={Check}
           onPress={onAccept}
           loading={busy === "accept"}
           disabled={busy !== undefined}
@@ -138,7 +135,7 @@ export function PendingEventCard({
         <AnswerButton
           kind="decline"
           label="Decline"
-          symbol={CROSS}
+          icon={X}
           onPress={onDecline}
           loading={busy === "decline"}
           disabled={busy !== undefined}
@@ -151,7 +148,7 @@ export function PendingEventCard({
 type AnswerButtonProps = {
   kind: PendingAction;
   label: string;
-  symbol: AppSymbolName;
+  icon: AppIconName;
   onPress?: () => void;
   loading: boolean;
   disabled: boolean;
@@ -165,7 +162,7 @@ type AnswerButtonProps = {
 function AnswerButton({
   kind,
   label,
-  symbol,
+  icon,
   onPress,
   loading,
   disabled,
@@ -192,7 +189,7 @@ function AnswerButton({
         <Spinner size="small" color={accept ? "#FFFFFF" : color} />
       ) : (
         <HStack className="items-center gap-1.5">
-          <AppSymbol name={symbol} size={13} tint={accept ? "#FFFFFF" : color} />
+          <AppIcon icon={icon} size={13} color={accept ? "#FFFFFF" : color} />
           <Text
             className="text-[15px] font-semibold"
             style={{ color: accept ? "#FFFFFF" : color }}

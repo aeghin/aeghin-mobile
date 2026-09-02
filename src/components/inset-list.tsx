@@ -1,6 +1,7 @@
+import ChevronRight from "lucide-react-native/icons/chevron-right";
 import { Children, Fragment, type ReactNode } from "react";
 
-import { AppSymbol, type AppSymbolName } from "@/components/app-symbol";
+import { AppIcon, type AppIconName } from "@/components/app-icon";
 import { Divider } from "@/components/ui/divider";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
@@ -13,8 +14,6 @@ const ROW_PADDING = 14;
 
 /** Where a card's hairlines start when its rows lead with an {@link InsetRow}. */
 export const ROW_SEPARATOR_INSET = ROW_PADDING + ICON_COLUMN;
-
-const CHEVRON: AppSymbolName = { ios: "chevron.right", android: "chevron_right" };
 
 type InsetCardProps = {
   children: ReactNode;
@@ -62,7 +61,7 @@ export function InsetCard({
 
 type InsetRowProps = {
   label: string;
-  symbol?: AppSymbolName;
+  icon?: AppIconName;
   /** Trailing text, e.g. a count. */
   value?: string;
   onPress?: () => void;
@@ -76,7 +75,7 @@ type InsetRowProps = {
  */
 export function InsetRow({
   label,
-  symbol,
+  icon,
   value,
   onPress,
   destructive,
@@ -95,12 +94,12 @@ export function InsetRow({
       style={{ paddingHorizontal: ROW_PADDING }}
     >
       <HStack space="sm" className="min-h-[52px] items-center">
-        {symbol ? (
+        {icon ? (
           <VStack
             className="items-center justify-center"
             style={{ width: ICON_COLUMN - 10 }}
           >
-            <AppSymbol name={symbol} size={20} tint={tint} />
+            <AppIcon icon={icon} size={20} color={tint} />
           </VStack>
         ) : null}
 
@@ -118,7 +117,7 @@ export function InsetRow({
         ) : null}
 
         {onPress && !destructive ? (
-          <AppSymbol name={CHEVRON} size={14} tint={theme.textMuted} />
+          <AppIcon icon={ChevronRight} size={14} color={theme.textMuted} />
         ) : null}
       </HStack>
     </Pressable>

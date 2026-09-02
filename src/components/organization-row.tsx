@@ -1,4 +1,7 @@
-import { AppSymbol, type AppSymbolName } from "@/components/app-symbol";
+import Check from "lucide-react-native/icons/check";
+import ChevronRight from "lucide-react-native/icons/chevron-right";
+
+import { AppIcon } from "@/components/app-icon";
 import { OrgAvatar } from "@/components/org-avatar";
 import { RoleBadge } from "@/components/role-badge";
 import { HStack } from "@/components/ui/hstack";
@@ -8,9 +11,6 @@ import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
 import { useTheme } from "@/hooks/use-theme";
 import type { OrganizationSummary } from "@/types/organization";
-
-const CHEVRON: AppSymbolName = { ios: "chevron.right", android: "chevron_right" };
-const CHECK: AppSymbolName = { ios: "checkmark", android: "check" };
 
 type OrganizationRowProps = {
   organization: OrganizationSummary;
@@ -62,9 +62,9 @@ export function OrganizationRow({
         {/* The list doubles as the switcher, so the row that is already in
             use says so rather than offering to navigate to itself. */}
         {isCurrent ? (
-          <AppSymbol name={CHECK} size={15} tint={brand.orange} />
+          <AppIcon icon={Check} size={15} color={brand.orange} />
         ) : (
-          <AppSymbol name={CHEVRON} size={14} tint={theme.textMuted} />
+          <AppIcon icon={ChevronRight} size={14} color={theme.textMuted} />
         )}
       </HStack>
     </Pressable>

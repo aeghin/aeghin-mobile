@@ -193,3 +193,97 @@ export function formatExpiry(expiresAt: string, today: string): ExpiryLabel {
   if (days === 1) return { label: "Expires tomorrow", urgent: true };
   return { label: `Expires in ${days} days`, urgent: false };
 }
+
+/** `"Saturday, August 30, 2026"` — the single-day form of the details card. */
+export function formatLongDate(value: string | Date): string {
+  return toDate(value).toLocaleDateString("en-US", {
+    timeZone: UTC,
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+/**
+ * The one line that answers "what day is this?" on the details screen.
+ *
+ * A single calendar day gets the long form; anything spanning days gets the
+ * range with its year, which is the web's own wording. The end is the last
+ * block's *start*, not its end — an event finishing after midnight ends on the
+ * day it was billed for, not on the following morning.
+ */
+export function formatDateSpan(dates: EventDate[]): string {
+  const sorted = sortDates(dates);
+  const first = sorted[0];
+  const last = sorted[sorted.length - 1];
+  if (!first || !last) return "";
+
+  if (!isMultiDay(dates)) {
+    return formatLongDate(first.startTime);
+  }
+
+  const end = new Date(last.startTime);
+
+  return `${formatShortDate(first.startTime)} – ${formatShortDate(end)}, ${end.getUTCFullYear()}`;
+}
+
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+
+/**
+ * When a log entry was written, in **device time**.
+ *
+ * The one date in this app that is not UTC wall-clock: an event at 9am is
+ * written `09:00Z` wherever it happens, but an activity row records the moment
+ * something actually occurred, and that moment belongs to the reader's clock.
+ *
+ * Relative inside a week and dated beyond it, matching the web's `date-fns`
+ * pairing of `formatDistanceToNow` and `format(…, "MMM d, yyyy")`.
+ */
+export function formatActivityTime(value: string | Date): string {
+  const date = toDate(value);
+  const elapsed = Date.now() - date.getTime();
+
+  // A row from the future is a clock disagreeing with the server, not news.
+  if (elapsed < MINUTE) return "Just now";
+
+  if (elapsed < HOUR) {
+    const minutes = Math.floor(elapsed / MINUTE);
+    return `${minutes} ${minutes === 1 ? "minute" : "minutes"} ago`;
+  }
+
+  if (elapsed < DAY) {
+    const hours = Math.floor(elapsed / HOUR);
+    return `${hours} ${hours === 1 ? "hour" : "hours"} ago`;
+  }
+
+  if (elapsed < 7 * DAY) {
+    const days = Math.floor(elapsed / DAY);
+    return `${days} ${days === 1 ? "day" : "days"} ago`;
+  }
+
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+/** The three lines of a date tile — `AUG` / `30` / `SUN`. */
+export function formatDateTile(value: string | Date): {
+  month: string;
+  day: string;
+  weekday: string;
+} {
+  const date = toDate(value);
+  const part = (options: Intl.DateTimeFormatOptions) =>
+    date.toLocaleString("en-US", { timeZone: UTC, ...options });
+
+  return {
+    month: part({ month: "short" }).toUpperCase(),
+    day: String(date.getUTCDate()),
+    weekday: part({ weekday: "short" }).toUpperCase(),
+  };
+}

@@ -1,6 +1,7 @@
+import Search from "lucide-react-native/icons/search";
 import { TextInput } from "react-native";
 
-import { AppSymbol } from "@/components/app-symbol";
+import { AppIcon } from "@/components/app-icon";
 import { useMembersSearch } from "@/components/members-search-provider";
 import { HStack } from "@/components/ui/hstack";
 import { useTheme } from "@/hooks/use-theme";
@@ -22,10 +23,10 @@ export function MembersSearchField() {
 
   return (
     <HStack className="h-full flex-1 items-center gap-2 px-4">
-      <AppSymbol
-        name={{ ios: "magnifyingglass", android: "search" }}
+      <AppIcon
+        icon={Search}
         size={17}
-        tint={theme.textMuted}
+        color={theme.textMuted}
       />
 
       <TextInput

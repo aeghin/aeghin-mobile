@@ -58,7 +58,7 @@ async function errorMessage(response: Response): Promise<string | undefined> {
  * are short lived, so a hoisted one starts returning 401s after about a minute.
  */
 async function request<T>(
-  method: "GET" | "POST",
+  method: "GET" | "POST" | "PATCH" | "DELETE",
   path: string,
   body?: unknown,
 ): Promise<T> {
@@ -93,4 +93,14 @@ export function apiGet<T>(path: string): Promise<T> {
 /** POSTs `body` as JSON to `path`. */
 export function apiPost<T>(path: string, body?: unknown): Promise<T> {
   return request<T>("POST", path, body);
+}
+
+/** PATCHes `body` as JSON to `path`. */
+export function apiPatch<T>(path: string, body?: unknown): Promise<T> {
+  return request<T>("PATCH", path, body);
+}
+
+/** DELETEs `path`. */
+export function apiDelete<T>(path: string): Promise<T> {
+  return request<T>("DELETE", path);
 }

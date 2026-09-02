@@ -1,4 +1,9 @@
-import { AppSymbol, type AppSymbolName } from "@/components/app-symbol";
+import Calendar from "lucide-react-native/icons/calendar";
+import ChevronRight from "lucide-react-native/icons/chevron-right";
+import MapPin from "lucide-react-native/icons/map-pin";
+import Sparkles from "lucide-react-native/icons/sparkles";
+
+import { AppIcon } from "@/components/app-icon";
 import {
   MetaLine,
   Pill,
@@ -21,11 +26,6 @@ import {
 } from "@/lib/events/format";
 import { assignmentFor, staffingFor } from "@/lib/events/schedule";
 import type { OrganizationEvent, ServiceType } from "@/types/event";
-
-const PIN: AppSymbolName = { ios: "mappin.and.ellipse", android: "place" };
-const SPAN: AppSymbolName = { ios: "calendar", android: "calendar_month" };
-const CHEVRON: AppSymbolName = { ios: "chevron.right", android: "chevron_right" };
-const AUTO: AppSymbolName = { ios: "wand.and.stars", android: "auto_awesome" };
 
 /** The time column's width, shared with the skeleton so nothing shifts. */
 const TIME_COLUMN = 66;
@@ -95,15 +95,15 @@ export function EventCard({
             <ServiceBadge service={service} />
             {assignment ? <RoleChip role={assignment.role} /> : null}
             {showStaffing && event.smartSchedulingEnabled ? (
-              <Pill label="Auto-fill" tone="brand" symbol={AUTO} />
+              <Pill label="Auto-fill" tone="brand" icon={Sparkles} />
             ) : null}
           </HStack>
 
           {spansDays ? (
-            <MetaLine symbol={SPAN}>{formatDateRange(event.dates)}</MetaLine>
+            <MetaLine icon={Calendar}>{formatDateRange(event.dates)}</MetaLine>
           ) : null}
 
-          <MetaLine symbol={PIN}>{event.location}</MetaLine>
+          <MetaLine icon={MapPin}>{event.location}</MetaLine>
 
           {staffing ? (
             <HStack className="pt-0.5">
@@ -114,7 +114,7 @@ export function EventCard({
 
         {/* The chevron is a promise. It appears once there is somewhere to go. */}
         {onPress ? (
-          <AppSymbol name={CHEVRON} size={13} tint={theme.textMuted} />
+          <AppIcon icon={ChevronRight} size={13} color={theme.textMuted} />
         ) : null}
       </HStack>
     </Pressable>

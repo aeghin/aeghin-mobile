@@ -1,4 +1,4 @@
-import { AppSymbol } from "@/components/app-symbol";
+import { AppIcon } from "@/components/app-icon";
 import { OrgAvatar } from "@/components/org-avatar";
 import { HStack } from "@/components/ui/hstack";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -35,7 +35,7 @@ export function MemberRow({ member, isYou }: MemberRowProps) {
   const theme = useTheme();
   const { firstName, lastName, email, imageUrl, role } = member;
 
-  const { symbol, label, textClass, tint } = getRoleConfig(role, theme);
+  const { icon, label, textClass, tint } = getRoleConfig(role, theme);
 
   const fullName = [firstName, lastName].filter(Boolean).join(" ") || email;
 
@@ -65,7 +65,7 @@ export function MemberRow({ member, isYou }: MemberRowProps) {
       {/* Tinted text rather than a filled pill: owner and admin still carry
           colour, while "Member" recedes instead of shouting on every row. */}
       <HStack space="xs" className="items-center">
-        <AppSymbol name={symbol} size={12} tint={tint} />
+        <AppIcon icon={icon} size={12} color={tint} />
         <Text className={`text-[13px] font-semibold ${textClass}`}>{label}</Text>
       </HStack>
     </HStack>

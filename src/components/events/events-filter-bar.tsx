@@ -1,6 +1,8 @@
+import ChevronLeft from "lucide-react-native/icons/chevron-left";
+import ChevronRight from "lucide-react-native/icons/chevron-right";
 import { ScrollView } from "react-native";
 
-import { AppSymbol, type AppSymbolName } from "@/components/app-symbol";
+import { AppIcon, type AppIconName } from "@/components/app-icon";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
@@ -14,9 +16,6 @@ import type { ServiceType } from "@/types/event";
 
 /** Horizontal padding the rows below bleed past, so they scroll edge to edge. */
 const GUTTER = 16;
-
-const CHEVRON_LEFT: AppSymbolName = { ios: "chevron.left", android: "chevron_left" };
-const CHEVRON_RIGHT: AppSymbolName = { ios: "chevron.right", android: "chevron_right" };
 
 type ScopeFilterProps = {
   value: TimeScope;
@@ -82,7 +81,7 @@ export function MonthStepper({ value, onChange }: MonthStepperProps) {
       style={{ height: 36 }}
     >
       <StepperButton
-        symbol={CHEVRON_LEFT}
+        icon={ChevronLeft}
         label="Previous month"
         onPress={() => onChange(shift(value, -1))}
         tint={theme.textMuted}
@@ -93,7 +92,7 @@ export function MonthStepper({ value, onChange }: MonthStepperProps) {
       </Text>
 
       <StepperButton
-        symbol={CHEVRON_RIGHT}
+        icon={ChevronRight}
         label="Next month"
         onPress={() => onChange(shift(value, 1))}
         tint={theme.textMuted}
@@ -109,12 +108,12 @@ function shift(key: string, delta: number): string {
 }
 
 function StepperButton({
-  symbol,
+  icon,
   label,
   onPress,
   tint,
 }: {
-  symbol: AppSymbolName;
+  icon: AppIconName;
   label: string;
   onPress: () => void;
   tint: string;
@@ -126,7 +125,7 @@ function StepperButton({
       accessibilityLabel={label}
       className="h-8 w-10 items-center justify-center rounded-lg data-[active=true]:bg-border/60"
     >
-      <AppSymbol name={symbol} size={13} tint={tint} />
+      <AppIcon icon={icon} size={13} color={tint} />
     </Pressable>
   );
 }

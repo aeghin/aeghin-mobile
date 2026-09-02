@@ -1,8 +1,11 @@
 import { useUser } from "@clerk/expo";
+import CircleAlert from "lucide-react-native/icons/circle-alert";
+import SearchX from "lucide-react-native/icons/search-x";
+import Users from "lucide-react-native/icons/users";
 import { RefreshControl, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { AppSymbol, type AppSymbolName } from "@/components/app-symbol";
+import { AppIcon, type AppIconName } from "@/components/app-icon";
 import { InsetCard } from "@/components/inset-list";
 import {
   MEMBER_SEPARATOR_INSET,
@@ -126,7 +129,7 @@ function searchText(member: OrganizationMember): string {
 }
 
 type EmptyStateProps = {
-  symbol: AppSymbolName;
+  icon: AppIconName;
   title: string;
   body: string;
 };
@@ -140,7 +143,7 @@ function emptyStateFor({
 }): EmptyStateProps {
   if (isError) {
     return {
-      symbol: { ios: "exclamationmark.triangle.fill", android: "warning" },
+      icon: CircleAlert,
       title: "Could not load members",
       body: "Pull down to try again.",
     };
@@ -148,25 +151,25 @@ function emptyStateFor({
 
   if (needle) {
     return {
-      symbol: { ios: "magnifyingglass", android: "search" },
+      icon: SearchX,
       title: "No matches",
       body: "Try a different name or email address.",
     };
   }
 
   return {
-    symbol: { ios: "person.2.fill", android: "groups" },
+    icon: Users,
     title: "No members yet",
     body: "Invite someone and they'll show up here.",
   };
 }
 
-function EmptyState({ symbol, title, body }: EmptyStateProps) {
+function EmptyState({ icon, title, body }: EmptyStateProps) {
   const theme = useTheme();
 
   return (
     <VStack space="sm" className="flex-1 items-center justify-center">
-      <AppSymbol name={symbol} size={40} tint={theme.textMuted} />
+      <AppIcon icon={icon} size={40} color={theme.textMuted} />
       <Text className="text-[17px] font-semibold text-foreground">{title}</Text>
       <Text className="max-w-[260px] text-center text-sm text-muted-foreground">
         {body}

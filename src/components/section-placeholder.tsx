@@ -1,12 +1,12 @@
 import { ScrollView } from "react-native";
 
-import { AppSymbol, type AppSymbolName } from "@/components/app-symbol";
+import { AppIcon, type AppIconName } from "@/components/app-icon";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { useTheme } from "@/hooks/use-theme";
 
 type SectionPlaceholderProps = {
-  symbol: AppSymbolName;
+  icon: AppIconName;
   title: string;
   body: string;
 };
@@ -24,7 +24,7 @@ type SectionPlaceholderProps = {
  * already starts below it and needs no inset adjustment.
  */
 export function SectionPlaceholder({
-  symbol,
+  icon,
   title,
   body,
 }: SectionPlaceholderProps) {
@@ -37,7 +37,7 @@ export function SectionPlaceholder({
       contentInsetAdjustmentBehavior="never"
     >
       <VStack space="sm" className="flex-1 items-center justify-center px-8">
-        <AppSymbol name={symbol} size={40} tint={theme.textMuted} />
+        <AppIcon icon={icon} size={40} color={theme.textMuted} />
         <Text className="text-[17px] font-semibold text-foreground">
           {title}
         </Text>

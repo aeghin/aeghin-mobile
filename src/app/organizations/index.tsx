@@ -1,11 +1,14 @@
 import { useUser } from "@clerk/expo";
 import { UserButton } from "@clerk/expo/native";
 import { useRouter } from "expo-router";
+import Building2 from "lucide-react-native/icons/building-2";
+import CircleAlert from "lucide-react-native/icons/circle-alert";
+import Plus from "lucide-react-native/icons/plus";
 import { type ReactNode } from "react";
 import { FlatList, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { AppSymbol, type AppSymbolName } from "@/components/app-symbol";
+import { AppIcon, type AppIconName } from "@/components/app-icon";
 import { Logo } from "@/components/logo";
 import { OrganizationRow } from "@/components/organization-row";
 import { useCurrentOrganization } from "@/components/organization-provider";
@@ -124,10 +127,7 @@ export default function OrganizationsScreen() {
             </VStack>
           ) : isError ? (
             <EmptyState
-              symbol={{
-                ios: "exclamationmark.triangle.fill",
-                android: "warning",
-              }}
+              icon={CircleAlert}
               title="Could not load organizations"
               body={error.message}
             >
@@ -141,7 +141,7 @@ export default function OrganizationsScreen() {
             </EmptyState>
           ) : (
             <EmptyState
-              symbol={{ ios: "person.2.fill", android: "groups" }}
+              icon={Building2}
               title="No organizations yet"
               body="Create one, or ask an owner to send you an invitation."
             />
@@ -154,10 +154,10 @@ export default function OrganizationsScreen() {
               onPress={onCreate}
               className="mt-3.5 h-auto rounded-2xl border-dashed border-border py-3.5"
             >
-              <AppSymbol
-                name={{ ios: "plus.circle.fill", android: "add_circle" }}
+              <AppIcon
+                icon={Plus}
                 size={20}
-                tint={brand.orange}
+                color={brand.orange}
               />
               <ButtonText className="text-base font-semibold text-brand">
                 Create organization
@@ -171,19 +171,19 @@ export default function OrganizationsScreen() {
 }
 
 type EmptyStateProps = {
-  symbol: AppSymbolName;
+  icon: AppIconName;
   title: string;
   body: string;
   children?: ReactNode;
 };
 
 /** The shared shape of "nothing here" and "that didn't work". */
-function EmptyState({ symbol, title, body, children }: EmptyStateProps) {
+function EmptyState({ icon, title, body, children }: EmptyStateProps) {
   const theme = useTheme();
 
   return (
     <VStack space="sm" className="items-center py-10">
-      <AppSymbol name={symbol} size={40} tint={theme.textMuted} />
+      <AppIcon icon={icon} size={40} color={theme.textMuted} />
       <Text className="text-[17px] font-semibold text-foreground">{title}</Text>
       <Text className="max-w-[260px] text-center text-sm text-muted-foreground">
         {body}

@@ -1,4 +1,9 @@
-import { AppSymbol, type AppSymbolName } from "@/components/app-symbol";
+import ArrowUpRight from "lucide-react-native/icons/arrow-up-right";
+import CalendarClock from "lucide-react-native/icons/calendar-clock";
+import Clock from "lucide-react-native/icons/clock";
+import MapPin from "lucide-react-native/icons/map-pin";
+
+import { AppIcon } from "@/components/app-icon";
 import { MetaLine, Pill, RoleChip, ServiceBadge } from "@/components/events/chips";
 import { Box } from "@/components/ui/box";
 import { Center } from "@/components/ui/center";
@@ -13,14 +18,6 @@ import { countdownLabel, formatShortDate, formatTime } from "@/lib/events/format
 import { assignmentFor, type UpNext } from "@/lib/events/schedule";
 import { brandGlow, brandSheen } from "@/lib/gradients";
 import type { ServiceType } from "@/types/event";
-
-const CALENDAR_CLOCK: AppSymbolName = {
-  ios: "calendar.badge.clock",
-  android: "event",
-};
-const CLOCK: AppSymbolName = { ios: "clock", android: "schedule" };
-const PIN: AppSymbolName = { ios: "mappin.and.ellipse", android: "place" };
-const CHEVRON: AppSymbolName = { ios: "chevron.right", android: "chevron_right" };
 
 type UpNextCardProps = {
   upNext: UpNext;
@@ -62,7 +59,7 @@ export function UpNextCard({ upNext, service, onPress }: UpNextCardProps) {
       <VStack className="gap-3 p-4">
         <HStack className="items-center gap-2.5">
           <Center className="h-9 w-9 rounded-xl bg-brand/10">
-            <AppSymbol name={CALENDAR_CLOCK} size={18} tint={brand.orange} />
+            <AppIcon icon={CalendarClock} size={18} color={brand.orange} />
           </Center>
 
           <Text className="flex-1 text-[11px] font-bold uppercase tracking-[1.1px] text-muted-foreground">
@@ -91,17 +88,17 @@ export function UpNextCard({ upNext, service, onPress }: UpNextCardProps) {
           </VStack>
 
           {onPress ? (
-            <AppSymbol name={CHEVRON} size={14} tint={theme.textMuted} />
+            <AppIcon icon={ArrowUpRight} size={14} color={theme.textMuted} />
           ) : null}
         </HStack>
 
         <Divider />
 
         <VStack className="gap-1.5">
-          <MetaLine symbol={CLOCK}>
+          <MetaLine icon={Clock}>
             {`${formatShortDate(date.startTime)} · ${formatTime(date.startTime)} – ${formatTime(date.endTime)}`}
           </MetaLine>
-          <MetaLine symbol={PIN}>{event.location}</MetaLine>
+          <MetaLine icon={MapPin}>{event.location}</MetaLine>
         </VStack>
       </VStack>
     </Pressable>

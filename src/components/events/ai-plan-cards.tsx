@@ -161,3 +161,38 @@ export function AiProUpsell({ organizationId, canSubscribe }: AiUpgradeCardProps
     </HStack>
   );
 }
+
+/**
+ * The gate on the create screen's AI pane. Event drafting is Pro alone — the
+ * route reads `ai_pro` and nothing else — so unlike the setlist's two-plan
+ * picker there is only ever one thing to offer here.
+ */
+export function AiEventUpgradeCard({ organizationId, canSubscribe }: AiUpgradeCardProps) {
+  const theme = useTheme();
+  const tint = planTint("pro", theme);
+
+  return (
+    <VStack
+      className="gap-3 rounded-2xl border p-4"
+      style={{ borderColor: withAlpha(tint, 0.3), backgroundColor: withAlpha(tint, 0.05) }}
+    >
+      <VStack className="items-center gap-2">
+        <Center className="h-12 w-12 rounded-xl" style={{ backgroundColor: withAlpha(tint, 0.12) }}>
+          <AppIcon icon={Sparkles} size={24} color={tint} />
+        </Center>
+        <Text className="text-[15px] font-semibold text-foreground">Draft events with AI</Text>
+        <Text className="max-w-[280px] text-center text-[13px] text-muted-foreground">
+          Describe the event and it picks the dates and the people from your roster — you
+          approve. Part of {PLAN_COPY.pro.name}, {PLAN_COPY.pro.price}.
+        </Text>
+        {!canSubscribe ? (
+          <Text className="text-center text-[12px] text-muted-foreground">
+            Reach out to an organization owner to subscribe.
+          </Text>
+        ) : null}
+      </VStack>
+
+      <PlanButton organizationId={organizationId} plan="pro" canSubscribe={canSubscribe} />
+    </VStack>
+  );
+}

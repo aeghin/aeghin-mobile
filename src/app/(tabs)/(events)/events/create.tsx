@@ -2,11 +2,14 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import Check from "lucide-react-native/icons/check";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
 import { useMemo, useState } from "react";
-import { Alert, ScrollView, Switch } from "react-native";
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, Switch } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppIcon } from "@/components/app-icon";
 import { DateRangePicker } from "@/components/date-range-picker";
+import { AiEventPanel } from "@/components/events/ai-event-panel";
+import { AiEventUpgradeCard } from "@/components/events/ai-plan-cards";
+import { SegmentedControl, type Segment } from "@/components/events/segmented-control";
 import { TimeField } from "@/components/events/time-field";
 import { ErrorBanner, Choice, Field, FormInput } from "@/components/form-fields";
 import { OrgAvatar } from "@/components/org-avatar";
@@ -20,6 +23,7 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { VolunteerRolePicker, toggleRole } from "@/components/volunteer-role-picker";
 import { brand } from "@/constants/branding";
+import { useBillingStatus } from "@/hooks/use-billing";
 import { useCheckAvailability, useCreateEvent } from "@/hooks/use-events";
 import { useMembersList } from "@/hooks/use-members-list";
 import { useServiceTypes } from "@/hooks/use-service-types";
@@ -44,6 +48,7 @@ import type {
   ServiceType,
   VolunteerRole,
 } from "@/types/event";
+import type { EventDraft } from "@/types/event-ai";
 import type { OrganizationMember } from "@/types/organization";
 
 const TAB_BAR_CLEARANCE = 64;
@@ -54,13 +59,19 @@ const DEFAULT_TIMES = { startTime: "10:00", endTime: "12:00" };
 /** The three deadlines the dashboard offers an invitee. */
 const EXPIRY_OPTIONS = [3, 5, 7] as const;
 
+/** Step one, either filled in by hand or dictated to the agent. */
+type Pane = "form" | "ai";
+
 type DayTimes = { startTime: string; endTime: string };
 
 /** The day key `count` days after `key`. */
 const addDays = (key: string, count: number) =>
   dayKey(new Date(keyToDate(key).getTime() + count * 86_400_000));
 
-/** What the form starts out holding. A template fills it; blank leaves it empty. */
+/**
+ * What the form starts out holding. A template fills it, an approved AI draft
+ * fills it, and blank leaves it empty.
+ */
 type CreateSeed = {
   serviceTypeId: string | null;
   name: string;
@@ -71,6 +82,8 @@ type CreateSeed = {
   rolesNeeded: VolunteerRole[];
   expiresAt: number;
   smartScheduling: boolean;
+  /** Who to invite, per role. Only a draft ever arrives with anybody in it. */
+  assignments: Record<string, string[]>;
 };
 
 const BLANK_SEED: CreateSeed = {
@@ -83,6 +96,7 @@ const BLANK_SEED: CreateSeed = {
   rolesNeeded: [],
   expiresAt: 3,
   smartScheduling: false,
+  assignments: {},
 };
 
 /**
@@ -92,7 +106,7 @@ const BLANK_SEED: CreateSeed = {
  * is the `|| 7` the dashboard's own date maths turns on. The weekday is read
  * off the device's calendar day, the same clock `todayKey` reads.
  *
- * People are not seeded from anywhere — a template never carries a roster.
+ * A template never carries a roster, so nobody is seeded from one.
  */
 function seedFromTemplate(template: EventTemplate, serviceTypes: ServiceType[]): CreateSeed {
   const today = todayKey();
@@ -122,6 +136,49 @@ function seedFromTemplate(template: EventTemplate, serviceTypes: ServiceType[]):
     rolesNeeded: template.rolesNeeded,
     expiresAt: template.expiresInDays,
     smartScheduling: template.smartSchedulingEnabled,
+    assignments: {},
+  };
+}
+
+/**
+ * An approved AI draft as the form's starting values — the dashboard's "Edit
+ * manually first". A draft seeds the form exactly the way a template does, so
+ * the fields, the dates and the people it settled on all arrive at once and
+ * stay editable. `proposeEvent` rejects non-consecutive days, so the first and
+ * the last bound exactly the range `daysInRange` walks back out.
+ */
+function seedFromDraft(draft: EventDraft): CreateSeed {
+  const times: Record<string, DayTimes> = {};
+
+  for (const day of draft.days) {
+    times[day.date] = { startTime: day.startTime, endTime: day.endTime };
+  }
+
+  const assignments: Record<string, string[]> = {};
+
+  for (const assignment of draft.assignments) {
+    assignments[assignment.role] = [
+      ...(assignments[assignment.role] ?? []),
+      assignment.userId,
+    ];
+  }
+
+  const last = draft.days[draft.days.length - 1];
+
+  return {
+    serviceTypeId: draft.serviceTypeId,
+    name: draft.name,
+    description: draft.description,
+    location: draft.location,
+    range: {
+      start: draft.days[0].date,
+      end: draft.days.length > 1 ? last.date : null,
+    },
+    times,
+    rolesNeeded: draft.rolesNeeded,
+    expiresAt: draft.expiresInDays,
+    smartScheduling: draft.smartSchedulingEnabled,
+    assignments,
   };
 }
 
@@ -139,6 +196,8 @@ function seedFromTemplate(template: EventTemplate, serviceTypes: ServiceType[]):
  */
 export default function CreateEventScreen() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   const { templateId: initialTemplateId } = useLocalSearchParams<{ templateId?: string }>();
 
@@ -148,11 +207,23 @@ export default function CreateEventScreen() {
 
   const serviceTypes = useServiceTypes(organizationId);
   const templates = useTemplates(organizationId, canManage);
+  const billing = useBillingStatus(organizationId);
 
   // Which template the form is seeded from. Changing it rebuilds the form
   // below rather than writing nine fields from an effect — the same shape the
   // setlist editor and the event edit screen use.
   const [templateId, setTemplateId] = useState<string | null>(initialTemplateId ?? null);
+
+  // An approved draft seeds the form the same way, and takes precedence over a
+  // template while it stands. The counter is what makes a second draft a
+  // different key, so approving two in a row re-seeds rather than doing nothing.
+  const [draft, setDraft] = useState<EventDraft | null>(null);
+  const [draftSeq, setDraftSeq] = useState(0);
+
+  // Both live up here rather than in the form, because the form is remounted
+  // on every re-seed and neither may be thrown away when it is.
+  const [pane, setPane] = useState<Pane>("form");
+  const [step, setStep] = useState<1 | 2>(1);
 
   if (!canManage) {
     return (
@@ -184,39 +255,124 @@ export default function CreateEventScreen() {
     ? (templates.data ?? []).find((entry) => entry.id === templateId)
     : undefined;
 
-  const seed = template
-    ? seedFromTemplate(template, serviceTypes.data ?? [])
-    : BLANK_SEED;
+  const seed = draft
+    ? seedFromDraft(draft)
+    : template
+      ? seedFromTemplate(template, serviceTypes.data ?? [])
+      : BLANK_SEED;
+
+  const hasAiPro = Boolean(billing.data?.hasPro);
+  // Unknown counts as "yes": the query settles in a moment, and refusing to
+  // take a prompt while it is in flight reads as a dead panel.
+  const hasServiceTypes = serviceTypes.data === undefined || serviceTypes.data.length > 0;
+  const onAiPane = step === 1 && pane === "ai";
+
+  const paneSegments: Segment<Pane>[] = [
+    { value: "form", label: "Details" },
+    { value: "ai", label: hasAiPro ? "AI" : "AI 🔒" },
+  ];
+
+  // Picking a template drops any standing draft, so the two can never both
+  // claim the fields — and so tapping the chip a draft just un-highlighted
+  // still re-seeds, which a bare `setTemplateId` would not.
+  const pickTemplate = (id: string | null) => {
+    setDraft(null);
+    setTemplateId(id);
+  };
 
   return (
-    <CreateEventForm
-      key={template?.id ?? "blank"}
-      organizationId={organizationId}
-      seed={seed}
-      templates={templates.data ?? []}
-      templateId={template?.id ?? null}
-      onPickTemplate={setTemplateId}
-    />
+    <VStack className="flex-1 bg-grouped">
+      {step === 1 ? (
+        <Box className="px-4 pt-3">
+          <SegmentedControl segments={paneSegments} value={pane} onChange={setPane} />
+        </Box>
+      ) : null}
+
+      {/* Hidden rather than unmounted: the conversation sits above the keyed
+          form precisely so re-seeding that form — from a draft or from a
+          template — cannot throw it away. */}
+      {step === 1 ? (
+        <KeyboardAvoidingView
+          style={{ flex: 1, display: onAiPane ? "flex" : "none" }}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <Box
+            className="flex-1 px-4 pt-3"
+            style={{ paddingBottom: insets.bottom + TAB_BAR_CLEARANCE }}
+          >
+            {billing.isPending ? (
+              <Box className="items-center py-10">
+                <Spinner color={theme.textMuted} />
+              </Box>
+            ) : hasAiPro ? (
+              <AiEventPanel
+                organizationId={organizationId}
+                hasServiceTypes={hasServiceTypes}
+                onRefine={(approved) => {
+                  setDraft(approved);
+                  setDraftSeq((current) => current + 1);
+                  setStep(1);
+                  setPane("form");
+                }}
+                onCreated={() => router.back()}
+              />
+            ) : (
+              <ScrollView keyboardShouldPersistTaps="handled">
+                <AiEventUpgradeCard
+                  organizationId={organizationId}
+                  canSubscribe={billing.data?.canSubscribe ?? false}
+                />
+              </ScrollView>
+            )}
+          </Box>
+        </KeyboardAvoidingView>
+      ) : null}
+
+      <CreateEventForm
+        key={draft ? `draft-${draftSeq}` : (template?.id ?? "blank")}
+        organizationId={organizationId}
+        seed={seed}
+        templates={templates.data ?? []}
+        templateId={template?.id ?? null}
+        fromDraft={draft !== null}
+        onPickTemplate={pickTemplate}
+        step={step}
+        onStep={setStep}
+        hidden={onAiPane}
+      />
+    </VStack>
   );
 }
 
 /**
- * Keyed on the template above, so every field takes its value from the seed
- * once, on mount. Picking a different template remounts this with new values
- * rather than synchronising nine pieces of state from an effect.
+ * Keyed on the seed above, so every field takes its value from it once, on
+ * mount. Re-seeding — a different template, or an approved AI draft — remounts
+ * this with new values rather than synchronising ten pieces of state from an
+ * effect, and throws away the roster and the availability read taken against
+ * the old dates along with them.
  */
 function CreateEventForm({
   organizationId,
   seed,
   templates,
   templateId,
+  fromDraft,
   onPickTemplate,
+  step,
+  onStep,
+  hidden,
 }: {
   organizationId: string;
   seed: CreateSeed;
   templates: EventTemplate[];
   templateId: string | null;
+  /** Seeded from a draft, so no template chip speaks for what is in the form. */
+  fromDraft: boolean;
   onPickTemplate: (id: string | null) => void;
+  step: 1 | 2;
+  onStep: (step: 1 | 2) => void;
+  /** The AI pane is up. The fields stay mounted underneath it. */
+  hidden: boolean;
 }) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -227,7 +383,6 @@ function CreateEventForm({
   const availability = useCheckAvailability(organizationId);
   const create = useCreateEvent(organizationId);
 
-  const [step, setStep] = useState<1 | 2>(1);
   const [error, setError] = useState<string | null>(null);
 
   const [serviceTypeId, setServiceTypeId] = useState<string | null>(seed.serviceTypeId);
@@ -238,7 +393,7 @@ function CreateEventForm({
   const [times, setTimes] = useState<Record<string, DayTimes>>(seed.times);
   const [rolesNeeded, setRolesNeeded] = useState<VolunteerRole[]>(seed.rolesNeeded);
 
-  const [assignments, setAssignments] = useState<Record<string, string[]>>({});
+  const [assignments, setAssignments] = useState<Record<string, string[]>>(seed.assignments);
   const [expiresAt, setExpiresAt] = useState<number>(seed.expiresAt);
   const [smartScheduling, setSmartScheduling] = useState(seed.smartScheduling);
   const [busy, setBusy] = useState<MemberAvailability | null>(null);
@@ -279,13 +434,13 @@ function CreateEventForm({
       {
         onSuccess: (result) => {
           setBusy(result);
-          setStep(2);
+          onStep(2);
         },
         onError: () => {
           // A failed check is not a reason to block the event. The server
           // refuses a blockout on its own; only the forewarning is lost.
           setBusy(null);
-          setStep(2);
+          onStep(2);
         },
       },
     );
@@ -356,30 +511,32 @@ function CreateEventForm({
   const working = step === 1 ? availability.isPending : create.isPending;
 
   return (
-    <VStack className="flex-1 bg-grouped">
+    <VStack className="flex-1" style={{ display: hidden ? "none" : "flex" }}>
       <Stack.Screen
         options={{
           title: step === 1 ? "New event" : "Who's serving",
           headerBackTitle: "Events",
-          headerRight: () => (
-            <Pressable
-              onPress={action}
-              disabled={!actionReady || working}
-              accessibilityRole="button"
-              hitSlop={8}
-            >
-              {working ? (
-                <Spinner size="small" color={brand.orange} />
-              ) : (
-                <Text
-                  className="text-[16px] font-semibold"
-                  style={{ color: actionReady ? brand.orange : theme.textMuted }}
-                >
-                  {actionLabel}
-                </Text>
-              )}
-            </Pressable>
-          ),
+          // The AI pane has nothing for this to act on.
+          headerRight: () =>
+            hidden ? null : (
+              <Pressable
+                onPress={action}
+                disabled={!actionReady || working}
+                accessibilityRole="button"
+                hitSlop={8}
+              >
+                {working ? (
+                  <Spinner size="small" color={brand.orange} />
+                ) : (
+                  <Text
+                    className="text-[16px] font-semibold"
+                    style={{ color: actionReady ? brand.orange : theme.textMuted }}
+                  >
+                    {actionLabel}
+                  </Text>
+                )}
+              </Pressable>
+            ),
         }}
       />
 
@@ -408,11 +565,11 @@ function CreateEventForm({
                       <Choice
                         key={template.id}
                         label={template.name}
-                        selected={templateId === template.id}
+                        selected={!fromDraft && templateId === template.id}
                         onPress={() => onPickTemplate(template.id)}
                       />
                     ))}
-                    {templateId ? (
+                    {templateId || fromDraft ? (
                       <Choice
                         label="Start blank"
                         selected={false}
@@ -612,7 +769,7 @@ function CreateEventForm({
               </HStack>
 
               <Pressable
-                onPress={() => setStep(1)}
+                onPress={() => onStep(1)}
                 accessibilityRole="button"
                 className="items-center py-2 data-[active=true]:opacity-60"
               >

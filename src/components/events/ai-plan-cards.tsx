@@ -17,7 +17,7 @@ import type { AiPlan } from "@/types/billing";
 export const PLAN_COPY: Record<AiPlan, { name: string; price: string; blurb: string; features: string[] }> = {
   premium: {
     name: "Premium",
-    price: "$29.99/month",
+    price: "$39.99/month",
     blurb: "Let AI build the setlist from your catalog.",
     features: [
       "AI setlist generation",
@@ -28,10 +28,11 @@ export const PLAN_COPY: Record<AiPlan, { name: string; price: string; blurb: str
   },
   pro: {
     name: "Pro",
-    price: "$39.99/month",
-    blurb: "A stronger model that can research beyond your catalog.",
+    price: "$49.99/month",
+    blurb: "Drafts whole events, and researches beyond your catalog.",
     features: [
       "Everything in Premium",
+      "AI event drafting with volunteer picks",
       "Upgraded, more capable AI model",
       "Web search for songs and artists",
       "Suggests songs you don't own yet",

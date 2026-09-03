@@ -4,13 +4,15 @@ import { useRouter } from "expo-router";
 import Building2 from "lucide-react-native/icons/building-2";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
 import Plus from "lucide-react-native/icons/plus";
-import { type ReactNode } from "react";
-import { FlatList, RefreshControl } from "react-native";
+import { useState, type ReactNode } from "react";
+import { Alert, FlatList, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppIcon, type AppIconName } from "@/components/app-icon";
 import { Logo } from "@/components/logo";
 import { OrganizationRow } from "@/components/organization-row";
+import { CreateOrganizationDialog } from "@/components/organizations/create-organization-dialog";
+import { InvitationCard } from "@/components/organizations/invitation-card";
 import { useCurrentOrganization } from "@/components/organization-provider";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Heading } from "@/components/ui/heading";
@@ -19,8 +21,13 @@ import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
+import {
+  useMyInvitations,
+  useRespondToOrgInvitation,
+} from "@/hooks/use-my-invitations";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { useTheme } from "@/hooks/use-theme";
+import { failureMessage } from "@/lib/failure";
 
 /**
  * Choosing which organization the tabs read from.
@@ -44,8 +51,17 @@ export default function OrganizationsScreen() {
   const { data, isPending, isError, error, refetch, isRefetching } =
     useOrganizations();
 
+  // What is waiting on this account. The one screen somebody with no
+  // organizations can reach, so it is where an invitation has to be answerable.
+  const invitations = useMyInvitations();
+  const respond = useRespondToOrgInvitation();
+
+  const waiting = invitations.data ?? [];
+  const busy = respond.isPending ? respond.variables : undefined;
+
   const organizations = data ?? [];
-  const onCreate = () => {};
+  const [creating, setCreating] = useState(false);
+  const onCreate = () => setCreating(true);
 
   const choose = (organizationId: string) => {
     select(organizationId);
@@ -54,6 +70,30 @@ export default function OrganizationsScreen() {
       router.back();
     } else {
       router.replace("/");
+    }
+  };
+
+  // The new organization is the one they came to make: select it and go.
+  const onCreated = (organizationId: string) => {
+    setCreating(false);
+    choose(organizationId);
+  };
+
+  const answer = async (token: string, action: "accept" | "decline") => {
+    try {
+      const result = await respond.mutateAsync({ token, action });
+
+      if (action === "accept" && result.orgId) {
+        // The membership list is what `choose` resolves against, so it has to
+        // have landed before we send the tabs at the new organization.
+        await refetch();
+        choose(result.orgId);
+      }
+    } catch (error) {
+      Alert.alert(
+        action === "accept" ? "Couldn't accept" : "Couldn't decline",
+        failureMessage(error),
+      );
     }
   };
 
@@ -97,20 +137,48 @@ export default function OrganizationsScreen() {
         ItemSeparatorComponent={() => <VStack className="h-2.5" />}
         refreshControl={
           <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
+            refreshing={isRefetching || invitations.isRefetching}
+            onRefresh={() => {
+              refetch();
+              invitations.refetch();
+            }}
             tintColor={theme.textMuted}
             colors={[brand.orange]}
           />
         }
         ListHeaderComponent={
-          <VStack className="gap-1 pb-3.5 pt-5">
-            <Heading size="2xl" className="tracking-[-0.4px] text-foreground">
-              Organizations
-            </Heading>
-            <Text className="text-[15px] text-muted-foreground">
-              {ledeFor({ isPending, isError, count: organizations.length })}
-            </Text>
+          <VStack className="pt-5">
+            <VStack className="gap-1 pb-3.5">
+              <Heading size="2xl" className="tracking-[-0.4px] text-foreground">
+                Organizations
+              </Heading>
+              <Text className="text-[15px] text-muted-foreground">
+                {ledeFor({
+                  isPending,
+                  isError,
+                  count: organizations.length,
+                  invitations: waiting.length,
+                })}
+              </Text>
+            </VStack>
+
+            {waiting.length > 0 ? (
+              <VStack className="gap-2.5 pb-4">
+                <Text className="ml-1 text-xs font-bold uppercase tracking-[0.7px] text-muted-foreground">
+                  {waiting.length === 1 ? "Invitation" : "Invitations"}
+                </Text>
+
+                {waiting.map((invitation) => (
+                  <InvitationCard
+                    key={invitation.id}
+                    invitation={invitation}
+                    busy={busy?.token === invitation.token ? busy.action : undefined}
+                    onAccept={() => answer(invitation.token, "accept")}
+                    onDecline={() => answer(invitation.token, "decline")}
+                  />
+                ))}
+              </VStack>
+            ) : null}
           </VStack>
         }
         renderItem={({ item }) => (
@@ -143,7 +211,11 @@ export default function OrganizationsScreen() {
             <EmptyState
               icon={Building2}
               title="No organizations yet"
-              body="Create one, or ask an owner to send you an invitation."
+              body={
+                waiting.length > 0
+                  ? "Accept an invitation above to get started."
+                  : "Create one, or ask an owner to send you an invitation."
+              }
             />
           )
         }
@@ -165,6 +237,12 @@ export default function OrganizationsScreen() {
             </Button>
           )
         }
+      />
+
+      <CreateOrganizationDialog
+        visible={creating}
+        onClose={() => setCreating(false)}
+        onCreated={onCreated}
       />
     </SafeAreaView>
   );
@@ -197,12 +275,13 @@ type LedeState = {
   isPending: boolean;
   isError: boolean;
   count: number;
+  invitations: number;
 };
 
-function ledeFor({ isPending, isError, count }: LedeState): string {
+function ledeFor({ isPending, isError, count, invitations }: LedeState): string {
   if (isPending) return "Loading your teams…";
   if (isError) return "Pull down to try again.";
-  return count > 0
-    ? "Choose a team to work in."
-    : "Create a team to get started.";
+  if (count > 0) return "Choose a team to work in.";
+  if (invitations > 0) return "You've been invited to join a team.";
+  return "Create a team to get started.";
 }

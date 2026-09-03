@@ -19,8 +19,9 @@ import {
   SongRow,
   SongRowSkeleton,
 } from "@/components/songs/song-row";
-import { SongFormSheet } from "@/components/songs/song-form-sheet";
-import { FilterSheet, SortSheet } from "@/components/songs/song-sheets";
+import { SongAttachmentsDialog } from "@/components/songs/song-attachments-dialog";
+import { SongFormDialog } from "@/components/songs/song-form-dialog";
+import { FilterDialog, SortDialog } from "@/components/songs/song-dialogs";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
 import { HStack } from "@/components/ui/hstack";
@@ -81,6 +82,11 @@ export default function SongsScreen() {
     undefined,
   );
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Which song's charts and tracks are open. Held by id rather than by value,
+  // so the list stays live: an upload refetches the library and the dialog has
+  // to redraw from the new row, not the one that was passed in.
+  const [attachingId, setAttachingId] = useState<string | null>(null);
 
   const library = songs.data ?? NO_SONGS;
 
@@ -150,6 +156,12 @@ export default function SongsScreen() {
   const openActions = (song: LibrarySong) => {
     Alert.alert(song.title, song.artist, [
       { text: "Edit details", onPress: () => setEditing(song) },
+      {
+        text: song.attachments.length
+          ? `Attachments (${song.attachments.length})`
+          : "Add attachments",
+        onPress: () => setAttachingId(song.id),
+      },
       {
         text: "Delete song",
         style: "destructive",
@@ -301,7 +313,7 @@ export default function SongsScreen() {
         )}
       </ScrollView>
 
-      <FilterSheet
+      <FilterDialog
         visible={filtersOpen}
         onClose={() => setFiltersOpen(false)}
         themes={themes}
@@ -320,14 +332,14 @@ export default function SongsScreen() {
         }}
       />
 
-      <SortSheet
+      <SortDialog
         visible={sortOpen}
         onClose={() => setSortOpen(false)}
         sort={sort}
         onSelect={setSort}
       />
 
-      <SongFormSheet
+      <SongFormDialog
         visible={editing !== undefined}
         song={editing ?? undefined}
         submitting={saving}
@@ -337,6 +349,13 @@ export default function SongsScreen() {
           setEditing(undefined);
           setFormError(null);
         }}
+      />
+
+      <SongAttachmentsDialog
+        visible={attachingId !== null}
+        song={library.find((song) => song.id === attachingId)}
+        organizationId={organizationId}
+        onClose={() => setAttachingId(null)}
       />
     </VStack>
   );

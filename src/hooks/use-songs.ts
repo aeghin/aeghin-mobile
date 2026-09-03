@@ -2,7 +2,7 @@ import { useAuth } from "@clerk/expo";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
-import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
+import { apiDelete, apiGet, apiPatch, apiPost, apiUpload, type UploadFile } from "@/lib/api";
 import type { LibrarySong, SongInput } from "@/types/song";
 
 type SongsResponse = {
@@ -109,6 +109,64 @@ export function useDeleteSong(orgId: string) {
   return useMutation({
     mutationFn: (songId: string) =>
       apiDelete<{ success: true }>(`${songsPath(orgId)}/${songId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: songsKey(userId, orgId) });
+    },
+  });
+}
+
+/** What the upload route answers with — some files can land while others don't. */
+export type AttachmentUploadResult = {
+  added: number;
+  skipped: number;
+};
+
+export type NewAttachments = {
+  songId: string;
+  files: UploadFile[];
+};
+
+/**
+ * Attaches charts or tracks to a song.
+ *
+ * The bytes go to our own API rather than to UploadThing, which the dashboard
+ * talks to straight from the browser — there is no UploadThing client for
+ * React Native, so the server does that leg with `UTApi`. Uploads are slow
+ * enough that this is the one mutation worth showing progress for, which is
+ * why nothing here is optimistic.
+ */
+export function useAddAttachments(orgId: string) {
+  const { userId } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ songId, files }: NewAttachments) =>
+      apiUpload<AttachmentUploadResult>(
+        `${songsPath(orgId)}/${songId}/attachments`,
+        "files",
+        files,
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: songsKey(userId, orgId) });
+    },
+  });
+}
+
+export type AttachmentRef = {
+  songId: string;
+  attachmentId: string;
+};
+
+/** Removes one, from UploadThing's storage as well as the library. */
+export function useDeleteAttachment(orgId: string) {
+  const { userId } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ songId, attachmentId }: AttachmentRef) =>
+      apiDelete<{ success: true }>(
+        `${songsPath(orgId)}/${songId}/attachments/${attachmentId}`,
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: songsKey(userId, orgId) });
     },

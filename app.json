@@ -39,7 +39,13 @@
       ],
       "@clerk/expo",
       "expo-secure-store",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Aeghin uses your photos so you can set your organization's logo."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

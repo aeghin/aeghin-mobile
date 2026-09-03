@@ -1,8 +1,8 @@
 import { useAuth } from "@clerk/expo";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { apiGet } from "@/lib/api";
-import type { ServiceType } from "@/types/event";
+import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
+import type { ServiceType, ServiceTypeColor } from "@/types/event";
 
 type ServiceTypesResponse = {
   serviceTypes: ServiceType[];
@@ -28,6 +28,49 @@ export function useServiceTypes(orgId: string) {
         `/api/mobile/v1/organizations/${orgId}/service-types`,
       );
       return serviceTypes;
+    },
+  });
+}
+
+const serviceTypesKey = (orgId: string) => ["organizations", orgId, "service-types"];
+
+const serviceTypesPath = (orgId: string) =>
+  `/api/mobile/v1/organizations/${orgId}/service-types`;
+
+export type ServiceTypeInput = { name: string; color: ServiceTypeColor };
+
+export function useAddServiceType(orgId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: ServiceTypeInput) =>
+      apiPost<{ serviceType: ServiceType | null }>(serviceTypesPath(orgId), input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: serviceTypesKey(orgId) });
+    },
+  });
+}
+
+export function useUpdateServiceType(orgId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, ...input }: ServiceTypeInput & { id: string }) =>
+      apiPatch<{ success: true }>(`${serviceTypesPath(orgId)}/${id}`, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: serviceTypesKey(orgId) });
+    },
+  });
+}
+
+export function useDeleteServiceType(orgId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiDelete<{ success: true }>(`${serviceTypesPath(orgId)}/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: serviceTypesKey(orgId) });
     },
   });
 }

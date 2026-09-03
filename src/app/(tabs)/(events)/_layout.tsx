@@ -13,5 +13,14 @@ import { Stack } from "expo-router";
  * back underneath the header.
  */
 export default function EventsLayout() {
-  return <Stack screenOptions={{ title: "" }} />;
+  return (
+    <Stack screenOptions={{ title: "" }}>
+      {/* Declared here rather than in the screen: changing a modal's header
+          visibility from inside remounts it and drops its state. */}
+      <Stack.Screen
+        name="events/[eventId]/chat"
+        options={{ presentation: "modal", headerShown: false }}
+      />
+    </Stack>
+  );
 }

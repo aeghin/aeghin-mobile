@@ -3,12 +3,13 @@ import Calendar from "lucide-react-native/icons/calendar";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
 import CircleCheckBig from "lucide-react-native/icons/circle-check-big";
 import ListFilter from "lucide-react-native/icons/list-filter";
+import Plus from "lucide-react-native/icons/plus";
 import { useCallback, useState } from "react";
 import { Alert, RefreshControl, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppHeader } from "@/components/app-header";
-import type { AppIconName } from "@/components/app-icon";
+import { AppIcon, type AppIconName } from "@/components/app-icon";
 import { DayHeading } from "@/components/events/day-heading";
 import {
   EventCard,
@@ -32,6 +33,7 @@ import {
 import { UpNextCard } from "@/components/events/up-next-card";
 import { useCurrentOrganization } from "@/components/organization-provider";
 import { Box } from "@/components/ui/box";
+import { Button, ButtonText } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
@@ -419,6 +421,23 @@ export default function EventsScreen() {
               value={serviceId}
               onChange={setServiceId}
             />
+          ) : null}
+
+          {/* The header's two ends are already the app mark and the
+              organization switcher, so creating an event lives in the page. */}
+          {canManage ? (
+            <Box className="px-4">
+              <Button
+                variant="outline"
+                onPress={() => router.push("/events/create")}
+                className="h-auto rounded-2xl border-dashed border-border py-3"
+              >
+                <AppIcon icon={Plus} size={18} color={brand.orange} />
+                <ButtonText className="text-[15px] font-semibold text-brand">
+                  New event
+                </ButtonText>
+              </Button>
+            </Box>
           ) : null}
         </VStack>
 

@@ -205,3 +205,117 @@ export type EventDetails = {
   /** Managers only; 0 for everybody else. */
   expiredInviteCount: number;
 };
+
+/**
+ * ── Creating an event ───────────────────────────────────────────────────
+ *
+ * What `POST /api/mobile/v1/organizations/:orgId/events` takes. Not the
+ * dashboard form's own shape: the web carries a `dateRange` its action never
+ * reads and a record keyed by date, both artefacts of its wizard. This is the
+ * thing itself, and the route assembles what the action wants.
+ */
+
+/** One day the event runs. Times are wall-clock, read in UTC like every other. */
+export type NewEventDay = {
+  /** `"2026-09-27"`. */
+  date: string;
+  /** `"10:00"`. */
+  startTime: string;
+  endTime: string;
+};
+
+export type NewEvent = {
+  serviceTypeId: string;
+  name: string;
+  description?: string;
+  location: string;
+  days: NewEventDay[];
+  rolesNeeded: VolunteerRole[];
+  /** Days an invitee has to answer: 3, 5 or 7. */
+  expiresAt: number;
+  smartSchedulingEnabled: boolean;
+  /** Who to invite, per role. Every role optional. */
+  roleAssignments: Record<string, string[]>;
+};
+
+/**
+ * One day of a template's schedule.
+ *
+ * A wall clock, not an instant: a template has no date until an event is built
+ * from it. Position in the array is the day offset from `dayOfWeek` — the
+ * server writes `dayOffset: index` and reads them back in that order, which is
+ * what lets a template become a contiguous date range.
+ */
+export type EventTemplateDay = {
+  /** `"09:00"`. */
+  startTime: string;
+  endTime: string;
+};
+
+/** A saved starting point for an event. Owners and admins only. */
+export type EventTemplate = {
+  id: string;
+  name: string;
+  description: string;
+  location: string;
+  /** `0` Sunday … `6` Saturday, matching `Date.getDay()`. */
+  dayOfWeek: number;
+  days: EventTemplateDay[];
+  rolesNeeded: VolunteerRole[];
+  /** Days an invitee gets to answer on events built from this: 3, 5 or 7. */
+  expiresInDays: number;
+  smartSchedulingEnabled: boolean;
+  serviceTypeId: string;
+  serviceType: ServiceType;
+};
+
+/** What both template write routes take. The organization comes from the path. */
+export type EventTemplateInput = {
+  serviceTypeId: string;
+  name: string;
+  description?: string;
+  location: string;
+  dayOfWeek: number;
+  days: EventTemplateDay[];
+  rolesNeeded: VolunteerRole[];
+  expiresInDays: number;
+  smartSchedulingEnabled: boolean;
+};
+
+/**
+ * What the edit screen sends back: the fields the dashboard's "edit event
+ * details" dialog owns. Not the service type, the roles or the roster — those
+ * have their own controls on the detail screen, and the web's dialog leaves
+ * them alone too.
+ */
+export type EventEdit = {
+  name: string;
+  description?: string;
+  location: string;
+  days: NewEventDay[];
+};
+
+/** An event somebody is already booked on over the hours being planned. */
+export type MemberConflict = {
+  eventName: string;
+  startTime: string;
+  endTime: string;
+};
+
+/** A member's own declared unavailability. */
+export type MemberBlockout = {
+  startDate: string;
+  endDate: string;
+};
+
+/**
+ * Who cannot make the hours being planned, keyed by user id.
+ *
+ * The two halves are not the same weight. A blockout is refused by the server
+ * outright; a conflict is the manager's call, so the picker warns and lets
+ * them go ahead.
+ */
+export type MemberAvailability = {
+  conflicts: Record<string, MemberConflict>;
+  blockouts: Record<string, MemberBlockout>;
+};

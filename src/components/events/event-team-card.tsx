@@ -75,6 +75,10 @@ type EventTeamCardProps = {
   currentUserId: string;
   /** The event's service type, which tints the card's header the way the web does. */
   service: ServiceType;
+  /** Managers only: take somebody off the event. Live rows become tappable. */
+  onRemoveAssignment?: (assignment: EventDetailsAssignment) => void;
+  /** Managers only: take an empty role off the roster. */
+  onRemoveRole?: (role: VolunteerRole) => void;
 };
 
 /**
@@ -89,10 +93,14 @@ export function EventTeamCard({
   rolesNeeded,
   currentUserId,
   service,
+  onRemoveAssignment,
+  onRemoveRole,
 }: EventTeamCardProps) {
   const theme = useTheme();
   const colors = getServiceColors(service.color, theme);
   const [open, setOpen] = useState<RoleCategory[]>(DEFAULT_OPEN);
+  // Read once per mount: "has this invitation lapsed" must not flip mid-render.
+  const [now] = useState(() => Date.now());
 
   const total = assignments.length;
   const acceptedCount = assignments.filter(
@@ -202,6 +210,9 @@ export function EventTeamCard({
                       key={group.role}
                       group={group}
                       currentUserId={currentUserId}
+                      onRemoveAssignment={onRemoveAssignment}
+                      onRemoveRole={onRemoveRole}
+                      now={now}
                     />
                   ))}
                 </VStack>
@@ -225,14 +236,32 @@ function Chevron({ expanded }: { expanded: boolean }) {
   );
 }
 
+/** Accepted, or pending and not yet lapsed — somebody the role still counts on. */
+function isLive(assignment: EventDetailsAssignment, now: number): boolean {
+  return (
+    assignment.status === "ACCEPTED" ||
+    (assignment.status === "PENDING" && new Date(assignment.expiresAt).getTime() > now)
+  );
+}
+
 function RoleGroupBlock({
   group,
   currentUserId,
+  onRemoveAssignment,
+  onRemoveRole,
+  now,
 }: {
   group: RoleGroup;
   currentUserId: string;
+  onRemoveAssignment?: (assignment: EventDetailsAssignment) => void;
+  onRemoveRole?: (role: VolunteerRole) => void;
+  now: number;
 }) {
+  const theme = useTheme();
   const { label, emoji } = getVolunteerRoleConfig(group.role);
+
+  // The server only lets a role go when nobody is live on it; offer it then.
+  const removable = onRemoveRole && !group.items.some((item) => isLive(item, now));
 
   return (
     <VStack className="gap-2">
@@ -251,6 +280,20 @@ function RoleGroupBlock({
         >
           {`· ${group.items.length}`}
         </Text>
+
+        {removable ? (
+          <Pressable
+            onPress={() => onRemoveRole(group.role)}
+            accessibilityRole="button"
+            accessibilityLabel={`Remove ${label} from this event`}
+            hitSlop={6}
+            className="ml-auto"
+          >
+            <Text className="text-[11px] font-semibold" style={{ color: theme.destructive }}>
+              Remove role
+            </Text>
+          </Pressable>
+        ) : null}
       </HStack>
 
       {group.items.length === 0 ? (
@@ -264,6 +307,11 @@ function RoleGroupBlock({
               key={assignment.id}
               assignment={assignment}
               isCurrentUser={assignment.userId === currentUserId}
+              onPress={
+                onRemoveAssignment && isLive(assignment, now)
+                  ? () => onRemoveAssignment(assignment)
+                  : undefined
+              }
             />
           ))}
         </VStack>
@@ -275,9 +323,12 @@ function RoleGroupBlock({
 function AssignmentRow({
   assignment,
   isCurrentUser,
+  onPress,
 }: {
   assignment: EventDetailsAssignment;
   isCurrentUser: boolean;
+  /** Managers only: the row opens the remove-from-event confirmation. */
+  onPress?: () => void;
 }) {
   const theme = useTheme();
 
@@ -288,6 +339,13 @@ function AssignmentRow({
     `${assignment.user.firstName} ${assignment.user.lastName}`.trim();
 
   return (
+    <Pressable
+      onPress={onPress}
+      disabled={!onPress}
+      accessibilityRole={onPress ? "button" : undefined}
+      accessibilityHint={onPress ? "Removes them from this event" : undefined}
+      className="data-[active=true]:opacity-60"
+    >
     <HStack
       className="items-center gap-2.5 rounded-xl border px-2.5 py-2"
       style={
@@ -345,5 +403,6 @@ function AssignmentRow({
         {status.label}
       </Text>
     </HStack>
+    </Pressable>
   );
 }

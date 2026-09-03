@@ -2,11 +2,16 @@ import { useAuth } from "@clerk/expo";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
-import { apiGet, apiPost } from "@/lib/api";
+import { apiDelete, apiDeleteWithBody, apiGet, apiPatch, apiPost } from "@/lib/api";
 import type {
   EventDetails,
+  EventEdit,
   InvitationStatus,
+  MemberAvailability,
+  NewEvent,
+  NewEventDay,
   OrganizationEvent,
+  VolunteerRole,
 } from "@/types/event";
 
 type EventsResponse = {
@@ -221,4 +226,138 @@ function applyAnswer(
         }
       : event,
   );
+}
+
+const eventPath = (orgId: string, eventId: string) =>
+  `/api/mobile/v1/organizations/${orgId}/events/${eventId}`;
+
+/**
+ * The manager's writes on one event. Each expires the detail, the caller's
+ * list and the roster-wide list together: every one of them changes what at
+ * least two of those show.
+ */
+function useEventWrite<TVariables, TData = { success: true }>(
+  orgId: string,
+  eventId: string,
+  mutationFn: (variables: TVariables) => Promise<TData>,
+) {
+  const { userId } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: eventDetailsKey(userId, orgId, eventId) });
+      queryClient.invalidateQueries({ queryKey: ["organizations", userId, "user-events", orgId] });
+      queryClient.invalidateQueries({ queryKey: ["organizations", userId, "org-events", orgId] });
+    },
+  });
+}
+
+/**
+ * Renames, re-describes, moves or reschedules an event, keeping its roster,
+ * setlist and chat.
+ *
+ * The route refuses dates that clash with somebody already on the event, and
+ * names them — the screen shows that message rather than guessing at it.
+ */
+export function useEditEvent(orgId: string, eventId: string) {
+  return useEventWrite(orgId, eventId, (edit: EventEdit) =>
+    apiPatch<{ success: true }>(eventPath(orgId, eventId), edit),
+  );
+}
+
+export function useSetSmartScheduling(orgId: string, eventId: string) {
+  return useEventWrite(orgId, eventId, (enabled: boolean) =>
+    apiPatch<{ success: true }>(eventPath(orgId, eventId), {
+      smartSchedulingEnabled: enabled,
+    }),
+  );
+}
+
+export function useAddEventRoles(orgId: string, eventId: string) {
+  return useEventWrite(orgId, eventId, (roles: VolunteerRole[]) =>
+    apiPost<{ success: true }>(`${eventPath(orgId, eventId)}/roles`, { roles }),
+  );
+}
+
+export function useRemoveEventRole(orgId: string, eventId: string) {
+  return useEventWrite(orgId, eventId, (role: VolunteerRole) =>
+    apiDeleteWithBody(`${eventPath(orgId, eventId)}/roles`, { role }),
+  );
+}
+
+export type InviteToEventInput = {
+  role: VolunteerRole;
+  userIds: string[];
+  expiresAt: 3 | 5 | 7;
+};
+
+export type InviteToEventResult = { invitedCount: number; skippedNames: string[] };
+
+export function useInviteToEvent(orgId: string, eventId: string) {
+  return useEventWrite(orgId, eventId, (input: InviteToEventInput) =>
+    apiPost<InviteToEventResult>(`${eventPath(orgId, eventId)}/invitations`, input),
+  );
+}
+
+export function useCancelAssignment(orgId: string, eventId: string) {
+  return useEventWrite(orgId, eventId, (memberId: string) =>
+    apiDelete<{ success: true }>(`${eventPath(orgId, eventId)}/assignments/${memberId}`),
+  );
+}
+
+export function useEmailTeam(orgId: string, eventId: string) {
+  return useMutation({
+    mutationFn: (input: { subject: string; body: string }) =>
+      apiPost<{ sentCount: number }>(`${eventPath(orgId, eventId)}/email`, input),
+  });
+}
+
+export function useDeleteEvent(orgId: string, eventId: string) {
+  return useEventWrite(orgId, eventId, () =>
+    apiDelete<{ success: true }>(eventPath(orgId, eventId)),
+  );
+}
+
+const eventsPath = (orgId: string) => `/api/mobile/v1/organizations/${orgId}/events`;
+
+/**
+ * Creates an event.
+ *
+ * Not optimistic: the id is the server's to mint, and the same call is what
+ * enforces every rule about who may be assigned to what.
+ */
+export function useCreateEvent(orgId: string) {
+  const { userId } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (event: NewEvent) =>
+      apiPost<{ success: true }>(eventsPath(orgId), event),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["organizations", userId, "org-events", orgId] });
+      // Assigning somebody puts the event on their own list too, and the
+      // creator is often one of them.
+      queryClient.invalidateQueries({ queryKey: ["organizations", userId, "user-events", orgId] });
+      // `upcomingEventCount` lives on the organization detail.
+      queryClient.invalidateQueries({ queryKey: ["organizations", userId, "detail", orgId] });
+    },
+  });
+}
+
+/**
+ * Who is already booked, or unavailable, over a set of hours.
+ *
+ * A mutation rather than a query because it is asked once, when the form has
+ * settled on its days — the same moment the web asks.
+ */
+export function useCheckAvailability(orgId: string) {
+  return useMutation({
+    mutationFn: (input: { days: NewEventDay[]; excludeEventId?: string }) =>
+      apiPost<MemberAvailability>(
+        `/api/mobile/v1/organizations/${orgId}/availability`,
+        input,
+      ),
+  });
 }

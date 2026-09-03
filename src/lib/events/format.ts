@@ -287,3 +287,22 @@ export function formatDateTile(value: string | Date): {
     weekday: part({ weekday: "short" }).toUpperCase(),
   };
 }
+
+/**
+ * Every day key from `start` to `end`, inclusive.
+ *
+ * Walked in UTC, like everything else here: stepping a local Date across a
+ * daylight-saving boundary can land twice on the same calendar day or skip
+ * one, and an event's days are exactly what must not drift.
+ */
+export function daysInRange(start: string, end: string): string[] {
+  const total = daysBetween(start, end);
+
+  if (total < 0) return [];
+
+  const first = keyToDate(start).getTime();
+
+  return Array.from({ length: total + 1 }, (_, index) =>
+    dayKey(new Date(first + index * 86_400_000)),
+  );
+}

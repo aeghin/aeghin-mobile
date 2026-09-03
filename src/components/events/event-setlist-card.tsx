@@ -36,6 +36,10 @@ const SEPARATOR_INSET = 14 + NUMBER + 10;
 type EventSetlistCardProps = {
   setlist: EventSetlistSong[];
   service: ServiceType;
+  /** Managers only: a row opens the vocalist picker for that song. */
+  onSongPress?: (song: EventSetlistSong) => void;
+  /** Managers only: opens the editor. */
+  onEdit?: () => void;
 };
 
 /**
@@ -48,7 +52,7 @@ type EventSetlistCardProps = {
  * Editing lives on the dashboard. The links and charts are the part that has
  * to work from a phone, so those are the only things here that do anything.
  */
-export function EventSetlistCard({ setlist, service }: EventSetlistCardProps) {
+export function EventSetlistCard({ setlist, service, onSongPress, onEdit }: EventSetlistCardProps) {
   const theme = useTheme();
   const colors = getServiceColors(service.color, theme);
 
@@ -59,11 +63,20 @@ export function EventSetlistCard({ setlist, service }: EventSetlistCardProps) {
         title="Setlist"
         tint={colors.text}
         trailing={
-          setlist.length > 0 ? (
-            <DetailCount>
-              {`${setlist.length} ${setlist.length === 1 ? "song" : "songs"}`}
-            </DetailCount>
-          ) : null
+          <HStack className="items-center gap-3">
+            {setlist.length > 0 ? (
+              <DetailCount>
+                {`${setlist.length} ${setlist.length === 1 ? "song" : "songs"}`}
+              </DetailCount>
+            ) : null}
+            {onEdit ? (
+              <Pressable onPress={onEdit} accessibilityRole="button" hitSlop={8}>
+                <Text className="text-[13px] font-semibold" style={{ color: colors.text }}>
+                  Edit
+                </Text>
+              </Pressable>
+            ) : null}
+          </HStack>
         }
       />
 
@@ -76,7 +89,11 @@ export function EventSetlistCard({ setlist, service }: EventSetlistCardProps) {
               {index > 0 ? (
                 <Divider style={{ marginLeft: SEPARATOR_INSET }} />
               ) : null}
-              <SetlistRow song={song} position={index + 1} />
+              <SetlistRow
+                song={song}
+                position={index + 1}
+                onPress={onSongPress ? () => onSongPress(song) : undefined}
+              />
             </VStack>
           ))}
         </VStack>
@@ -88,9 +105,11 @@ export function EventSetlistCard({ setlist, service }: EventSetlistCardProps) {
 function SetlistRow({
   song,
   position,
+  onPress,
 }: {
   song: EventSetlistSong;
   position: number;
+  onPress?: () => void;
 }) {
   const theme = useTheme();
 
@@ -103,6 +122,13 @@ function SetlistRow({
     song.attachments.length > 0;
 
   return (
+    <Pressable
+      onPress={onPress}
+      disabled={!onPress}
+      accessibilityRole={onPress ? "button" : undefined}
+      accessibilityHint={onPress ? "Assign vocalists" : undefined}
+      className="data-[active=true]:bg-border/40"
+    >
     <HStack className="items-start gap-2.5 px-3.5 py-2.5">
       <Center
         className="mt-0.5 shrink-0 rounded-md bg-surface"
@@ -188,6 +214,7 @@ function SetlistRow({
         ) : null}
       </VStack>
     </HStack>
+    </Pressable>
   );
 }
 

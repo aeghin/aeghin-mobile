@@ -1,6 +1,9 @@
+import ChevronRight from "lucide-react-native/icons/chevron-right";
+
 import { AppIcon } from "@/components/app-icon";
 import { OrgAvatar } from "@/components/org-avatar";
 import { HStack } from "@/components/ui/hstack";
+import { Pressable } from "@/components/ui/pressable";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
@@ -23,6 +26,8 @@ type MemberRowProps = {
   member: OrganizationMember;
   /** Marks the signed-in user's own row. */
   isYou?: boolean;
+  /** Opens the member's own screen. */
+  onPress?: () => void;
 };
 
 /**
@@ -31,7 +36,7 @@ type MemberRowProps = {
  * Draws no surface of its own — the `InsetCard` owns the background, the
  * rounding and the separators.
  */
-export function MemberRow({ member, isYou }: MemberRowProps) {
+export function MemberRow({ member, isYou, onPress }: MemberRowProps) {
   const theme = useTheme();
   const { firstName, lastName, email, imageUrl, role } = member;
 
@@ -40,6 +45,12 @@ export function MemberRow({ member, isYou }: MemberRowProps) {
   const fullName = [firstName, lastName].filter(Boolean).join(" ") || email;
 
   return (
+    <Pressable
+      onPress={onPress}
+      disabled={!onPress}
+      accessibilityRole={onPress ? "button" : undefined}
+      className="data-[active=true]:bg-border/60"
+    >
     <HStack space="md" className={ROW_CLASS}>
       {/* People read as circles; the squircle is for organization logos. */}
       <OrgAvatar
@@ -68,7 +79,10 @@ export function MemberRow({ member, isYou }: MemberRowProps) {
         <AppIcon icon={icon} size={12} color={tint} />
         <Text className={`text-[13px] font-semibold ${textClass}`}>{label}</Text>
       </HStack>
+
+      {onPress ? <AppIcon icon={ChevronRight} size={14} color={theme.textMuted} /> : null}
     </HStack>
+    </Pressable>
   );
 }
 

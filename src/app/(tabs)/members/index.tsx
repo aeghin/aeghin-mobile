@@ -1,17 +1,24 @@
 import { useUser } from "@clerk/expo";
+import { useRouter } from "expo-router";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
+import Mail from "lucide-react-native/icons/mail";
+import Megaphone from "lucide-react-native/icons/megaphone";
 import SearchX from "lucide-react-native/icons/search-x";
+import UserPlus from "lucide-react-native/icons/user-plus";
 import Users from "lucide-react-native/icons/users";
+import { useState } from "react";
 import { RefreshControl, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppIcon, type AppIconName } from "@/components/app-icon";
-import { InsetCard } from "@/components/inset-list";
+import { InsetCard, InsetRow } from "@/components/inset-list";
 import {
   MEMBER_SEPARATOR_INSET,
   MemberRow,
   MemberRowSkeleton,
 } from "@/components/member-row";
+import { EmailOrganizationDialog } from "@/components/members/email-organization-dialog";
+import { InviteMemberDialog } from "@/components/members/invite-member-dialog";
 import { AppHeader } from "@/components/app-header";
 import { useMembersSearch } from "@/components/members-search-provider";
 import { useCurrentOrganization } from "@/components/organization-provider";
@@ -19,7 +26,9 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
 import { useMembersList } from "@/hooks/use-members-list";
+import { useOrganizationDetails } from "@/hooks/use-organizations";
 import { useTheme } from "@/hooks/use-theme";
+import { canManageOrg } from "@/lib/config/roles";
 import type { OrgRole, OrganizationMember } from "@/types/organization";
 
 /** Seniority order. The badge on each row is what names the role. */
@@ -34,15 +43,24 @@ const SEARCH_ACCESSORY_HEIGHT = 62;
 export default function OrganizationMembersScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { user } = useUser();
 
   // The organization comes from the provider, not from a route param: the tabs
   // are permanent and have no `[id]` segment above them to read.
   const { organization } = useCurrentOrganization();
   const id = organization?.id ?? "";
+  const canManage = canManageOrg(organization?.role);
 
   const { data, isPending, isError, refetch, isRefetching } =
     useMembersList(id);
+
+  // Only for the pending count on the invitations row.
+  const details = useOrganizationDetails(id);
+  const pending = details.data?.pendingInvitationCount ?? 0;
+
+  const [inviting, setInviting] = useState(false);
+  const [emailing, setEmailing] = useState(false);
 
   // The summary already carries `memberCount`, so the placeholder list is
   // usually the exact length of the real one and nothing shifts on arrival.
@@ -98,6 +116,25 @@ export default function OrganizationMembersScreen() {
           />
         }
       >
+        {canManage && !needle ? (
+          <InsetCard elevated className="mb-4">
+            <InsetRow icon={UserPlus} label="Invite member" onPress={() => setInviting(true)} />
+            <InsetRow
+              icon={Mail}
+              label="Invitations"
+              value={pending > 0 ? `${pending} pending` : undefined}
+              onPress={() => router.push("/members/invitations")}
+            />
+            {members.length > 1 ? (
+              <InsetRow
+                icon={Megaphone}
+                label="Email everyone"
+                onPress={() => setEmailing(true)}
+              />
+            ) : null}
+          </InsetCard>
+        ) : null}
+
         {isPending ? (
           <InsetCard elevated separatorInset={MEMBER_SEPARATOR_INSET}>
             {Array.from({ length: skeletonCount }, (_, index) => (
@@ -113,12 +150,31 @@ export default function OrganizationMembersScreen() {
                 key={member.id}
                 member={member}
                 isYou={member.email.toLowerCase() === myEmail}
+                onPress={() => router.push(`/members/${member.id}`)}
               />
             ))}
           </InsetCard>
         )}
       </ScrollView>
 
+      {organization ? (
+        <InviteMemberDialog
+          visible={inviting}
+          onClose={() => setInviting(false)}
+          organizationId={organization.id}
+          organizationName={organization.name}
+        />
+      ) : null}
+
+      {organization ? (
+        <EmailOrganizationDialog
+          visible={emailing}
+          onClose={() => setEmailing(false)}
+          organizationId={organization.id}
+          organizationName={organization.name}
+          recipientCount={members.length}
+        />
+      ) : null}
     </VStack>
   );
 }

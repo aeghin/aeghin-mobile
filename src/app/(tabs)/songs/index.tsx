@@ -29,6 +29,7 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand, withAlpha } from "@/constants/branding";
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useTheme } from "@/hooks/use-theme";
 import {
   useAddSong,
@@ -63,6 +64,7 @@ export default function SongsScreen() {
   const canManage = canManageOrg(organization?.role);
 
   const songs = useSongs(organizationId);
+  const pullToRefresh = usePullToRefresh(songs.refetch);
 
   const addSong = useAddSong(organizationId);
   const updateSong = useUpdateSong(organizationId);
@@ -190,8 +192,7 @@ export default function SongsScreen() {
         keyboardDismissMode="on-drag"
         refreshControl={
           <RefreshControl
-            refreshing={songs.isRefetching}
-            onRefresh={songs.refetch}
+            {...pullToRefresh}
             tintColor={theme.textMuted}
             colors={[brand.orange]}
           />

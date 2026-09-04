@@ -27,6 +27,7 @@ import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
 import { useMembersList } from "@/hooks/use-members-list";
 import { useOrganizationDetails } from "@/hooks/use-organizations";
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useTheme } from "@/hooks/use-theme";
 import { canManageOrg } from "@/lib/config/roles";
 import type { OrgRole, OrganizationMember } from "@/types/organization";
@@ -52,8 +53,8 @@ export default function OrganizationMembersScreen() {
   const id = organization?.id ?? "";
   const canManage = canManageOrg(organization?.role);
 
-  const { data, isPending, isError, refetch, isRefetching } =
-    useMembersList(id);
+  const { data, isPending, isError, refetch } = useMembersList(id);
+  const pullToRefresh = usePullToRefresh(refetch);
 
   // Only for the pending count on the invitations row.
   const details = useOrganizationDetails(id);
@@ -109,8 +110,7 @@ export default function OrganizationMembersScreen() {
         keyboardDismissMode="on-drag"
         refreshControl={
           <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
+            {...pullToRefresh}
             tintColor={theme.textMuted}
             colors={[brand.orange]}
           />

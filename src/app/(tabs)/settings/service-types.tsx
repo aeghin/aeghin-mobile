@@ -20,6 +20,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import {
   useAddServiceType,
   useDeleteServiceType,
@@ -56,6 +57,7 @@ export default function ServiceTypesScreen() {
   const canManage = canManageOrg(organization?.role);
 
   const serviceTypes = useServiceTypes(organizationId);
+  const pullToRefresh = usePullToRefresh(serviceTypes.refetch);
   const remove = useDeleteServiceType(organizationId);
 
   // `undefined` while closed, `null` for a new one, a service type when editing.
@@ -103,8 +105,7 @@ export default function ServiceTypesScreen() {
         contentInsetAdjustmentBehavior="never"
         refreshControl={
           <RefreshControl
-            refreshing={serviceTypes.isRefetching}
-            onRefresh={serviceTypes.refetch}
+            {...pullToRefresh}
             tintColor={theme.textMuted}
             colors={[brand.orange]}
           />

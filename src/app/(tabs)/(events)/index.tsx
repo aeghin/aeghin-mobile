@@ -42,6 +42,7 @@ import {
   useRespondToInvitation,
   useUserEvents,
 } from "@/hooks/use-events";
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useServiceTypes } from "@/hooks/use-service-types";
 import { useTheme } from "@/hooks/use-theme";
 import { ApiError } from "@/lib/api";
@@ -141,15 +142,19 @@ export default function EventsScreen() {
   const refetchOrgEvents = orgEvents.refetch;
   const refetchServiceTypes = serviceTypes.refetch;
 
-  const refresh = useCallback(() => {
-    refetchUserEvents();
-    refetchServiceTypes();
-    // Refetching by hand fires even a disabled query, and the roster-wide list
-    // is not a member's to ask for.
-    if (canManage) {
-      refetchOrgEvents();
-    }
-  }, [canManage, refetchOrgEvents, refetchServiceTypes, refetchUserEvents]);
+  const refresh = useCallback(
+    () =>
+      Promise.all([
+        refetchUserEvents(),
+        refetchServiceTypes(),
+        // Refetching by hand fires even a disabled query, and the roster-wide
+        // list is not a member's to ask for.
+        canManage ? refetchOrgEvents() : null,
+      ]),
+    [canManage, refetchOrgEvents, refetchServiceTypes, refetchUserEvents],
+  );
+
+  const pullToRefresh = usePullToRefresh(refresh);
 
   const services = serviceTypes.data ?? NO_SERVICES;
   // A first load and a failed one both have nothing behind them, and an empty
@@ -387,12 +392,7 @@ export default function EventsScreen() {
         contentInsetAdjustmentBehavior="never"
         refreshControl={
           <RefreshControl
-            refreshing={
-              userEvents.isRefetching ||
-              orgEvents.isRefetching ||
-              serviceTypes.isRefetching
-            }
-            onRefresh={refresh}
+            {...pullToRefresh}
             tintColor={theme.textMuted}
             colors={[brand.orange]}
           />

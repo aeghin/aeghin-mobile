@@ -20,6 +20,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useServiceTypes } from "@/hooks/use-service-types";
 import {
   useAddTemplate,
@@ -56,6 +57,7 @@ export default function TemplatesScreen() {
   const canManage = canManageOrg(organization?.role);
 
   const templates = useTemplates(organizationId, canManage);
+  const pullToRefresh = usePullToRefresh(templates.refetch);
   const serviceTypes = useServiceTypes(organizationId);
   const remove = useDeleteTemplate(organizationId);
 
@@ -139,8 +141,7 @@ export default function TemplatesScreen() {
         contentInsetAdjustmentBehavior="never"
         refreshControl={
           <RefreshControl
-            refreshing={templates.isRefetching}
-            onRefresh={templates.refetch}
+            {...pullToRefresh}
             tintColor={theme.textMuted}
             colors={[brand.orange]}
           />

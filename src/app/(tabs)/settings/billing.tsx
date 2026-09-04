@@ -19,6 +19,7 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand, withAlpha } from "@/constants/branding";
 import { useBillingPortal, useBillingStatus } from "@/hooks/use-billing";
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useTheme } from "@/hooks/use-theme";
 import { failureMessage } from "@/lib/failure";
 import type { AiPlan } from "@/types/billing";
@@ -43,6 +44,7 @@ export default function BillingScreen() {
   const organizationId = organization?.id ?? "";
 
   const billing = useBillingStatus(organizationId);
+  const pullToRefresh = usePullToRefresh(billing.refetch);
   const portal = useBillingPortal(organizationId);
 
   // Stripe's return page deep-links here with what happened.
@@ -73,8 +75,7 @@ export default function BillingScreen() {
         contentInsetAdjustmentBehavior="never"
         refreshControl={
           <RefreshControl
-            refreshing={billing.isRefetching}
-            onRefresh={billing.refetch}
+            {...pullToRefresh}
             tintColor={theme.textMuted}
             colors={[brand.orange]}
           />

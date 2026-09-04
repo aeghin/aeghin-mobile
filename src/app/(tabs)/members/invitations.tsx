@@ -15,6 +15,7 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
 import { useCancelInvitation, useInvitations } from "@/hooks/use-invitations";
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useTheme } from "@/hooks/use-theme";
 import { canManageOrg } from "@/lib/config/roles";
 import { getVolunteerRoleConfig } from "@/lib/config/volunteer-roles";
@@ -42,6 +43,7 @@ export default function InvitationsScreen() {
   const canManage = canManageOrg(organization?.role);
 
   const invitations = useInvitations(organizationId, canManage);
+  const pullToRefresh = usePullToRefresh(invitations.refetch);
   const cancel = useCancelInvitation(organizationId);
 
   const rows = invitations.data ?? [];
@@ -75,8 +77,7 @@ export default function InvitationsScreen() {
         contentInsetAdjustmentBehavior="never"
         refreshControl={
           <RefreshControl
-            refreshing={invitations.isRefetching}
-            onRefresh={invitations.refetch}
+            {...pullToRefresh}
             tintColor={theme.textMuted}
             colors={[brand.orange]}
           />

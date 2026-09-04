@@ -19,6 +19,7 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
 import { useAddBlockout, useBlockouts, useDeleteBlockout } from "@/hooks/use-blockouts";
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useTheme } from "@/hooks/use-theme";
 import { dayKey, daysBetween, formatShortDate } from "@/lib/events/format";
 import { failureMessage } from "@/lib/failure";
@@ -50,6 +51,7 @@ export default function BlockoutsScreen() {
   const organizationId = organization?.id ?? "";
 
   const blockouts = useBlockouts(organizationId);
+  const pullToRefresh = usePullToRefresh(blockouts.refetch);
   const remove = useDeleteBlockout(organizationId);
   const [adding, setAdding] = useState(false);
 
@@ -82,8 +84,7 @@ export default function BlockoutsScreen() {
         contentInsetAdjustmentBehavior="never"
         refreshControl={
           <RefreshControl
-            refreshing={blockouts.isRefetching}
-            onRefresh={blockouts.refetch}
+            {...pullToRefresh}
             tintColor={theme.textMuted}
             colors={[brand.orange]}
           />

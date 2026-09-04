@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import Building2 from "lucide-react-native/icons/building-2";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
 import Plus from "lucide-react-native/icons/plus";
-import { useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { Alert, FlatList, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -26,6 +26,7 @@ import {
   useRespondToOrgInvitation,
 } from "@/hooks/use-my-invitations";
 import { useOrganizations } from "@/hooks/use-organizations";
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useTheme } from "@/hooks/use-theme";
 import { failureMessage } from "@/lib/failure";
 
@@ -48,13 +49,19 @@ export default function OrganizationsScreen() {
   const { user } = useUser();
   const { organization, select } = useCurrentOrganization();
 
-  const { data, isPending, isError, error, refetch, isRefetching } =
-    useOrganizations();
+  const { data, isPending, isError, error, refetch } = useOrganizations();
 
   // What is waiting on this account. The one screen somebody with no
   // organizations can reach, so it is where an invitation has to be answerable.
   const invitations = useMyInvitations();
   const respond = useRespondToOrgInvitation();
+
+  const refetchInvitations = invitations.refetch;
+  const refresh = useCallback(
+    () => Promise.all([refetch(), refetchInvitations()]),
+    [refetch, refetchInvitations],
+  );
+  const pullToRefresh = usePullToRefresh(refresh);
 
   const waiting = invitations.data ?? [];
   const busy = respond.isPending ? respond.variables : undefined;
@@ -137,11 +144,7 @@ export default function OrganizationsScreen() {
         ItemSeparatorComponent={() => <VStack className="h-2.5" />}
         refreshControl={
           <RefreshControl
-            refreshing={isRefetching || invitations.isRefetching}
-            onRefresh={() => {
-              refetch();
-              invitations.refetch();
-            }}
+            {...pullToRefresh}
             tintColor={theme.textMuted}
             colors={[brand.orange]}
           />

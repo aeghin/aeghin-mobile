@@ -28,6 +28,7 @@ import {
   useEventDetails,
   useRemoveEventRole,
 } from "@/hooks/use-events";
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useTheme } from "@/hooks/use-theme";
 import { ApiError } from "@/lib/api";
 import { getServiceColors } from "@/lib/config/service-types";
@@ -60,6 +61,7 @@ export default function EventDetailScreen() {
   const organizationId = organization?.id ?? "";
 
   const details = useEventDetails(organizationId, eventId ?? "");
+  const pullToRefresh = usePullToRefresh(details.refetch);
   const event = details.data;
 
   const cancelAssignment = useCancelAssignment(organizationId, eventId ?? "");
@@ -122,8 +124,7 @@ export default function EventDetailScreen() {
         contentInsetAdjustmentBehavior="never"
         refreshControl={
           <RefreshControl
-            refreshing={details.isRefetching}
-            onRefresh={details.refetch}
+            {...pullToRefresh}
             tintColor={theme.textMuted}
             colors={[brand.orange]}
           />

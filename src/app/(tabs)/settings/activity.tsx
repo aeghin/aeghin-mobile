@@ -13,6 +13,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
 import { useActivity } from "@/hooks/use-activity";
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useTheme } from "@/hooks/use-theme";
 import { canManageOrg } from "@/lib/config/roles";
 import type { ActivityItem } from "@/types/activity";
@@ -29,6 +30,7 @@ export default function ActivityScreen() {
   const canManage = canManageOrg(organization?.role);
 
   const activity = useActivity(organizationId, canManage);
+  const pullToRefresh = usePullToRefresh(activity.refetch);
   const items = activity.data?.pages.flatMap((page) => page.items) ?? [];
 
   const loadMore = () => {
@@ -53,8 +55,7 @@ export default function ActivityScreen() {
         onEndReachedThreshold={0.4}
         refreshControl={
           <RefreshControl
-            refreshing={activity.isRefetching && !activity.isFetchingNextPage}
-            onRefresh={activity.refetch}
+            {...pullToRefresh}
             tintColor={theme.textMuted}
             colors={[brand.orange]}
           />

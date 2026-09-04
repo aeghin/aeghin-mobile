@@ -10,6 +10,7 @@ import { VStack } from "@/components/ui/vstack";
 import { brand, withAlpha } from "@/constants/branding";
 import { useStartCheckout } from "@/hooks/use-billing";
 import { useTheme } from "@/hooks/use-theme";
+import { MOBILE_PURCHASES_ENABLED } from "@/lib/config/purchases";
 import { failureMessage } from "@/lib/failure";
 import type { AiPlan } from "@/types/billing";
 
@@ -81,9 +82,38 @@ type AiUpgradeCardProps = {
   canSubscribe: boolean;
 };
 
+/** What an upgrade surface becomes while the app is not allowed to sell. */
+function LockedAiCard({ title, body }: { title: string; body: string }) {
+  const theme = useTheme();
+
+  return (
+    <VStack className="gap-3 rounded-2xl border border-border bg-card p-4">
+      <VStack className="items-center gap-2">
+        <Center
+          className="h-12 w-12 rounded-xl"
+          style={{ backgroundColor: withAlpha(theme.textMuted, 0.12) }}
+        >
+          <AppIcon icon={Sparkles} size={24} color={theme.textMuted} />
+        </Center>
+        <Text className="text-[15px] font-semibold text-foreground">{title}</Text>
+        <Text className="max-w-[280px] text-center text-[13px] text-muted-foreground">{body}</Text>
+      </VStack>
+    </VStack>
+  );
+}
+
 /** The dashboard's AI Setlist Upgrade panel: no plan yet, pick one. */
 export function AiUpgradeCard({ organizationId, canSubscribe }: AiUpgradeCardProps) {
   const theme = useTheme();
+
+  if (!MOBILE_PURCHASES_ENABLED) {
+    return (
+      <LockedAiCard
+        title="AI setlist generation"
+        body="This organization's plan doesn't include AI setlists. Ask an organization owner about enabling it."
+      />
+    );
+  }
 
   return (
     <VStack className="gap-4 rounded-2xl border border-border bg-card p-4">
@@ -138,6 +168,9 @@ export function AiProUpsell({ organizationId, canSubscribe }: AiUpgradeCardProps
   const theme = useTheme();
   const tint = theme.violet;
 
+  // Nothing to say about Pro to a Premium organization that cannot buy it.
+  if (!MOBILE_PURCHASES_ENABLED) return null;
+
   return (
     <HStack
       className="items-center gap-3 rounded-2xl border p-3"
@@ -171,6 +204,15 @@ export function AiProUpsell({ organizationId, canSubscribe }: AiUpgradeCardProps
 export function AiEventUpgradeCard({ organizationId, canSubscribe }: AiUpgradeCardProps) {
   const theme = useTheme();
   const tint = planTint("pro", theme);
+
+  if (!MOBILE_PURCHASES_ENABLED) {
+    return (
+      <LockedAiCard
+        title="Draft events with AI"
+        body="This organization's plan doesn't include AI event drafting. Ask an organization owner about enabling it."
+      />
+    );
+  }
 
   return (
     <VStack

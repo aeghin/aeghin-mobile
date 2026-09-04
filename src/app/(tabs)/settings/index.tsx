@@ -19,6 +19,7 @@ import { VStack } from "@/components/ui/vstack";
 import { useBillingStatus } from "@/hooks/use-billing";
 import { useOrganizationDetails } from "@/hooks/use-organizations";
 import { useTheme } from "@/hooks/use-theme";
+import { MOBILE_PURCHASES_ENABLED } from "@/lib/config/purchases";
 import { canManageOrg, getRoleConfig } from "@/lib/config/roles";
 
 const TAB_BAR_CLEARANCE = 64;
@@ -100,7 +101,7 @@ export default function SettingsScreen() {
               ) : null}
               <InsetRow
                 icon={Sparkles}
-                label="AI plans"
+                label={MOBILE_PURCHASES_ENABLED ? "AI plans" : "AI"}
                 value={billing.data ? plan : undefined}
                 onPress={() => router.push("/settings/billing")}
               />

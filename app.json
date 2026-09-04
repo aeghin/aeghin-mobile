@@ -8,7 +8,12 @@
     "scheme": "aeghin",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "bundleIdentifier": "com.aeghinsteam.aeghin"
+      "bundleIdentifier": "com.aeghinsteam.aeghin",
+      "buildNumber": "1",
+      "supportsTablet": false,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -38,14 +43,22 @@
         }
       ],
       "@clerk/expo",
-      "expo-secure-store",
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": false
+        }
+      ],
       "expo-web-browser",
       [
         "expo-image-picker",
         {
-          "photosPermission": "Aeghin uses your photos so you can set your organization's logo."
+          "photosPermission": "Aeghin uses your photos so you can set your organization's logo.",
+          "cameraPermission": false,
+          "microphonePermission": false
         }
-      ]
+      ],
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true,

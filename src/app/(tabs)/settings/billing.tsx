@@ -21,6 +21,7 @@ import { brand, withAlpha } from "@/constants/branding";
 import { useBillingPortal, useBillingStatus } from "@/hooks/use-billing";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useTheme } from "@/hooks/use-theme";
+import { MOBILE_PURCHASES_ENABLED } from "@/lib/config/purchases";
 import { failureMessage } from "@/lib/failure";
 import type { AiPlan } from "@/types/billing";
 
@@ -64,7 +65,12 @@ export default function BillingScreen() {
 
   return (
     <VStack className="flex-1 bg-grouped">
-      <Stack.Screen options={{ title: "AI plans", headerBackTitle: "Settings" }} />
+      <Stack.Screen
+        options={{
+          title: MOBILE_PURCHASES_ENABLED ? "AI plans" : "AI plan",
+          headerBackTitle: "Settings",
+        }}
+      />
 
       <ScrollView
         contentContainerStyle={{
@@ -102,16 +108,16 @@ export default function BillingScreen() {
                 <AppIcon icon={Sparkles} size={26} color={current ? planTint(current, theme) : brand.orange} />
               </Center>
               <Text className="text-[20px] font-bold text-foreground">
-                {current ? `AI Setlist ${PLAN_COPY[current].name}` : "Free plan"}
+                {current ? `AI ${PLAN_COPY[current].name}` : "Free plan"}
               </Text>
               <Text className="max-w-[300px] text-center text-[13px] text-muted-foreground">
                 {current
-                  ? `${organization?.name ?? "This organization"} can generate setlists with AI.`
-                  : "Every scheduling feature is free. AI setlists are the only paid add-on."}
+                  ? PLAN_COPY[current].blurb
+                  : "Every scheduling feature is free. AI features are the only paid add-on."}
               </Text>
             </VStack>
 
-            {current ? (
+            {current && MOBILE_PURCHASES_ENABLED ? (
               <VStack>
                 <SectionLabel>Subscription</SectionLabel>
                 <InsetCard elevated>
@@ -135,6 +141,25 @@ export default function BillingScreen() {
               </VStack>
             ) : null}
 
+            {!MOBILE_PURCHASES_ENABLED ? (
+              <VStack>
+                <SectionLabel>{current ? "Included" : "Your plan"}</SectionLabel>
+                <InsetCard elevated>
+                  <VStack className="gap-1.5 p-4">
+                    {(current ? PLAN_COPY[current].features : FREE_FEATURES).map((feature) => (
+                      <HStack key={feature} className="items-start gap-2">
+                        <AppIcon
+                          icon={Check}
+                          size={14}
+                          color={current ? planTint(current, theme) : theme.textMuted}
+                        />
+                        <Text className="flex-1 text-[13px] text-foreground">{feature}</Text>
+                      </HStack>
+                    ))}
+                  </VStack>
+                </InsetCard>
+              </VStack>
+            ) : (
             <VStack>
               <SectionLabel>Plans</SectionLabel>
               <VStack className="gap-3">
@@ -149,7 +174,7 @@ export default function BillingScreen() {
                 {(["premium", "pro"] as AiPlan[]).map((plan) => (
                   <PlanCard
                     key={plan}
-                    name={`AI Setlist ${PLAN_COPY[plan].name}`}
+                    name={`AI ${PLAN_COPY[plan].name}`}
                     price={PLAN_COPY[plan].price}
                     blurb={PLAN_COPY[plan].blurb}
                     features={[...PLAN_COPY[plan].features, "Billed per organization"]}
@@ -174,6 +199,7 @@ export default function BillingScreen() {
                   : "Only an organization owner can start or change a plan."}
               </Text>
             </VStack>
+            )}
           </VStack>
         )}
       </ScrollView>

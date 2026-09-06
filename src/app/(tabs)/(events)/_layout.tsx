@@ -14,7 +14,20 @@ import { Stack } from "expo-router";
  */
 export default function EventsLayout() {
   return (
-    <Stack screenOptions={{ title: "" }}>
+    /**
+     * `initialRouteName` is not decoration. A stack with no anchor falls back to
+     * the first of its route names, and expo-router puts every screen declared
+     * here ahead of the ones it discovers from the filesystem — so the chat
+     * modal below would otherwise be this tab's opening screen.
+     *
+     * It only shows when the navigator has to build its own state instead of
+     * reading it off the URL, which is exactly what happens the moment sign-in
+     * flips the root guard: the tabs route is created empty and each stack
+     * under it starts from its first route name. That put a chat with no
+     * `eventId` on screen after the splash — a disabled query, so a spinner
+     * that never resolved.
+     */
+    <Stack initialRouteName="index" screenOptions={{ title: "" }}>
       {/* Declared here rather than in the screen: changing a modal's header
           visibility from inside remounts it and drops its state. */}
       <Stack.Screen

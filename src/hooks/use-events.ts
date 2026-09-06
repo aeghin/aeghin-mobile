@@ -361,3 +361,37 @@ export function useCheckAvailability(orgId: string) {
       ),
   });
 }
+
+/**
+ * Who cannot make an existing event's hours, as its invite picker opens.
+ *
+ * A query rather than the mutation above because this one is asked on sight
+ * rather than on a press, and it is asked afresh every time: availability
+ * moves as other events are scheduled, so a cached answer is a stale one.
+ * `gcTime: 0` is what makes the next open a real fetch rather than a replay,
+ * and `retry: false` matches the dashboard's single attempt — a check that
+ * fails is reported, not waited on, since the server refuses a blockout
+ * anyway.
+ *
+ * `excludeEventId` is this event itself. Without it everybody already on the
+ * roster comes back conflicting with themselves.
+ */
+export function useEventAvailability(
+  orgId: string,
+  eventId: string,
+  days: NewEventDay[],
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: ["organizations", orgId, "event-availability", eventId],
+    enabled: enabled && Boolean(orgId && eventId) && days.length > 0,
+    staleTime: 0,
+    gcTime: 0,
+    retry: false,
+    queryFn: () =>
+      apiPost<MemberAvailability>(`/api/mobile/v1/organizations/${orgId}/availability`, {
+        days,
+        excludeEventId: eventId,
+      }),
+  });
+}

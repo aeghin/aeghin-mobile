@@ -124,6 +124,7 @@ export function EventManageCard({ organizationId, event }: EventManageCardProps)
         eventId={event.id}
         rosterRoles={rosterRoles}
         assignments={event.assignments}
+        dates={event.dates}
       />
       <AddRolesDialog
         visible={dialog === "roles"}

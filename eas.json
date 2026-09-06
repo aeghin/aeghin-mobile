@@ -33,6 +33,12 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "aeghin7@gmail.com",
+        "appleTeamId": "XYM362M868",
+        "bundleIdentifier": "com.aeghinsteam.aeghin"
+      }
+    }
   }
 }

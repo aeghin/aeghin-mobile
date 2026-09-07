@@ -1,4 +1,4 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
 import MessagesSquare from "lucide-react-native/icons/messages-square";
 import { useCallback, useEffect, useMemo } from "react";
@@ -75,6 +75,13 @@ export default function EventChatScreen() {
   );
 
   const online = chat.presence.length;
+
+  // Below the hooks on purpose — returning above them would change the hook
+  // order between renders. Without an id there is nothing to load, and the
+  // screen would sit on a spinner rather than say so.
+  if (!eventId) {
+    return <Redirect href="/" />;
+  }
 
   return (
     <VStack className="flex-1" style={{ backgroundColor: theme.card }}>

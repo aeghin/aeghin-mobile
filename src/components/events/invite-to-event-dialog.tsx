@@ -46,7 +46,7 @@ type InviteToEventDialogProps = {
   onClose: () => void;
   organizationId: string;
   eventId: string;
-  /** Roles on the roster, listed first in the picker. */
+  /** The roster — the only roles this dialog can invite into. */
   rosterRoles: VolunteerRole[];
   assignments: EventDetailsAssignment[];
   /** The hours the event runs, which is what availability is judged against. */
@@ -65,9 +65,10 @@ type InviteToEventDialogProps = {
  *
  * The one shape that differs from the web is the role: the dashboard opens
  * this dialog from a role's own row, so its role is fixed, while the phone has
- * a single Invite entry on the Manage card and picks the role inside. The
- * check is unaffected — availability is keyed by member and hours, never by
- * role — so switching roles re-uses the same answer without re-asking.
+ * a single Invite entry on the Manage card and picks the role inside. What it
+ * offers is still the roster and nothing else — widening that is what Add
+ * roles is for. The check is unaffected — availability is keyed by member and
+ * hours, never by role — so switching roles re-uses the same answer.
  */
 export function InviteToEventDialog(props: InviteToEventDialogProps) {
   return <InviteToEventBody key={String(props.visible)} {...props} />;
@@ -101,7 +102,17 @@ function InviteToEventBody({
   const availability = useEventAvailability(organizationId, eventId, days, canCheck);
   const checking = canCheck && availability.isPending;
 
-  const [role, setRole] = useState<VolunteerRole | null>(rosterRoles[0] ?? null);
+  // Only the roles this event asked for, in roster order. Offering the rest
+  // let the phone invite into a role the event never wanted, and the invite
+  // action backfills `rolesNeeded` with whatever role it is handed — so the
+  // roster grew behind the manager's back. Add roles is the deliberate way to
+  // widen it, which is the line the dashboard draws by construction.
+  const roles = ROLE_ORDER.filter((entry) => rosterRoles.includes(entry));
+
+  // Reachable: removing the last role leaves an event with an empty roster.
+  const noRoles = roles.length === 0;
+
+  const [role, setRole] = useState<VolunteerRole | null>(roles[0] ?? null);
   const [userIds, setUserIds] = useState<string[]>([]);
   const [expiresAt, setExpiresAt] = useState<3 | 5 | 7>(3);
   const [search, setSearch] = useState("");
@@ -110,9 +121,6 @@ function InviteToEventBody({
 
   const conflicts = availability.data?.conflicts ?? {};
   const blockouts = availability.data?.blockouts ?? {};
-
-  // Roster roles first, then the rest — the same order the web's select uses.
-  const roles = [...rosterRoles, ...ROLE_ORDER.filter((entry) => !rosterRoles.includes(entry))];
 
   // One role per member, so anyone still live on the event cannot be invited
   // into another. A lapsed invite is not live — re-inviting is what unsticks
@@ -206,7 +214,9 @@ function InviteToEventBody({
       description={
         role
           ? `${userIds.length} selected · ${invitableCount} available`
-          : "Pick a role, then the members who hold it."
+          : noRoles
+            ? "This event has no roles on its roster yet."
+            : "Pick a role, then the members who hold it."
       }
       action={{ label: "Invite", onPress: submit, disabled: !role || userIds.length === 0 }}
       submitting={invite.isPending}
@@ -231,7 +241,10 @@ function InviteToEventBody({
         </Box>
       ) : null}
 
-      <Field label="Role">
+      <Field
+        label="Role"
+        hint={noRoles ? "Add a role from the Manage card, then invite into it." : undefined}
+      >
         <VolunteerRolePicker
           roles={roles}
           selected={role ? [role] : []}
@@ -288,11 +301,13 @@ function InviteToEventBody({
             </FormCard>
           ) : (
             <Text className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-[13px] text-muted-foreground">
-              {!role
-                ? "Pick a role to see who can fill it"
-                : holders.length === 0
-                  ? "No members hold this role yet"
-                  : "No members match your search"}
+              {noRoles
+                ? "Add a role to this event first"
+                : !role
+                  ? "Pick a role to see who can fill it"
+                  : holders.length === 0
+                    ? "No members hold this role yet"
+                    : "No members match your search"}
             </Text>
           )}
         </VStack>

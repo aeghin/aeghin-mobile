@@ -4,7 +4,6 @@ import Activity from "lucide-react-native/icons/activity";
 import Building2 from "lucide-react-native/icons/building-2";
 import CalendarOff from "lucide-react-native/icons/calendar-off";
 import LayoutTemplate from "lucide-react-native/icons/layout-template";
-import Mail from "lucide-react-native/icons/mail";
 import Palette from "lucide-react-native/icons/palette";
 import Sparkles from "lucide-react-native/icons/sparkles";
 import UserRound from "lucide-react-native/icons/user-round";
@@ -17,7 +16,6 @@ import { useCurrentOrganization } from "@/components/organization-provider";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { useBillingStatus } from "@/hooks/use-billing";
-import { useOrganizationDetails } from "@/hooks/use-organizations";
 import { useTheme } from "@/hooks/use-theme";
 import { MOBILE_PURCHASES_ENABLED } from "@/lib/config/purchases";
 import { canManageOrg, getRoleConfig } from "@/lib/config/roles";
@@ -25,11 +23,12 @@ import { canManageOrg, getRoleConfig } from "@/lib/config/roles";
 const TAB_BAR_CLEARANCE = 64;
 
 /**
- * The dashboard's settings, blockouts, invitations and activity tabs, as a
- * list of rows — plus the account screen Clerk draws.
+ * The dashboard's settings, blockouts and activity tabs, as a list of rows —
+ * plus the account screen Clerk draws.
  *
  * No organization row at the top: the header switcher already names the
- * current organization and opens the picker.
+ * current organization and opens the picker. Invitations are not here either:
+ * they live on the Members tab, beside the roster they change.
  */
 export default function SettingsScreen() {
   const theme = useTheme();
@@ -41,9 +40,6 @@ export default function SettingsScreen() {
   const organizationId = organization?.id ?? "";
   const canManage = canManageOrg(organization?.role);
   const role = organization ? getRoleConfig(organization.role, theme) : null;
-
-  const details = useOrganizationDetails(organizationId);
-  const pending = details.data?.pendingInvitationCount;
 
   const billing = useBillingStatus(organizationId);
   const plan = billing.data?.hasPro ? "Pro" : billing.data?.hasPremium ? "Premium" : "Free";
@@ -82,14 +78,6 @@ export default function SettingsScreen() {
                   icon={LayoutTemplate}
                   label="Templates"
                   onPress={() => router.push("/settings/templates")}
-                />
-              ) : null}
-              {canManage ? (
-                <InsetRow
-                  icon={Mail}
-                  label="Invitations"
-                  value={pending ? `${pending} pending` : undefined}
-                  onPress={() => router.push("/members/invitations")}
                 />
               ) : null}
               {canManage ? (

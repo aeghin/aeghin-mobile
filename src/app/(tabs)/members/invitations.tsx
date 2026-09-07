@@ -1,9 +1,13 @@
 import { Stack } from "expo-router";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
+import CircleCheckBig from "lucide-react-native/icons/circle-check-big";
+import CircleX from "lucide-react-native/icons/circle-x";
+import Clock from "lucide-react-native/icons/clock";
 import Mail from "lucide-react-native/icons/mail";
 import { Alert, RefreshControl, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import type { AppIconName } from "@/components/app-icon";
 import { Pill, type PillTone } from "@/components/events/chips";
 import { EventsEmptyState } from "@/components/events/events-empty-state";
 import { InsetCard } from "@/components/inset-list";
@@ -26,11 +30,19 @@ import type { OrganizationInvitation } from "@/types/organization";
 
 const TAB_BAR_CLEARANCE = 64;
 
-const STATUS_TONE: Record<InvitationStatus, { label: string; tone: PillTone }> = {
-  PENDING: { label: "Pending", tone: "warning" },
-  ACCEPTED: { label: "Accepted", tone: "success" },
-  DECLINED: { label: "Declined", tone: "danger" },
-  CANCELED: { label: "Canceled", tone: "neutral" },
+/**
+ * The glyphs are the dashboard's own — `invitations-tab-content.tsx` draws a
+ * different set here than the corner badge on an event assignment does, so this
+ * is deliberately not `lib/config/status.ts`.
+ */
+const STATUS_TONE: Record<
+  InvitationStatus,
+  { label: string; tone: PillTone; icon: AppIconName }
+> = {
+  PENDING: { label: "Pending", tone: "warning", icon: Clock },
+  ACCEPTED: { label: "Accepted", tone: "success", icon: CircleCheckBig },
+  DECLINED: { label: "Declined", tone: "danger", icon: CircleX },
+  CANCELED: { label: "Canceled", tone: "neutral", icon: Clock },
 };
 
 /** The dashboard's Invitations tab: everyone asked to join, and whether they have. */
@@ -148,7 +160,7 @@ function InvitationRow({
         <Text className="flex-1 text-[15px] font-semibold text-foreground" numberOfLines={1}>
           {invitation.email}
         </Text>
-        <Pill label={status.label} tone={status.tone} />
+        <Pill label={status.label} tone={status.tone} icon={status.icon} />
       </HStack>
 
       <HStack className="flex-wrap items-center gap-1">

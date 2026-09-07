@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Animated, type LayoutChangeEvent } from "react-native";
 
+import { AppIcon, type AppIconName } from "@/components/app-icon";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
@@ -17,6 +18,15 @@ export type Segment<T extends string> = {
   count?: number;
   /** A colour for a small dot before the label, for a segment wanting attention. */
   dot?: string;
+  /** A glyph before the label. The dashboard's AI tab is `<Sparkles/> AI`. */
+  icon?: AppIconName;
+  /** A glyph after it, for a qualifier rather than a subject: the AI padlock. */
+  trailingIcon?: AppIconName;
+  /**
+   * What a reader hears, when a glyph carries meaning the label does not — a
+   * lock says "locked" to the eye and nothing at all to VoiceOver.
+   */
+  accessibilityLabel?: string;
 };
 
 type SegmentedControlProps<T extends string> = {
@@ -115,9 +125,10 @@ export function SegmentedControl<T extends string>({
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
               accessibilityLabel={
-                segment.count === undefined
+                segment.accessibilityLabel ??
+                (segment.count === undefined
                   ? segment.label
-                  : `${segment.label}, ${segment.count}`
+                  : `${segment.label}, ${segment.count}`)
               }
               className="flex-1"
               style={{ height: TRACK_HEIGHT }}
@@ -127,6 +138,14 @@ export function SegmentedControl<T extends string>({
                   <Box
                     className="h-[6px] w-[6px] rounded-full"
                     style={{ backgroundColor: segment.dot }}
+                  />
+                ) : null}
+
+                {segment.icon ? (
+                  <AppIcon
+                    icon={segment.icon}
+                    size={13}
+                    color={active ? theme.text : theme.textMuted}
                   />
                 ) : null}
 
@@ -148,6 +167,10 @@ export function SegmentedControl<T extends string>({
                     {segment.count}
                   </Text>
                 )}
+
+                {segment.trailingIcon ? (
+                  <AppIcon icon={segment.trailingIcon} size={10} color={theme.textMuted} />
+                ) : null}
               </HStack>
             </Pressable>
           );

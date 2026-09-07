@@ -1,4 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import Lock from "lucide-react-native/icons/lock";
+import Sparkles from "lucide-react-native/icons/sparkles";
 import { useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -118,7 +120,13 @@ function Editor({
   const segments: Segment<Pane>[] = [
     { value: "setlist", label: "Setlist", count: songs.length },
     { value: "catalog", label: "Catalog" },
-    { value: "ai", label: canUseAi ? "AI" : "AI 🔒" },
+    {
+      value: "ai",
+      label: "AI",
+      icon: Sparkles,
+      trailingIcon: canUseAi ? undefined : Lock,
+      accessibilityLabel: canUseAi ? "AI" : "AI, locked",
+    },
   ];
 
   return (

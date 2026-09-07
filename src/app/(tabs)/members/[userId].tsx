@@ -3,6 +3,8 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import AtSign from "lucide-react-native/icons/at-sign";
 import CircleSlash from "lucide-react-native/icons/circle-slash";
 import Phone from "lucide-react-native/icons/phone";
+import Shield from "lucide-react-native/icons/shield";
+import Trash2 from "lucide-react-native/icons/trash-2";
 import { Alert, Linking, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -242,8 +244,18 @@ export default function MemberScreen() {
               <VStack>
                 <SectionLabel>Manage</SectionLabel>
                 <InsetCard elevated>
-                  <InsetRow label="Change role" value={role?.label} onPress={changeRole} />
-                  <InsetRow label="Remove from organization" onPress={confirmRemove} destructive />
+                  <InsetRow
+                    icon={Shield}
+                    label="Change role"
+                    value={role?.label}
+                    onPress={changeRole}
+                  />
+                  <InsetRow
+                    icon={Trash2}
+                    label="Remove from organization"
+                    onPress={confirmRemove}
+                    destructive
+                  />
                 </InsetCard>
               </VStack>
             ) : null}

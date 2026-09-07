@@ -41,6 +41,16 @@ type DateRange = { start: string | null; end: string | null };
 type DateRangePickerProps = {
   value: DateRange;
   onChange: (range: DateRange) => void;
+  /**
+   * Drops the card chrome, for a calendar that already sits inside one. A
+   * card drawn on a card reads as a rendering fault rather than as nesting.
+   */
+  bare?: boolean;
+  /**
+   * What a picked day is painted in. Defaults to the brand; the event forms
+   * pass their service type's colour so the span matches the card around it.
+   */
+  accent?: string;
 };
 
 /**
@@ -48,7 +58,12 @@ type DateRangePickerProps = {
  * start, the second the end, and a tap before the start begins again. Days
  * are `"YYYY-MM-DD"` keys — the form the blockout route takes.
  */
-export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
+export function DateRangePicker({
+  value,
+  onChange,
+  bare = false,
+  accent = brand.orange,
+}: DateRangePickerProps) {
   const theme = useTheme();
   const today = todayKey();
   const [month, setMonth] = useState(() => (value.start ? value.start.slice(0, 7) : currentMonthKey()));
@@ -69,7 +84,7 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
       (value.end === null && day === value.start));
 
   return (
-    <VStack className="rounded-2xl border border-border bg-card p-3">
+    <VStack className={bare ? "" : "rounded-2xl border border-border bg-card p-3"}>
       <HStack className="items-center justify-between pb-2">
         <Pressable
           onPress={() => setMonth(shiftMonth(month, -1))}
@@ -117,7 +132,7 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
                 className="flex-1 items-center justify-center"
                 style={{
                   height: 38,
-                  backgroundColor: between || edge ? withAlpha(brand.orange, edge ? 1 : 0.14) : undefined,
+                  backgroundColor: between || edge ? withAlpha(accent, edge ? 1 : 0.14) : undefined,
                   borderTopLeftRadius: day === value.start || !between ? 19 : 0,
                   borderBottomLeftRadius: day === value.start || !between ? 19 : 0,
                   borderTopRightRadius: day === value.end || !between ? 19 : 0,

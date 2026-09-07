@@ -1,6 +1,12 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import Calendar from "lucide-react-native/icons/calendar";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
+import Clock from "lucide-react-native/icons/clock";
+import Info from "lucide-react-native/icons/info";
+import MapPin from "lucide-react-native/icons/map-pin";
+import NotepadText from "lucide-react-native/icons/notepad-text";
 import TriangleAlert from "lucide-react-native/icons/triangle-alert";
+import Type from "lucide-react-native/icons/type";
 import { useMemo, useState } from "react";
 import { ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -8,10 +14,16 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppIcon } from "@/components/app-icon";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { TimeField } from "@/components/events/time-field";
-import { ErrorBanner, Field, FormInput } from "@/components/form-fields";
+import {
+  ErrorBanner,
+  FormBlock,
+  FormCount,
+  FormGroup,
+  FormRow,
+  FormTextArea,
+} from "@/components/form-fields";
 import { useCurrentOrganization } from "@/components/organization-provider";
 import { Box } from "@/components/ui/box";
-import { Divider } from "@/components/ui/divider";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Spinner } from "@/components/ui/spinner";
@@ -27,6 +39,7 @@ import {
   formatTime,
   keyToDate,
 } from "@/lib/events/format";
+import { getServiceColors } from "@/lib/config/service-types";
 import { failureMessage } from "@/lib/failure";
 import type { EventDate, EventDetails, EventDetailsAssignment, NewEventDay } from "@/types/event";
 
@@ -126,6 +139,10 @@ function EditForm({
   const router = useRouter();
 
   const seed = useMemo(() => seedFrom(event.dates), [event.dates]);
+
+  // This event already has a service type, so the form wears its colour from
+  // the first frame — the same hue its detail screen is washed in.
+  const accent = getServiceColors(event.serviceType.color, theme).text;
 
   const availability = useCheckAvailability(organizationId);
   const edit = useEditEvent(organizationId, event.id);
@@ -276,7 +293,7 @@ function EditForm({
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
       >
-        <VStack className="gap-4">
+        <VStack className="gap-5">
           <ErrorBanner message={error} />
 
           {clashes.length > 0 ? <ClashBanner clashes={clashes} /> : null}
@@ -286,83 +303,87 @@ function EditForm({
             stay as they are.
           </Text>
 
-          <Field label="Name" hint="Up to 25 characters.">
-            <FormInput
+          <FormGroup
+            label="Details"
+            icon={Info}
+            tint={accent}
+            trailing={<FormCount>{event.serviceType.name}</FormCount>}
+          >
+            <FormRow
+              label="Name"
+              icon={Type}
               value={name}
               onChangeText={setName}
               placeholder="Sunday Morning"
               autoCapitalize="words"
               maxLength={25}
             />
-          </Field>
 
-          <Field label="Description" hint="Optional.">
-            <FormInput
-              value={description}
-              onChangeText={setDescription}
-              placeholder="What the team should know…"
-              multiline
-            />
-          </Field>
-
-          <Field label="Location" hint="Up to 20 characters.">
-            <FormInput
+            <FormRow
+              label="Location"
+              icon={MapPin}
               value={location}
               onChangeText={setLocation}
               placeholder="Main Sanctuary"
               autoCapitalize="words"
               maxLength={20}
             />
-          </Field>
 
-          <Field
-            label="Dates"
-            hint={
+            <FormBlock
+              label="Description"
+              icon={NotepadText}
+              trailing={<FormCount>Optional</FormCount>}
+            >
+              <FormTextArea
+                value={description}
+                onChangeText={setDescription}
+                placeholder="What the team should know…"
+              />
+            </FormBlock>
+          </FormGroup>
+
+          <FormGroup
+            label="When"
+            icon={Calendar}
+            tint={accent}
+            trailing={
+              days.length > 0 ? (
+                <FormCount>{`${days.length} ${days.length === 1 ? "day" : "days"}`}</FormCount>
+              ) : undefined
+            }
+            error={badOrder ? "Each day has to end after it starts." : undefined}
+            footnote={
               days.length === 0
                 ? "Tap a day, or a start and an end for something running across days."
                 : days.length === 1
                   ? formatShortDate(keyToDate(days[0]))
-                  : `${days.length} days, ${formatShortDate(keyToDate(days[0]))} to ${formatShortDate(keyToDate(days[days.length - 1]))}`
+                  : `${days.length} days, ${formatShortDate(keyToDate(days[0]))} to ${formatShortDate(keyToDate(days[days.length - 1]))}. Each day runs on its own hours.`
             }
           >
-            <DateRangePicker value={range} onChange={changeRange} />
-          </Field>
+            <FormBlock>
+              <DateRangePicker value={range} onChange={changeRange} bare accent={accent} />
+            </FormBlock>
 
-          {days.length > 0 ? (
-            <Field
-              label="Times"
-              error={badOrder ? "Each day has to end after it starts." : undefined}
-              hint={days.length > 1 ? "Each day runs on its own hours." : undefined}
-            >
-              <VStack className="overflow-hidden rounded-2xl border border-border bg-card">
-                {days.map((day, index) => (
-                  <VStack key={day}>
-                    {index > 0 ? <Divider /> : null}
-                    <VStack className="gap-2 px-3 py-2.5">
-                      <Text className="text-[13px] font-semibold text-foreground">
-                        {formatShortDate(keyToDate(day))}
-                      </Text>
-                      <HStack className="items-center gap-2">
-                        <TimeField
-                          value={timesFor(day).startTime}
-                          onChange={(value) => setDayTime(day, { startTime: value })}
-                          label="Start time"
-                          context={formatShortDate(keyToDate(day))}
-                        />
-                        <Text className="text-[13px] text-muted-foreground">to</Text>
-                        <TimeField
-                          value={timesFor(day).endTime}
-                          onChange={(value) => setDayTime(day, { endTime: value })}
-                          label="End time"
-                          context={formatShortDate(keyToDate(day))}
-                        />
-                      </HStack>
-                    </VStack>
-                  </VStack>
-                ))}
-              </VStack>
-            </Field>
-          ) : null}
+            {days.map((day) => (
+              <FormBlock key={day} label={formatShortDate(keyToDate(day))} icon={Clock}>
+                <HStack className="items-center gap-2">
+                  <TimeField
+                    value={timesFor(day).startTime}
+                    onChange={(value) => setDayTime(day, { startTime: value })}
+                    label="Start time"
+                    context={formatShortDate(keyToDate(day))}
+                  />
+                  <Text className="text-[13px] text-muted-foreground">to</Text>
+                  <TimeField
+                    value={timesFor(day).endTime}
+                    onChange={(value) => setDayTime(day, { endTime: value })}
+                    label="End time"
+                    context={formatShortDate(keyToDate(day))}
+                  />
+                </HStack>
+              </FormBlock>
+            ))}
+          </FormGroup>
         </VStack>
       </ScrollView>
     </VStack>

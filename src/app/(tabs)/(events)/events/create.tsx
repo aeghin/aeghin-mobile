@@ -1,6 +1,20 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import Calendar from "lucide-react-native/icons/calendar";
 import Check from "lucide-react-native/icons/check";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
+import Clock from "lucide-react-native/icons/clock";
+import Hourglass from "lucide-react-native/icons/hourglass";
+import Info from "lucide-react-native/icons/info";
+import LayoutTemplate from "lucide-react-native/icons/layout-template";
+import Lock from "lucide-react-native/icons/lock";
+import MapPin from "lucide-react-native/icons/map-pin";
+import NotepadText from "lucide-react-native/icons/notepad-text";
+import Send from "lucide-react-native/icons/send";
+import Sparkles from "lucide-react-native/icons/sparkles";
+import Tags from "lucide-react-native/icons/tags";
+import Type from "lucide-react-native/icons/type";
+import Users from "lucide-react-native/icons/users";
+import Zap from "lucide-react-native/icons/zap";
 import { useMemo, useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, Switch } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -11,7 +25,15 @@ import { AiEventPanel } from "@/components/events/ai-event-panel";
 import { AiEventUpgradeCard } from "@/components/events/ai-plan-cards";
 import { SegmentedControl, type Segment } from "@/components/events/segmented-control";
 import { TimeField } from "@/components/events/time-field";
-import { ErrorBanner, Choice, Field, FormInput } from "@/components/form-fields";
+import {
+  Choice,
+  ErrorBanner,
+  FormBlock,
+  FormCount,
+  FormGroup,
+  FormRow,
+  FormTextArea,
+} from "@/components/form-fields";
 import { OrgAvatar } from "@/components/org-avatar";
 import { useCurrentOrganization } from "@/components/organization-provider";
 import { Box } from "@/components/ui/box";
@@ -269,7 +291,13 @@ export default function CreateEventScreen() {
 
   const paneSegments: Segment<Pane>[] = [
     { value: "form", label: "Details" },
-    { value: "ai", label: hasAiPro ? "AI" : "AI 🔒" },
+    {
+      value: "ai",
+      label: "AI",
+      icon: Sparkles,
+      trailingIcon: hasAiPro ? undefined : Lock,
+      accessibilityLabel: hasAiPro ? "AI" : "AI, locked",
+    },
   ];
 
   // Picking a template drops any standing draft, so the two can never both
@@ -414,6 +442,13 @@ function CreateEventForm({
 
   const badOrder = payloadDays.find((day) => day.endTime <= day.startTime);
 
+  // The form takes the hue of the event it is making, the way that event's own
+  // screen will. Brand orange until a service type says otherwise.
+  const chosenService = (serviceTypes.data ?? []).find((entry) => entry.id === serviceTypeId);
+  const accent = chosenService
+    ? getServiceColors(chosenService.color, theme).text
+    : brand.orange;
+
   const readyForPeople =
     Boolean(serviceTypeId) &&
     name.trim().length > 0 &&
@@ -550,177 +585,190 @@ function CreateEventForm({
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
       >
-        <VStack className="gap-4">
+        <VStack className="gap-5">
           <ErrorBanner message={error} />
 
           {step === 1 ? (
             <>
               {templates.length > 0 ? (
-                <Field
-                  label="Start from template"
-                  hint="Fills everything below in, dated to the next matching day."
+                <FormGroup
+                  label="Start from a template"
+                  icon={LayoutTemplate}
+                  tint={accent}
+                  footnote="Fills everything below in, dated to the next matching day."
                 >
-                  <HStack className="flex-wrap gap-1.5">
-                    {templates.map((template) => (
-                      <Choice
-                        key={template.id}
-                        label={template.name}
-                        selected={!fromDraft && templateId === template.id}
-                        onPress={() => onPickTemplate(template.id)}
-                      />
-                    ))}
-                    {templateId || fromDraft ? (
-                      <Choice
-                        label="Start blank"
-                        selected={false}
-                        onPress={() => onPickTemplate(null)}
-                      />
-                    ) : null}
-                  </HStack>
-                </Field>
+                  <FormBlock>
+                    <HStack className="flex-wrap gap-1.5">
+                      {templates.map((template) => (
+                        <Choice
+                          key={template.id}
+                          label={template.name}
+                          selected={!fromDraft && templateId === template.id}
+                          onPress={() => onPickTemplate(template.id)}
+                        />
+                      ))}
+                      {templateId || fromDraft ? (
+                        <Choice
+                          label="Start blank"
+                          selected={false}
+                          onPress={() => onPickTemplate(null)}
+                        />
+                      ) : null}
+                    </HStack>
+                  </FormBlock>
+                </FormGroup>
               ) : null}
 
-              <Field
-                label="Service type"
-                hint={
+              <FormGroup
+                label="Details"
+                icon={Info}
+                tint={accent}
+                trailing={
+                  chosenService ? <FormCount>{chosenService.name}</FormCount> : undefined
+                }
+                footnote={
                   serviceTypes.data?.length === 0
                     ? "Add a service type in Settings before creating an event."
                     : undefined
                 }
               >
-                {serviceTypes.isPending ? (
-                  <HStack className="py-2">
-                    <Spinner size="small" color={theme.textMuted} />
-                  </HStack>
-                ) : (
-                  <HStack className="flex-wrap gap-1.5">
-                    {(serviceTypes.data ?? []).map((service) => {
-                      const colors = getServiceColors(service.color, theme);
-                      const selected = serviceTypeId === service.id;
-                      return (
-                        <Pressable
-                          key={service.id}
-                          onPress={() => setServiceTypeId(service.id)}
-                          accessibilityRole="button"
-                          accessibilityState={{ selected }}
-                          className="rounded-full border px-3 py-1.5"
-                          style={{
-                            borderColor: selected ? colors.base : theme.border,
-                            backgroundColor: selected ? colors.surface : theme.card,
-                          }}
-                        >
-                          <HStack className="items-center gap-1.5">
-                            <Box
-                              className="h-2.5 w-2.5 rounded-full"
-                              style={{ backgroundColor: colors.base }}
-                            />
-                            <Text
-                              className="text-[13px] font-medium"
-                              style={{ color: selected ? colors.text : theme.text }}
-                            >
-                              {service.name}
-                            </Text>
-                          </HStack>
-                        </Pressable>
-                      );
-                    })}
-                  </HStack>
-                )}
-              </Field>
+                <FormBlock label="Service type" icon={Tags}>
+                  {serviceTypes.isPending ? (
+                    <HStack className="py-1">
+                      <Spinner size="small" color={theme.textMuted} />
+                    </HStack>
+                  ) : (
+                    <HStack className="flex-wrap gap-1.5">
+                      {(serviceTypes.data ?? []).map((service) => {
+                        const colors = getServiceColors(service.color, theme);
+                        const selected = serviceTypeId === service.id;
+                        return (
+                          <Pressable
+                            key={service.id}
+                            onPress={() => setServiceTypeId(service.id)}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected }}
+                            className="rounded-full border px-3 py-1.5"
+                            style={{
+                              borderColor: selected ? colors.base : theme.border,
+                              backgroundColor: selected ? colors.surface : theme.card,
+                            }}
+                          >
+                            <HStack className="items-center gap-1.5">
+                              <Box
+                                className="h-2.5 w-2.5 rounded-full"
+                                style={{ backgroundColor: colors.base }}
+                              />
+                              <Text
+                                className="text-[13px] font-medium"
+                                style={{ color: selected ? colors.text : theme.text }}
+                              >
+                                {service.name}
+                              </Text>
+                            </HStack>
+                          </Pressable>
+                        );
+                      })}
+                    </HStack>
+                  )}
+                </FormBlock>
 
-              <Field label="Name" hint="Up to 25 characters.">
-                <FormInput
+                <FormRow
+                  label="Name"
+                  icon={Type}
                   value={name}
                   onChangeText={setName}
                   placeholder="Sunday Morning"
                   autoCapitalize="words"
                   maxLength={25}
                 />
-              </Field>
 
-              <Field label="Description" hint="Optional.">
-                <FormInput
-                  value={description}
-                  onChangeText={setDescription}
-                  placeholder="What the team should know…"
-                  multiline
-                />
-              </Field>
-
-              <Field label="Location" hint="Up to 20 characters.">
-                <FormInput
+                <FormRow
+                  label="Location"
+                  icon={MapPin}
                   value={location}
                   onChangeText={setLocation}
                   placeholder="Main Sanctuary"
                   autoCapitalize="words"
                   maxLength={20}
                 />
-              </Field>
 
-              <Field
-                label="Dates"
-                hint={
+                <FormBlock
+                  label="Description"
+                  icon={NotepadText}
+                  trailing={<FormCount>Optional</FormCount>}
+                >
+                  <FormTextArea
+                    value={description}
+                    onChangeText={setDescription}
+                    placeholder="What the team should know…"
+                  />
+                </FormBlock>
+              </FormGroup>
+
+              <FormGroup
+                label="When"
+                icon={Calendar}
+                tint={accent}
+                trailing={
+                  days.length > 0 ? (
+                    <FormCount>{`${days.length} ${days.length === 1 ? "day" : "days"}`}</FormCount>
+                  ) : undefined
+                }
+                error={badOrder ? "Each day has to end after it starts." : undefined}
+                footnote={
                   days.length === 0
                     ? "Tap a day, or a start and an end for something running across days."
                     : days.length === 1
                       ? formatShortDate(keyToDate(days[0]))
-                      : `${days.length} days, ${formatShortDate(keyToDate(days[0]))} to ${formatShortDate(keyToDate(days[days.length - 1]))}`
+                      : `${days.length} days, ${formatShortDate(keyToDate(days[0]))} to ${formatShortDate(keyToDate(days[days.length - 1]))}. Each day runs on its own hours.`
                 }
               >
-                <DateRangePicker value={range} onChange={setRange} />
-              </Field>
+                <FormBlock>
+                  <DateRangePicker value={range} onChange={setRange} bare accent={accent} />
+                </FormBlock>
 
-              {days.length > 0 ? (
-                <Field
-                  label="Times"
-                  error={
-                    badOrder
-                      ? "Each day has to end after it starts."
-                      : undefined
-                  }
-                  hint={days.length > 1 ? "Each day runs on its own hours." : undefined}
-                >
-                  <VStack className="overflow-hidden rounded-2xl border border-border bg-card">
-                    {days.map((day, index) => (
-                      <VStack key={day}>
-                        {index > 0 ? <Divider /> : null}
-                        <VStack className="gap-2 px-3 py-2.5">
-                          <Text className="text-[13px] font-semibold text-foreground">
-                            {formatShortDate(keyToDate(day))}
-                          </Text>
-                          <HStack className="items-center gap-2">
-                            <TimeField
-                              value={timesFor(day).startTime}
-                              onChange={(value) => setDayTime(day, { startTime: value })}
-                              label="Start time"
-                              context={formatShortDate(keyToDate(day))}
-                            />
-                            <Text className="text-[13px] text-muted-foreground">to</Text>
-                            <TimeField
-                              value={timesFor(day).endTime}
-                              onChange={(value) => setDayTime(day, { endTime: value })}
-                              label="End time"
-                              context={formatShortDate(keyToDate(day))}
-                            />
-                          </HStack>
-                        </VStack>
-                      </VStack>
-                    ))}
-                  </VStack>
-                </Field>
-              ) : null}
+                {days.map((day) => (
+                  <FormBlock key={day} label={formatShortDate(keyToDate(day))} icon={Clock}>
+                    <HStack className="items-center gap-2">
+                      <TimeField
+                        value={timesFor(day).startTime}
+                        onChange={(value) => setDayTime(day, { startTime: value })}
+                        label="Start time"
+                        context={formatShortDate(keyToDate(day))}
+                      />
+                      <Text className="text-[13px] text-muted-foreground">to</Text>
+                      <TimeField
+                        value={timesFor(day).endTime}
+                        onChange={(value) => setDayTime(day, { endTime: value })}
+                        label="End time"
+                        context={formatShortDate(keyToDate(day))}
+                      />
+                    </HStack>
+                  </FormBlock>
+                ))}
+              </FormGroup>
 
-              <Field
+              <FormGroup
                 label="Roles needed"
-                hint="Everything this event needs filled, whether or not you invite somebody now."
+                icon={Users}
+                tint={accent}
+                trailing={
+                  rolesNeeded.length > 0 ? (
+                    <FormCount>{`${rolesNeeded.length} picked`}</FormCount>
+                  ) : undefined
+                }
+                footnote="Everything this event needs filled, whether or not you invite somebody now."
               >
-                <VolunteerRolePicker
-                  selected={rolesNeeded}
-                  onToggle={(role) =>
-                    setRolesNeeded((current) => toggleRole(current, role))
-                  }
-                />
-              </Field>
+                <FormBlock>
+                  <VolunteerRolePicker
+                    selected={rolesNeeded}
+                    onToggle={(role) =>
+                      setRolesNeeded((current) => toggleRole(current, role))
+                    }
+                  />
+                </FormBlock>
+              </FormGroup>
             </>
           ) : (
             <>
@@ -741,32 +789,40 @@ function CreateEventForm({
                 />
               ))}
 
-              <Field label="Time to respond">
-                <HStack className="gap-1.5">
-                  {EXPIRY_OPTIONS.map((days) => (
-                    <Choice
-                      key={days}
-                      label={`${days} days`}
-                      selected={expiresAt === days}
-                      onPress={() => setExpiresAt(days)}
-                    />
-                  ))}
-                </HStack>
-              </Field>
+              <FormGroup label="Invites" icon={Send} tint={accent}>
+                <FormBlock label="Time to respond" icon={Hourglass}>
+                  <HStack className="gap-1.5">
+                    {EXPIRY_OPTIONS.map((days) => (
+                      <Choice
+                        key={days}
+                        label={`${days} days`}
+                        selected={expiresAt === days}
+                        onPress={() => setExpiresAt(days)}
+                      />
+                    ))}
+                  </HStack>
+                </FormBlock>
 
-              <HStack className="items-center gap-2.5 rounded-2xl border border-border bg-card px-3.5 py-3">
-                <VStack className="flex-1">
-                  <Text className="text-[15px] text-foreground">Smart scheduling</Text>
-                  <Text className="text-[12px] text-muted-foreground">
-                    A decline auto-invites the next available member for that role.
-                  </Text>
-                </VStack>
-                <Switch
-                  value={smartScheduling}
-                  onValueChange={setSmartScheduling}
-                  trackColor={{ true: brand.orange }}
-                />
-              </HStack>
+                <HStack
+                  className="items-center gap-2.5"
+                  style={{ paddingHorizontal: 14, paddingVertical: 12 }}
+                >
+                  <Box style={{ width: 18, alignItems: "center" }}>
+                    <AppIcon icon={Zap} size={17} color={theme.textMuted} />
+                  </Box>
+                  <VStack className="flex-1">
+                    <Text className="text-[15px] text-foreground">Smart scheduling</Text>
+                    <Text className="text-[12px] text-muted-foreground">
+                      A decline auto-invites the next available member for that role.
+                    </Text>
+                  </VStack>
+                  <Switch
+                    value={smartScheduling}
+                    onValueChange={setSmartScheduling}
+                    trackColor={{ true: brand.orange }}
+                  />
+                </HStack>
+              </FormGroup>
 
               <Pressable
                 onPress={() => onStep(1)}
@@ -807,13 +863,10 @@ function RoleSection({
   return (
     <VStack className="gap-1.5">
       <HStack className="ml-1 items-center gap-1.5">
-        <Text style={{ fontSize: 13, lineHeight: 17 }}>{emoji}</Text>
-        <Text className="text-[13px] font-semibold text-foreground">{label}</Text>
-        {selected.length > 0 ? (
-          <Text className="text-[12px] text-muted-foreground">
-            {`· ${selected.length} invited`}
-          </Text>
-        ) : null}
+        <Text style={{ fontSize: 12, lineHeight: 16 }}>{emoji}</Text>
+        <Text className="text-xs font-bold uppercase tracking-[0.7px] text-muted-foreground">
+          {selected.length > 0 ? `${label} · ${selected.length} invited` : label}
+        </Text>
       </HStack>
 
       {loading ? (

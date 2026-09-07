@@ -1,6 +1,7 @@
 import AudioLines from "lucide-react-native/icons/audio-lines";
 import FileText from "lucide-react-native/icons/file-text";
 import Music from "lucide-react-native/icons/music";
+import Pencil from "lucide-react-native/icons/pencil";
 import { Linking } from "react-native";
 import type { ReactNode } from "react";
 
@@ -71,9 +72,12 @@ export function EventSetlistCard({ setlist, service, onSongPress, onEdit }: Even
             ) : null}
             {onEdit ? (
               <Pressable onPress={onEdit} accessibilityRole="button" hitSlop={8}>
-                <Text className="text-[13px] font-semibold" style={{ color: colors.text }}>
-                  Edit
-                </Text>
+                <HStack className="items-center gap-1">
+                  <AppIcon icon={Pencil} size={12} color={colors.text} />
+                  <Text className="text-[13px] font-semibold" style={{ color: colors.text }}>
+                    Edit
+                  </Text>
+                </HStack>
               </Pressable>
             ) : null}
           </HStack>

@@ -65,19 +65,26 @@ type InsetRowProps = {
   /** Trailing text, e.g. a count. */
   value?: string;
   onPress?: () => void;
+  /**
+   * Replaces the chevron, for a row that acts where it stands rather than
+   * navigating — the dashboard ends each blockout in a bin, not an arrow.
+   */
+  trailing?: AppIconName;
   /** Renders the row in red — for leave, delete, and the like. */
   destructive?: boolean;
 };
 
 /**
  * A single tappable line inside an {@link InsetCard}. Shows a chevron whenever
- * it navigates, so a row without `onPress` reads as static by design.
+ * it navigates, so a row without `onPress` reads as static by design — and a
+ * row that acts rather than navigates says so through `trailing`.
  */
 export function InsetRow({
   label,
   icon,
   value,
   onPress,
+  trailing,
   destructive,
 }: InsetRowProps) {
   const theme = useTheme();
@@ -116,7 +123,9 @@ export function InsetRow({
           <Text className="text-[15px] text-muted-foreground">{value}</Text>
         ) : null}
 
-        {onPress && !destructive ? (
+        {trailing ? (
+          <AppIcon icon={trailing} size={16} color={theme.textMuted} />
+        ) : onPress && !destructive ? (
           <AppIcon icon={ChevronRight} size={14} color={theme.textMuted} />
         ) : null}
       </HStack>

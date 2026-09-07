@@ -2,6 +2,7 @@ import { Stack } from "expo-router";
 import CalendarOff from "lucide-react-native/icons/calendar-off";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
 import Plus from "lucide-react-native/icons/plus";
+import Trash2 from "lucide-react-native/icons/trash-2";
 import { useState } from "react";
 import { Alert, RefreshControl, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -121,6 +122,7 @@ export default function BlockoutsScreen() {
                     key={blockout.id}
                     label={label}
                     value={value}
+                    trailing={Trash2}
                     onPress={() => confirmDelete(blockout)}
                   />
                 );

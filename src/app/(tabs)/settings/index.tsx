@@ -4,8 +4,8 @@ import Activity from "lucide-react-native/icons/activity";
 import Building2 from "lucide-react-native/icons/building-2";
 import CalendarOff from "lucide-react-native/icons/calendar-off";
 import LayoutTemplate from "lucide-react-native/icons/layout-template";
-import Palette from "lucide-react-native/icons/palette";
 import Sparkles from "lucide-react-native/icons/sparkles";
+import Tags from "lucide-react-native/icons/tags";
 import UserRound from "lucide-react-native/icons/user-round";
 import { ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -68,7 +68,7 @@ export default function SettingsScreen() {
               />
               {canManage ? (
                 <InsetRow
-                  icon={Palette}
+                  icon={Tags}
                   label="Service types"
                   onPress={() => router.push("/settings/service-types")}
                 />

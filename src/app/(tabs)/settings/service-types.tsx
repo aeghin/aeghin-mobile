@@ -2,6 +2,7 @@ import { Stack } from "expo-router";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
 import Palette from "lucide-react-native/icons/palette";
 import Plus from "lucide-react-native/icons/plus";
+import Tags from "lucide-react-native/icons/tags";
 import { useState } from "react";
 import { Alert, RefreshControl, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -129,7 +130,7 @@ export default function ServiceTypesScreen() {
             </VStack>
           ) : rows.length === 0 ? (
             <EventsEmptyState
-              icon={Palette}
+              icon={Tags}
               title="No service types yet"
               body="Add one before creating an event."
             />

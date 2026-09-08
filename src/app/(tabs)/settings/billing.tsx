@@ -28,7 +28,7 @@ import type { AiPlan } from "@/types/billing";
 const TAB_BAR_CLEARANCE = 64;
 
 const FREE_FEATURES = [
-  "Unlimited organizations, members, and events",
+  "Create organizations, invite members, schedule events",
   "Event templates & service types",
   "Blockout dates & smart scheduling",
   "Song library with charts and audio",
@@ -113,7 +113,7 @@ export default function BillingScreen() {
               <Text className="max-w-[300px] text-center text-[13px] text-muted-foreground">
                 {current
                   ? PLAN_COPY[current].blurb
-                  : "Every scheduling feature is free. AI features are the only paid add-on."}
+                  : "Core scheduling for your team. AI features are the only paid add-on."}
               </Text>
             </VStack>
 
@@ -165,8 +165,8 @@ export default function BillingScreen() {
               <VStack className="gap-3">
                 <PlanCard
                   name="Free"
-                  price="$0 forever"
-                  blurb="The whole platform, for every team."
+                  price="$0/month"
+                  blurb="Core scheduling for your team."
                   features={FREE_FEATURES}
                   tint={theme.textMuted}
                   current={current === null}
@@ -195,8 +195,8 @@ export default function BillingScreen() {
               </VStack>
               <Text className="ml-1 mt-2 text-[12px] text-muted-foreground">
                 {status.canSubscribe
-                  ? "Checkout opens in your browser. Plans are per organization."
-                  : "Only an organization owner can start or change a plan."}
+                  ? "Checkout opens in your browser. Plans are per organization, and AI usage is subject to plan limits."
+                  : "Only an organization owner can start or change a plan. AI usage is subject to plan limits."}
               </Text>
             </VStack>
             )}

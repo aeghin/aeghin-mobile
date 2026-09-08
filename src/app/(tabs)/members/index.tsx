@@ -20,7 +20,10 @@ import {
 import { EmailOrganizationDialog } from "@/components/members/email-organization-dialog";
 import { InviteMemberDialog } from "@/components/members/invite-member-dialog";
 import { AppHeader } from "@/components/app-header";
-import { useMembersSearch } from "@/components/members-search-provider";
+import {
+  MembersSearchDock,
+  SEARCH_DOCK_CLEARANCE,
+} from "@/components/members-search-dock";
 import { useCurrentOrganization } from "@/components/organization-provider";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
@@ -37,9 +40,6 @@ const ROLE_ORDER: OrgRole[] = ["OWNER", "ADMIN", "MEMBER"];
 
 /** Stable identity so an empty roster does not remake the array each render. */
 const NO_MEMBERS: OrganizationMember[] = [];
-
-/** The bottom accessory's height — what the list must clear underneath it. */
-const SEARCH_ACCESSORY_HEIGHT = 62;
 
 export default function OrganizationMembersScreen() {
   const theme = useTheme();
@@ -62,14 +62,11 @@ export default function OrganizationMembersScreen() {
 
   const [inviting, setInviting] = useState(false);
   const [emailing, setEmailing] = useState(false);
+  const [query, setQuery] = useState("");
 
   // The summary already carries `memberCount`, so the placeholder list is
   // usually the exact length of the real one and nothing shifts on arrival.
   const skeletonCount = Math.min(Math.max(organization?.memberCount ?? 4, 3), 8);
-
-  // The field itself is the tab navigator's bottom accessory, mounted up in
-  // the tabs layout. Only the term reaches this screen.
-  const { query } = useMembersSearch();
 
   const members = data ?? NO_MEMBERS;
   const needle = query.trim().toLowerCase();
@@ -98,16 +95,20 @@ export default function OrganizationMembersScreen() {
           // between them they touch and read as one surface, as if the header
           // ran on into the first row.
           paddingTop: 18,
-          // Clears the docked field so the last row can always scroll free.
-          paddingBottom: SEARCH_ACCESSORY_HEIGHT + insets.bottom + 16,
+          // The dock floats over the list, so nothing but this padding
+          // keeps the last row out from under it.
+          paddingBottom: insets.bottom + SEARCH_DOCK_CLEARANCE,
           // Lets the spinner and the empty states stretch to the full viewport,
           // so a short state centres itself instead of hugging the header.
           flexGrow: 1,
         }}
-        // The accessory is the navigator's, not this screen's, so it adds no
-        // top inset. The header is opaque and the list already starts below it.
+        // The header is opaque and the list already starts below it; the dock
+        // is the screen's own view and adds no inset of its own.
         contentInsetAdjustmentBehavior="never"
         keyboardDismissMode="on-drag"
+        // Otherwise the first tap on a row while the keyboard is up only
+        // dismisses the keyboard, and the row needs tapping twice.
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             {...pullToRefresh}
@@ -156,6 +157,8 @@ export default function OrganizationMembersScreen() {
           </InsetCard>
         )}
       </ScrollView>
+
+      <MembersSearchDock query={query} onChange={setQuery} />
 
       {organization ? (
         <InviteMemberDialog

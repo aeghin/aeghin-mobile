@@ -52,13 +52,17 @@ export class ApiError extends Error {
  * itself an error to report: a proxy's HTML timeout page must not replace the
  * status that actually explains the failure.
  */
-async function errorMessage(response: Response): Promise<string | undefined> {
+function errorFromBody(text: string): string | undefined {
   try {
-    const body = (await response.json()) as { error?: unknown };
+    const body = JSON.parse(text) as { error?: unknown };
     return typeof body.error === "string" ? body.error : undefined;
   } catch {
     return undefined;
   }
+}
+
+async function errorMessage(response: Response): Promise<string | undefined> {
+  return errorFromBody(await response.text().catch(() => ""));
 }
 
 /**
@@ -113,10 +117,15 @@ export type UploadFile = {
 /**
  * POSTs files to `path` as `multipart/form-data`.
  *
- * Deliberately not `request`: that one sets `Content-Type` itself, and a
- * multipart body must carry the boundary the platform generated. Setting the
- * header by hand here would produce a boundary that does not match the body
- * and a server that finds no parts at all.
+ * `XMLHttpRequest` rather than `fetch`. SDK 57 replaces the global `fetch` with
+ * Expo's WinterCG one, and that implementation cannot encode a React Native
+ * file part — `convertFormData` takes a string, a `Blob`, or anything with
+ * `bytes()`, and throws "Unsupported FormDataPart implementation" on our
+ * `{ uri, name, type }`. Expo leaves `XMLHttpRequest` alone, so the part still
+ * reaches RN's networking layer, which streams the file from disk.
+ *
+ * Nothing sets `Content-Type` here either way: a multipart body must carry the
+ * boundary the platform generated, and a hand-written header would not match it.
  */
 export async function apiUpload<T>(
   path: string,
@@ -136,20 +145,33 @@ export async function apiUpload<T>(
     form.append(field, file as unknown as Blob);
   }
 
-  const response = await fetch(`${baseUrl}${path}`, {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: form,
-  });
+  const { status, body } = await new Promise<{ status: number; body: string }>(
+    (resolve, reject) => {
+      const request = new XMLHttpRequest();
 
-  if (!response.ok) {
-    throw new ApiError(response.status, await errorMessage(response));
+      request.open("POST", `${baseUrl}${path}`);
+      request.setRequestHeader("Accept", "application/json");
+      request.setRequestHeader("Authorization", `Bearer ${token}`);
+
+      request.onload = () =>
+        resolve({ status: request.status, body: request.responseText });
+
+      // A transport failure never reaches a status, so it carries its own
+      // wording rather than falling through to `failureMessage`'s fallback.
+      request.onerror = () =>
+        reject(new ApiError(0, "The upload didn't finish. Check your connection."));
+
+      request.onabort = () => reject(new ApiError(0, "The upload was cancelled."));
+
+      request.send(form);
+    },
+  );
+
+  if (status < 200 || status >= 300) {
+    throw new ApiError(status, errorFromBody(body));
   }
 
-  return (await response.json()) as T;
+  return JSON.parse(body) as T;
 }
 
 /** GETs `path`. */

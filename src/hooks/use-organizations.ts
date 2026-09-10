@@ -1,14 +1,8 @@
 import { useAuth } from "@clerk/expo";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import {
-  apiDelete,
-  apiGet,
-  apiPatch,
-  apiPost,
-  apiUpload,
-  type UploadFile,
-} from "@/lib/api";
+import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
+import { uploadToStorage, type UploadFile } from "@/lib/uploadthing";
 import type {
   OrganizationDetail,
   OrganizationInput,
@@ -129,10 +123,9 @@ const logoPath = (orgId: string) => `/api/mobile/v1/organizations/${orgId}/logo`
 /**
  * Replaces the organization's logo. Owners only.
  *
- * The image goes to our own API rather than to UploadThing, which the
- * dashboard uploads to straight from the browser — there is no UploadThing
- * client for React Native, so the server does that leg. Replacing also deletes
- * whatever the logo used to be, which the action handles.
+ * Same two steps as an attachment: the image goes to UploadThing directly, then
+ * our own API records the result. Replacing also deletes whatever the logo used
+ * to be, which the action handles.
  *
  * Invalidating the whole `["organizations", userId]` subtree rather than one
  * key: the logo is drawn from the summary list, the detail, and the header
@@ -143,8 +136,16 @@ export function useUpdateLogo(orgId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (file: UploadFile) =>
-      apiUpload<{ logoUrl: string }>(logoPath(orgId), "file", [file]),
+    mutationFn: async (file: UploadFile) => {
+      const [stored] = await uploadToStorage("orgLogo", [file], {
+        organizationId: orgId,
+      });
+
+      return apiPost<{ logoUrl: string }>(logoPath(orgId), {
+        url: stored.url,
+        key: stored.key,
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["organizations", userId] });
     },

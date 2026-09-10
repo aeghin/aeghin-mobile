@@ -2,7 +2,8 @@ import { useAuth } from "@clerk/expo";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
-import { apiDelete, apiGet, apiPatch, apiPost, apiUpload, type UploadFile } from "@/lib/api";
+import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
+import { uploadToStorage, type UploadFile } from "@/lib/uploadthing";
 import type { LibrarySong, SongInput } from "@/types/song";
 
 type SongsResponse = {
@@ -129,23 +130,27 @@ export type NewAttachments = {
 /**
  * Attaches charts or tracks to a song.
  *
- * The bytes go to our own API rather than to UploadThing, which the dashboard
- * talks to straight from the browser — there is no UploadThing client for
- * React Native, so the server does that leg with `UTApi`. Uploads are slow
- * enough that this is the one mutation worth showing progress for, which is
- * why nothing here is optimistic.
+ * Two steps, the same two the dashboard takes: the files go to UploadThing
+ * directly — which is what keeps them clear of the host's request body cap —
+ * and then our own API records what landed. The role check happens in both
+ * places, since the file router and the route each run it.
+ *
+ * Not optimistic: the rows are the server's to mint, and a file can fail on
+ * its own while the rest of a batch succeeds.
  */
 export function useAddAttachments(orgId: string) {
   const { userId } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ songId, files }: NewAttachments) =>
-      apiUpload<AttachmentUploadResult>(
+    mutationFn: async ({ songId, files }: NewAttachments) => {
+      const stored = await uploadToStorage("songAttachment", files, { songId });
+
+      return apiPost<AttachmentUploadResult>(
         `${songsPath(orgId)}/${songId}/attachments`,
-        "files",
-        files,
-      ),
+        { files: stored },
+      );
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: songsKey(userId, orgId) });
     },

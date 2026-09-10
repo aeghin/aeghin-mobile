@@ -39,6 +39,11 @@ const TAB_BAR_CLEARANCE = 64;
 const LOGO_SIZE = 84;
 const LOGO_RADIUS = LOGO_SIZE * 0.28;
 
+/** The `orgLogo` file router's own cap, checked before a byte goes up. */
+const MAX_LOGO_BYTES = 4 * 1024 * 1024;
+
+const megabytes = (bytes: number) => `${Math.round(bytes / (1024 * 1024))}MB`;
+
 /**
  * The dashboard's Settings tab for the organization itself: its name and
  * description, and the danger zone. Editing is the owner's — the server
@@ -102,8 +107,28 @@ export default function OrganizationSettingsScreen() {
     // the server only needs something to call it.
     const fileName = asset.fileName ?? `${name || "organization"}-logo.jpg`;
 
+    // The upload declares its size before a byte moves, so one we cannot read
+    // is one we cannot send.
+    if (asset.fileSize === undefined) {
+      Alert.alert("Couldn't update logo", "That image couldn't be read. Try another one.");
+      return;
+    }
+
+    if (asset.fileSize > MAX_LOGO_BYTES) {
+      Alert.alert(
+        "Couldn't update logo",
+        `That image is over the ${megabytes(MAX_LOGO_BYTES)} limit. Try a smaller one.`,
+      );
+      return;
+    }
+
     updateLogo.mutate(
-      { uri: asset.uri, name: fileName, type: asset.mimeType ?? "image/jpeg" },
+      {
+        uri: asset.uri,
+        name: fileName,
+        type: asset.mimeType ?? "image/jpeg",
+        size: asset.fileSize,
+      },
       { onError: (error) => Alert.alert("Couldn't update logo", failureMessage(error)) },
     );
   };

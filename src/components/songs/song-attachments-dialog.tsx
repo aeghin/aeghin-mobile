@@ -20,17 +20,16 @@ import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
 import { useAddAttachments, useDeleteAttachment } from "@/hooks/use-songs";
 import { useTheme } from "@/hooks/use-theme";
-import type { UploadFile } from "@/lib/api";
 import { failureMessage } from "@/lib/failure";
+import type { UploadFile } from "@/lib/uploadthing";
 import type { LibrarySong, SongAttachment } from "@/types/song";
 
 /**
  * A song's charts and tracks.
  *
- * The dashboard hangs these off its song modal, where the browser can upload
- * straight to UploadThing. The phone cannot — there is no UploadThing client
- * for React Native — so the file goes to our own API and the server does that
- * leg. What the person sees is the same either way.
+ * The dashboard hangs these off its song modal, and the phone now takes the
+ * same two steps it does: the file goes to UploadThing directly, then our own
+ * API records what landed.
  */
 
 /** The `songAttachment` file router's limits, checked before a byte goes up. */
@@ -118,12 +117,19 @@ export function SongAttachmentsDialog({
         return;
       }
 
-      if (asset.size !== undefined && asset.size > limit) {
+      // The upload declares its size before a byte moves, so one we cannot read
+      // is one we cannot send.
+      if (asset.size === undefined) {
+        setError(`${asset.name} couldn't be read. Try picking it again.`);
+        return;
+      }
+
+      if (asset.size > limit) {
         setError(`${asset.name} is over the ${megabytes(limit)} limit.`);
         return;
       }
 
-      files.push({ uri: asset.uri, name: asset.name, type });
+      files.push({ uri: asset.uri, name: asset.name, type, size: asset.size });
     }
 
     upload.mutate(

@@ -29,7 +29,6 @@ import {
   useRemoveEventRole,
 } from "@/hooks/use-events";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
-import { useRefetchOnFocus } from "@/hooks/use-refetch-on-focus";
 import { useTheme } from "@/hooks/use-theme";
 import { ApiError } from "@/lib/api";
 import { getServiceColors } from "@/lib/config/service-types";
@@ -63,11 +62,6 @@ export default function EventDetailScreen() {
 
   const details = useEventDetails(organizationId, eventId ?? "");
   const pullToRefresh = usePullToRefresh(details.refetch);
-
-  // The roster is what this screen is mostly for, and it changes without this
-  // device doing anything. Popping back from the setlist or the chat re-reads.
-  useRefetchOnFocus([details]);
-
   const event = details.data;
 
   const cancelAssignment = useCancelAssignment(organizationId, eventId ?? "");

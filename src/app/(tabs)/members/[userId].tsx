@@ -174,20 +174,31 @@ export default function MemberScreen() {
 
             <VStack>
               <SectionLabel>Contact</SectionLabel>
-              <InsetCard elevated>
-                <InsetRow
-                  icon={AtSign}
-                  label={member.email}
-                  onPress={() => Linking.openURL(`mailto:${member.email}`)}
-                />
-                {member.phoneNumber ? (
-                  <InsetRow
-                    icon={Phone}
-                    label={formatPhone(member.phoneNumber)}
-                    onPress={() => Linking.openURL(`tel:${member.phoneNumber}`)}
-                  />
-                ) : null}
-              </InsetCard>
+              {member.email || member.phoneNumber ? (
+                <InsetCard elevated>
+                  {member.email ? (
+                    <InsetRow
+                      icon={AtSign}
+                      label={member.email}
+                      onPress={() => Linking.openURL(`mailto:${member.email}`)}
+                    />
+                  ) : null}
+                  {member.phoneNumber ? (
+                    <InsetRow
+                      icon={Phone}
+                      label={formatPhone(member.phoneNumber)}
+                      onPress={() => Linking.openURL(`tel:${member.phoneNumber}`)}
+                    />
+                  ) : null}
+                </InsetCard>
+              ) : (
+                // The server withholds addresses and numbers from plain
+                // members, so there is nothing to draw. Said plainly rather
+                // than left blank: a missing section reads as a bug.
+                <Text className="ml-1 text-[13px] text-muted-foreground">
+                  Owners and admins can see email addresses and phone numbers.
+                </Text>
+              )}
             </VStack>
 
             <VStack>

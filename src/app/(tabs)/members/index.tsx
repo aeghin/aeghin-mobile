@@ -6,11 +6,13 @@ import Megaphone from "lucide-react-native/icons/megaphone";
 import SearchX from "lucide-react-native/icons/search-x";
 import UserPlus from "lucide-react-native/icons/user-plus";
 import Users from "lucide-react-native/icons/users";
+import X from "lucide-react-native/icons/x";
 import { useState } from "react";
 import { RefreshControl, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppIcon, type AppIconName } from "@/components/app-icon";
+import { MemberFilterDialog } from "@/components/members/member-filter-dialog";
 import { InsetCard, InsetRow } from "@/components/inset-list";
 import {
   MEMBER_SEPARATOR_INSET,
@@ -25,6 +27,9 @@ import {
   SEARCH_DOCK_CLEARANCE,
 } from "@/components/members-search-dock";
 import { useCurrentOrganization } from "@/components/organization-provider";
+import { Button, ButtonText } from "@/components/ui/button";
+import { HStack } from "@/components/ui/hstack";
+import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
@@ -32,11 +37,17 @@ import { useMembersList } from "@/hooks/use-members-list";
 import { useOrganizationDetails } from "@/hooks/use-organizations";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useTheme } from "@/hooks/use-theme";
-import { canManageOrg } from "@/lib/config/roles";
-import type { OrgRole, OrganizationMember } from "@/types/organization";
-
-/** Seniority order. The badge on each row is what names the role. */
-const ROLE_ORDER: OrgRole[] = ["OWNER", "ADMIN", "MEMBER"];
+import { canManageOrg, getRoleConfig } from "@/lib/config/roles";
+import { getVolunteerRoleConfig } from "@/lib/config/volunteer-roles";
+import {
+  NO_FILTERS,
+  ORG_ROLE_ORDER,
+  activeFilterCount,
+  filterMembers,
+  isNarrowed,
+  type RosterFilters,
+} from "@/lib/members/roster";
+import type { OrganizationMember } from "@/types/organization";
 
 /** Stable identity so an empty roster does not remake the array each render. */
 const NO_MEMBERS: OrganizationMember[] = [];
@@ -62,24 +73,31 @@ export default function OrganizationMembersScreen() {
 
   const [inviting, setInviting] = useState(false);
   const [emailing, setEmailing] = useState(false);
-  const [query, setQuery] = useState("");
+  const [filtering, setFiltering] = useState(false);
+
+  // Held together rather than as three useStates: every reader below wants the
+  // whole set, and `NO_FILTERS` is then one value to reset to.
+  const [filters, setFilters] = useState<RosterFilters>(NO_FILTERS);
+
+  const setFilter = <K extends keyof RosterFilters>(key: K, value: RosterFilters[K]) =>
+    setFilters((current) => ({ ...current, [key]: value }));
 
   // The summary already carries `memberCount`, so the placeholder list is
   // usually the exact length of the real one and nothing shifts on arrival.
   const skeletonCount = Math.min(Math.max(organization?.memberCount ?? 4, 3), 8);
 
   const members = data ?? NO_MEMBERS;
-  const needle = query.trim().toLowerCase();
 
   // The payload carries no Clerk id, so "you" is matched on email — the one
   // field both Clerk and our own User table are keyed to hold.
   const myEmail = user?.primaryEmailAddress?.emailAddress?.toLowerCase();
 
-  const visible = needle
-    ? members.filter((member) => searchText(member).includes(needle))
-    : members;
+  const activeFilters = activeFilterCount(filters);
+  const narrowed = isNarrowed(filters);
 
-  const roster = ROLE_ORDER.flatMap((role) =>
+  const visible = filterMembers(members, filters);
+
+  const roster = ORG_ROLE_ORDER.flatMap((role) =>
     visible.filter((member) => member.role === role),
   );
 
@@ -117,7 +135,7 @@ export default function OrganizationMembersScreen() {
           />
         }
       >
-        {canManage && !needle ? (
+        {canManage && !narrowed ? (
           <InsetCard elevated className="mb-4">
             <InsetRow icon={UserPlus} label="Invite member" onPress={() => setInviting(true)} />
             <InsetRow
@@ -136,6 +154,31 @@ export default function OrganizationMembersScreen() {
           </InsetCard>
         ) : null}
 
+        {/* What the list is currently narrowed to, and the tap that undoes it.
+            The dock's badge counts these, but it sits at the far end of the
+            screen — this is where somebody looking at a short roster looks. */}
+        {activeFilters > 0 && !isPending ? (
+          <HStack className="mb-3 flex-wrap items-center gap-1.5">
+            <Text className="text-[12px] font-medium text-muted-foreground">
+              {`${roster.length} ${roster.length === 1 ? "person" : "people"}`}
+            </Text>
+
+            {filters.role !== "ALL" ? (
+              <FilterChip
+                label={getRoleConfig(filters.role, theme).label}
+                onPress={() => setFilter("role", "ALL")}
+              />
+            ) : null}
+
+            {filters.volunteerRole !== "ALL" ? (
+              <FilterChip
+                label={getVolunteerRoleConfig(filters.volunteerRole).label}
+                onPress={() => setFilter("volunteerRole", "ALL")}
+              />
+            ) : null}
+          </HStack>
+        ) : null}
+
         {isPending ? (
           <InsetCard elevated separatorInset={MEMBER_SEPARATOR_INSET}>
             {Array.from({ length: skeletonCount }, (_, index) => (
@@ -143,7 +186,10 @@ export default function OrganizationMembersScreen() {
             ))}
           </InsetCard>
         ) : roster.length === 0 ? (
-          <EmptyState {...emptyStateFor({ isError, needle })} />
+          <EmptyState
+            {...emptyStateFor({ isError, filters, canManage })}
+            onClear={narrowed ? () => setFilters(NO_FILTERS) : undefined}
+          />
         ) : (
           <InsetCard elevated separatorInset={MEMBER_SEPARATOR_INSET}>
             {roster.map((member) => (
@@ -158,7 +204,22 @@ export default function OrganizationMembersScreen() {
         )}
       </ScrollView>
 
-      <MembersSearchDock query={query} onChange={setQuery} />
+      <MembersSearchDock
+        query={filters.query}
+        onChange={(value) => setFilter("query", value)}
+        activeFilters={activeFilters}
+        onOpenFilters={() => setFiltering(true)}
+      />
+
+      <MemberFilterDialog
+        visible={filtering}
+        onClose={() => setFiltering(false)}
+        members={members}
+        filters={filters}
+        onChangeRole={(role) => setFilter("role", role)}
+        onChangeVolunteerRole={(role) => setFilter("volunteerRole", role)}
+        onClear={() => setFilters((current) => ({ ...NO_FILTERS, query: current.query }))}
+      />
 
       {organization ? (
         <InviteMemberDialog
@@ -182,9 +243,25 @@ export default function OrganizationMembersScreen() {
   );
 }
 
-/** Everything one row can be matched on, lowercased once per filter pass. */
-function searchText(member: OrganizationMember): string {
-  return `${member.firstName} ${member.lastName} ${member.email}`.toLowerCase();
+/** An active filter, and the tap that takes it off again. */
+function FilterChip({ label, onPress }: { label: string; onPress: () => void }) {
+  const theme = useTheme();
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`Remove filter ${label}`}
+      hitSlop={8}
+      className="rounded-full border px-2.5 py-0.5 data-[active=true]:opacity-60"
+      style={{ borderColor: theme.border, backgroundColor: theme.surface }}
+    >
+      <HStack className="items-center gap-1">
+        <Text className="text-[12px] font-medium text-foreground">{label}</Text>
+        <AppIcon icon={X} size={10} color={theme.textMuted} />
+      </HStack>
+    </Pressable>
+  );
 }
 
 type EmptyStateProps = {
@@ -195,10 +272,13 @@ type EmptyStateProps = {
 
 function emptyStateFor({
   isError,
-  needle,
+  filters,
+  canManage,
 }: {
   isError: boolean;
-  needle: string;
+  filters: RosterFilters;
+  /** Members match on names alone; only managers are given addresses to match. */
+  canManage: boolean;
 }): EmptyStateProps {
   if (isError) {
     return {
@@ -208,11 +288,25 @@ function emptyStateFor({
     };
   }
 
-  if (needle) {
+  // A filter is the likelier culprit than the term when both are on: it is the
+  // one you cannot see by glancing at the field you just typed into.
+  if (activeFilterCount(filters) > 0) {
     return {
       icon: SearchX,
       title: "No matches",
-      body: "Try a different name or email address.",
+      body: filters.query.trim()
+        ? "Nobody matches that search and those filters."
+        : "Nobody in this organization has that combination.",
+    };
+  }
+
+  if (filters.query.trim()) {
+    return {
+      icon: SearchX,
+      title: "No matches",
+      body: canManage
+        ? "Try a different name or email address."
+        : "Try a different name.",
     };
   }
 
@@ -223,7 +317,12 @@ function emptyStateFor({
   };
 }
 
-function EmptyState({ icon, title, body }: EmptyStateProps) {
+function EmptyState({
+  icon,
+  title,
+  body,
+  onClear,
+}: EmptyStateProps & { onClear?: () => void }) {
   const theme = useTheme();
 
   return (
@@ -233,6 +332,19 @@ function EmptyState({ icon, title, body }: EmptyStateProps) {
       <Text className="max-w-[260px] text-center text-sm text-muted-foreground">
         {body}
       </Text>
+
+      {/* The search field is docked at the bottom and the filters live behind
+          a button in it, so a narrowed roster showing nothing has no visible
+          cause up here. This is the way back. */}
+      {onClear ? (
+        <Button
+          variant="outline"
+          onPress={onClear}
+          className="mt-1.5 rounded-xl border-border"
+        >
+          <ButtonText className="text-brand">Clear search and filters</ButtonText>
+        </Button>
+      ) : null}
     </VStack>
   );
 }

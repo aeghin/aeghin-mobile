@@ -9,6 +9,7 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { useTheme } from "@/hooks/use-theme";
 import { getRoleConfig } from "@/lib/config/roles";
+import { ROLE_ORDER, getVolunteerRoleConfig } from "@/lib/config/volunteer-roles";
 import type { OrganizationMember } from "@/types/organization";
 
 const AVATAR = 44;
@@ -42,7 +43,12 @@ export function MemberRow({ member, isYou, onPress }: MemberRowProps) {
 
   const { icon, label, textClass, tint } = getRoleConfig(role, theme);
 
-  const fullName = [firstName, lastName].filter(Boolean).join(" ") || email;
+  const fullName = [firstName, lastName].filter(Boolean).join(" ") || email || "Member";
+
+  // An address for whoever is allowed one, and what they play for everybody
+  // else. The row is as tall as its avatar either way, so a person with
+  // neither simply loses the second line rather than leaving a gap.
+  const subtitle = email || volunteerRoleSummary(member.volunteerRoles);
 
   return (
     <Pressable
@@ -68,9 +74,11 @@ export function MemberRow({ member, isYou, onPress }: MemberRowProps) {
           {isYou ? "You" : fullName}
         </Text>
 
-        <Text className="text-[13px] text-muted-foreground" numberOfLines={1}>
-          {email}
-        </Text>
+        {subtitle ? (
+          <Text className="text-[13px] text-muted-foreground" numberOfLines={1}>
+            {subtitle}
+          </Text>
+        ) : null}
       </VStack>
 
       {/* Tinted text rather than a filled pill: owner and admin still carry
@@ -84,6 +92,19 @@ export function MemberRow({ member, isYou, onPress }: MemberRowProps) {
     </HStack>
     </Pressable>
   );
+}
+
+/**
+ * `["BGVS", "GUITARIST"]` -> `"Guitarist · BGVs"`.
+ *
+ * Roster order rather than the order they were granted, so two people who play
+ * the same pair of instruments read identically. Labels without their emoji:
+ * at 13px in a single line that clips, the words are what survive truncation.
+ */
+function volunteerRoleSummary(roles: OrganizationMember["volunteerRoles"]): string {
+  return ROLE_ORDER.filter((role) => roles.includes(role))
+    .map((role) => getVolunteerRoleConfig(role).label)
+    .join(" · ");
 }
 
 /** Widths cycle so a column of placeholders reads as names, not as a grid. */

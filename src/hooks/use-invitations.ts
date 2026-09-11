@@ -64,3 +64,25 @@ export function useCancelInvitation(orgId: string) {
     },
   });
 }
+
+/**
+ * Sends an invitation again — a fresh token, seven more days, and the email
+ * re-delivered.
+ *
+ * The dashboard offers this on a pending invitation and on a canceled one; a
+ * canceled row going back to PENDING is why the organization's own summary is
+ * invalidated too, the way inviting and canceling both do.
+ */
+export function useResendInvitation(orgId: string) {
+  const { userId } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (invitationId: string) =>
+      apiPost<{ success: true }>(`${invitationsPath(orgId)}/${invitationId}/resend`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: invitationsKey(orgId) });
+      queryClient.invalidateQueries({ queryKey: ["organizations", userId] });
+    },
+  });
+}

@@ -1,4 +1,5 @@
 import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
+import ListFilter from "lucide-react-native/icons/list-filter";
 import Search from "lucide-react-native/icons/search";
 import X from "lucide-react-native/icons/x";
 import { useEffect, useState } from "react";
@@ -6,8 +7,11 @@ import { Animated, Keyboard, Platform, StyleSheet, TextInput, View } from "react
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppIcon } from "@/components/app-icon";
+import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
+import { Text } from "@/components/ui/text";
+import { brand } from "@/constants/branding";
 import { useTheme } from "@/hooks/use-theme";
 
 /** Air between the capsule and the keyboard, once the keyboard is up. */
@@ -40,6 +44,9 @@ const KEYBOARD_DOWN: KeyboardState = { height: 0, duration: 250 };
 type Props = {
   query: string;
   onChange: (query: string) => void;
+  /** How many filters are on, shown as a badge on the button. */
+  activeFilters: number;
+  onOpenFilters: () => void;
 };
 
 /**
@@ -51,7 +58,12 @@ type Props = {
  * of our own can be moved, and `keyboardWillShow` hands us the system's own
  * curve and duration to move it with.
  */
-export function MembersSearchDock({ query, onChange }: Props) {
+export function MembersSearchDock({
+  query,
+  onChange,
+  activeFilters,
+  onOpenFilters,
+}: Props) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -130,6 +142,37 @@ export function MembersSearchDock({ query, onChange }: Props) {
           <AppIcon icon={X} size={15} color={theme.textMuted} />
         </Pressable>
       ) : null}
+
+      {/* In the capsule rather than up the page with the list: search and
+          filter narrow the same roster, and this is the end of the screen a
+          thumb already rests on. Tinted whenever it is doing something, so an
+          unexpectedly short list explains itself without scrolling. */}
+      <Pressable
+        onPress={onOpenFilters}
+        hitSlop={10}
+        accessibilityRole="button"
+        accessibilityLabel={
+          activeFilters === 0
+            ? "Filter members"
+            : `Filter members, ${activeFilters} ${activeFilters === 1 ? "filter" : "filters"} on`
+        }
+        className="-mr-1 flex-row items-center gap-1 px-1 data-[active=true]:opacity-60"
+      >
+        <AppIcon
+          icon={ListFilter}
+          size={17}
+          color={activeFilters > 0 ? brand.orange : theme.textMuted}
+        />
+
+        {activeFilters > 0 ? (
+          <Box
+            className="min-w-[16px] items-center rounded-full px-1"
+            style={{ backgroundColor: brand.orange }}
+          >
+            <Text className="text-[11px] font-bold text-white">{activeFilters}</Text>
+          </Box>
+        ) : null}
+      </Pressable>
     </HStack>
   );
 

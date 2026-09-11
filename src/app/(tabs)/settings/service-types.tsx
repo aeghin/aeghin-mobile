@@ -120,22 +120,29 @@ export default function ServiceTypesScreen() {
             <InsetCard elevated separatorInset={44}>
               {rows.map((serviceType) => {
                 const colors = getServiceColors(serviceType.color, theme);
-                return (
+                const row = (
+                  <HStack className="min-h-[52px] items-center gap-3 px-3.5">
+                    <Box className="h-4 w-4 rounded-full" style={{ backgroundColor: colors.base }} />
+                    <Text className="flex-1 text-base text-foreground">{serviceType.name}</Text>
+                    <Text className="text-[13px] capitalize text-muted-foreground">
+                      {serviceType.color}
+                    </Text>
+                  </HStack>
+                );
+
+                // Somebody who cannot edit service types still reads the list
+                // at full strength — a `disabled` Pressable would grey it out.
+                return canManage ? (
                   <Pressable
                     key={serviceType.id}
-                    onPress={canManage ? () => openActions(serviceType) : undefined}
-                    disabled={!canManage}
-                    accessibilityRole={canManage ? "button" : undefined}
+                    onPress={() => openActions(serviceType)}
+                    accessibilityRole="button"
                     className="data-[active=true]:bg-border/60"
                   >
-                    <HStack className="min-h-[52px] items-center gap-3 px-3.5">
-                      <Box className="h-4 w-4 rounded-full" style={{ backgroundColor: colors.base }} />
-                      <Text className="flex-1 text-base text-foreground">{serviceType.name}</Text>
-                      <Text className="text-[13px] capitalize text-muted-foreground">
-                        {serviceType.color}
-                      </Text>
-                    </HStack>
+                    {row}
                   </Pressable>
+                ) : (
+                  <VStack key={serviceType.id}>{row}</VStack>
                 );
               })}
             </InsetCard>

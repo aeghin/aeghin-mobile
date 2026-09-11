@@ -338,14 +338,7 @@ function AssignmentRow({
   const fullName =
     `${assignment.user.firstName} ${assignment.user.lastName}`.trim();
 
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={!onPress}
-      accessibilityRole={onPress ? "button" : undefined}
-      accessibilityHint={onPress ? "Removes them from this event" : undefined}
-      className="data-[active=true]:opacity-60"
-    >
+  const row = (
     <HStack
       className="items-center gap-2.5 rounded-xl border px-2.5 py-2"
       style={
@@ -403,6 +396,21 @@ function AssignmentRow({
         {status.label}
       </Text>
     </HStack>
+  );
+
+  // Somebody who cannot change the roster gets the same row without the tap.
+  // A `disabled` Pressable would drop it to 40%, which reads as unavailable
+  // rather than read-only.
+  if (!onPress) return row;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityHint="Removes them from this event"
+      className="data-[active=true]:opacity-60"
+    >
+      {row}
     </Pressable>
   );
 }

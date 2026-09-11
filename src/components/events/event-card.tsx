@@ -30,6 +30,9 @@ import type { OrganizationEvent, ServiceType } from "@/types/event";
 /** The time column's width, shared with the skeleton so nothing shifts. */
 const TIME_COLUMN = 66;
 
+/** The card's own surface, worn by the tappable and the static row alike. */
+const CARD_CLASS = "overflow-hidden rounded-2xl border border-border bg-card";
+
 type EventCardProps = {
   event: OrganizationEvent;
   service: ServiceType | undefined;
@@ -63,14 +66,8 @@ export function EventCard({
   const staffing = showStaffing ? staffingFor(event) : null;
   const spansDays = isMultiDay(event.dates);
 
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={!onPress}
-      accessibilityRole={onPress ? "button" : undefined}
-      accessibilityLabel={event.name}
-      className="overflow-hidden rounded-2xl border border-border bg-card data-[active=true]:opacity-80"
-    >
+  const content = (
+    <>
       <ServiceRail service={service} />
 
       <HStack className="items-start gap-2.5 py-3 pl-[14px] pr-3">
@@ -117,6 +114,21 @@ export function EventCard({
           <AppIcon icon={ChevronRight} size={13} color={theme.textMuted} />
         ) : null}
       </HStack>
+    </>
+  );
+
+  // An event with nowhere to go keeps the card's normal weight: a `disabled`
+  // Pressable would render the whole thing at 40%.
+  if (!onPress) return <VStack className={CARD_CLASS}>{content}</VStack>;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={event.name}
+      className={`${CARD_CLASS} data-[active=true]:opacity-80`}
+    >
+      {content}
     </Pressable>
   );
 }

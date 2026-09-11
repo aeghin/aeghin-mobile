@@ -90,45 +90,55 @@ export function InsetRow({
   const theme = useTheme();
   const tint = destructive ? theme.destructive : theme.textMuted;
 
+  const row = (
+    <HStack
+      space="sm"
+      className="min-h-[52px] items-center"
+      style={{ paddingHorizontal: ROW_PADDING }}
+    >
+      {icon ? (
+        <VStack
+          className="items-center justify-center"
+          style={{ width: ICON_COLUMN - 10 }}
+        >
+          <AppIcon icon={icon} size={20} color={tint} />
+        </VStack>
+      ) : null}
+
+      <Text
+        className={`flex-1 text-base ${
+          destructive ? "text-destructive" : "text-foreground"
+        }`}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+
+      {value ? (
+        <Text className="text-[15px] text-muted-foreground">{value}</Text>
+      ) : null}
+
+      {trailing ? (
+        <AppIcon icon={trailing} size={16} color={theme.textMuted} />
+      ) : onPress && !destructive ? (
+        <AppIcon icon={ChevronRight} size={14} color={theme.textMuted} />
+      ) : null}
+    </HStack>
+  );
+
+  // A static row keeps its normal weight: a `disabled` Pressable would render
+  // it at 40%, which reads as unavailable rather than as nothing to tap.
+  if (!onPress) return row;
+
   return (
     <Pressable
       onPress={onPress}
-      disabled={!onPress}
-      accessibilityRole={onPress ? "button" : undefined}
+      accessibilityRole="button"
       // gluestack's Pressable publishes its press state as a data attribute,
       // which is what lets the highlight be a class rather than a callback.
       className="data-[active=true]:bg-border/60"
-      style={{ paddingHorizontal: ROW_PADDING }}
     >
-      <HStack space="sm" className="min-h-[52px] items-center">
-        {icon ? (
-          <VStack
-            className="items-center justify-center"
-            style={{ width: ICON_COLUMN - 10 }}
-          >
-            <AppIcon icon={icon} size={20} color={tint} />
-          </VStack>
-        ) : null}
-
-        <Text
-          className={`flex-1 text-base ${
-            destructive ? "text-destructive" : "text-foreground"
-          }`}
-          numberOfLines={1}
-        >
-          {label}
-        </Text>
-
-        {value ? (
-          <Text className="text-[15px] text-muted-foreground">{value}</Text>
-        ) : null}
-
-        {trailing ? (
-          <AppIcon icon={trailing} size={16} color={theme.textMuted} />
-        ) : onPress && !destructive ? (
-          <AppIcon icon={ChevronRight} size={14} color={theme.textMuted} />
-        ) : null}
-      </HStack>
+      {row}
     </Pressable>
   );
 }

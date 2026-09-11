@@ -50,13 +50,7 @@ export function MemberRow({ member, isYou, onPress }: MemberRowProps) {
   // neither simply loses the second line rather than leaving a gap.
   const subtitle = email || volunteerRoleSummary(member.volunteerRoles);
 
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={!onPress}
-      accessibilityRole={onPress ? "button" : undefined}
-      className="data-[active=true]:bg-border/60"
-    >
+  const row = (
     <HStack space="md" className={ROW_CLASS}>
       {/* People read as circles; the squircle is for organization logos. */}
       <OrgAvatar
@@ -90,6 +84,19 @@ export function MemberRow({ member, isYou, onPress }: MemberRowProps) {
 
       {onPress ? <AppIcon icon={ChevronRight} size={14} color={theme.textMuted} /> : null}
     </HStack>
+  );
+
+  // A roster nobody can open reads as a list, not as a disabled control: a
+  // `disabled` Pressable would render every row at 40%.
+  if (!onPress) return row;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      className="data-[active=true]:bg-border/60"
+    >
+      {row}
     </Pressable>
   );
 }

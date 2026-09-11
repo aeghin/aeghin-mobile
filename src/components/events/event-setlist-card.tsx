@@ -123,14 +123,7 @@ function SetlistRow({
     Boolean(song.youtubeUrl) ||
     song.attachments.length > 0;
 
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={!onPress}
-      accessibilityRole={onPress ? "button" : undefined}
-      accessibilityHint={onPress ? "Assign vocalists" : undefined}
-      className="data-[active=true]:bg-border/40"
-    >
+  const row = (
     <HStack className="items-start gap-2.5 px-3.5 py-2.5">
       <Center
         className="mt-0.5 shrink-0 rounded-md bg-surface"
@@ -216,6 +209,21 @@ function SetlistRow({
         ) : null}
       </VStack>
     </HStack>
+  );
+
+  // Somebody who cannot assign vocalists gets the same row without the tap.
+  // A `disabled` Pressable would drop it to 40%, which reads as unavailable
+  // rather than read-only.
+  if (!onPress) return row;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityHint="Assign vocalists"
+      className="data-[active=true]:bg-border/40"
+    >
+      {row}
     </Pressable>
   );
 }

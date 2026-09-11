@@ -25,6 +25,10 @@ type UpNextCardProps = {
   onPress?: () => void;
 };
 
+/** The hero's own surface, worn by the tappable and the static card alike. */
+const CARD_CLASS =
+  "mx-4 overflow-hidden rounded-3xl border border-border bg-card";
+
 /**
  * The next thing the user has actually committed to.
  *
@@ -40,15 +44,8 @@ export function UpNextCard({ upNext, service, onPress }: UpNextCardProps) {
   const role = assignmentFor(event, "ACCEPTED")?.role ?? null;
   const imminent = inDays <= 1;
 
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={!onPress}
-      accessibilityRole={onPress ? "button" : undefined}
-      accessibilityLabel={`Up next: ${event.name}, ${countdownLabel(inDays)}`}
-      className="mx-4 overflow-hidden rounded-3xl border border-border bg-card data-[active=true]:opacity-80"
-      style={brandSheen(theme.card)}
-    >
+  const content = (
+    <>
       {/* The warm bloom the web dashboard gets from a blurred primary circle. */}
       <Box
         pointerEvents="none"
@@ -101,6 +98,30 @@ export function UpNextCard({ upNext, service, onPress }: UpNextCardProps) {
           <MetaLine icon={MapPin}>{event.location}</MetaLine>
         </VStack>
       </VStack>
+    </>
+  );
+
+  const surface = brandSheen(theme.card);
+
+  // Nowhere to go keeps the hero at full strength: a `disabled` Pressable
+  // would render the whole card at 40%.
+  if (!onPress) {
+    return (
+      <VStack className={CARD_CLASS} style={surface}>
+        {content}
+      </VStack>
+    );
+  }
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`Up next: ${event.name}, ${countdownLabel(inDays)}`}
+      className={`${CARD_CLASS} data-[active=true]:opacity-80`}
+      style={surface}
+    >
+      {content}
     </Pressable>
   );
 }

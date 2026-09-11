@@ -67,59 +67,69 @@ export function PendingEventCard({
   const expiry = assignment ? formatExpiry(assignment.expiresAt, today) : null;
   const assignedBy = assignment?.assignedBy?.firstName ?? null;
 
+  const summary = (
+    <VStack className="gap-2.5 py-3.5 pl-[15px] pr-3.5">
+      <HStack className="items-center gap-2">
+        <ServiceBadge service={service} />
+        <Box className="flex-1" />
+        {assignment ? <RoleChip role={assignment.role} /> : null}
+      </HStack>
+
+      <Text
+        className="text-[16.5px] font-semibold leading-[21px] tracking-[-0.3px] text-foreground"
+        numberOfLines={2}
+      >
+        {event.name}
+      </Text>
+
+      <VStack className="gap-1.5">
+        <MetaLine icon={Calendar}>{formatDateRange(event.dates)}</MetaLine>
+        <MetaLine icon={Clock}>{formatTimeRange(event.dates)}</MetaLine>
+        <MetaLine icon={MapPin}>{event.location}</MetaLine>
+      </VStack>
+
+      <HStack className="items-center gap-2 pt-0.5">
+        {assignedBy ? (
+          <Text
+            className="flex-1 text-[12px] text-muted-foreground"
+            numberOfLines={1}
+          >
+            {`Assigned by ${assignedBy}`}
+          </Text>
+        ) : (
+          <Box className="flex-1" />
+        )}
+
+        {expiry ? (
+          <Pill
+            label={expiry.label}
+            tone={expiry.urgent ? "danger" : "neutral"}
+            icon={expiry.urgent ? ClockAlert : Hourglass}
+          />
+        ) : null}
+      </HStack>
+    </VStack>
+  );
+
   return (
     <VStack className="overflow-hidden rounded-2xl border border-border bg-card">
       <ServiceRail service={service} />
 
-      <Pressable
-        onPress={onPress}
-        disabled={!onPress}
-        accessibilityRole={onPress ? "button" : undefined}
-        accessibilityLabel={event.name}
-        className="data-[active=true]:opacity-80"
-      >
-        <VStack className="gap-2.5 py-3.5 pl-[15px] pr-3.5">
-          <HStack className="items-center gap-2">
-            <ServiceBadge service={service} />
-            <Box className="flex-1" />
-            {assignment ? <RoleChip role={assignment.role} /> : null}
-          </HStack>
-
-          <Text
-            className="text-[16.5px] font-semibold leading-[21px] tracking-[-0.3px] text-foreground"
-            numberOfLines={2}
-          >
-            {event.name}
-          </Text>
-
-          <VStack className="gap-1.5">
-            <MetaLine icon={Calendar}>{formatDateRange(event.dates)}</MetaLine>
-            <MetaLine icon={Clock}>{formatTimeRange(event.dates)}</MetaLine>
-            <MetaLine icon={MapPin}>{event.location}</MetaLine>
-          </VStack>
-
-          <HStack className="items-center gap-2 pt-0.5">
-            {assignedBy ? (
-              <Text
-                className="flex-1 text-[12px] text-muted-foreground"
-                numberOfLines={1}
-              >
-                {`Assigned by ${assignedBy}`}
-              </Text>
-            ) : (
-              <Box className="flex-1" />
-            )}
-
-            {expiry ? (
-              <Pill
-                label={expiry.label}
-                tone={expiry.urgent ? "danger" : "neutral"}
-                icon={expiry.urgent ? ClockAlert : Hourglass}
-              />
-            ) : null}
-          </HStack>
-        </VStack>
-      </Pressable>
+      {/* Only a manager can open the event behind an invitation, so for
+          everybody else this is a plain block rather than a disabled
+          Pressable — which would grey the whole summary out. */}
+      {onPress ? (
+        <Pressable
+          onPress={onPress}
+          accessibilityRole="button"
+          accessibilityLabel={event.name}
+          className="data-[active=true]:opacity-80"
+        >
+          {summary}
+        </Pressable>
+      ) : (
+        summary
+      )}
 
       <Divider />
 

@@ -45,7 +45,19 @@ export function useAddServiceType(orgId: string) {
   return useMutation({
     mutationFn: (input: ServiceTypeInput) =>
       apiPost<{ serviceType: ServiceType | null }>(serviceTypesPath(orgId), input),
-    onSuccess: () => {
+    onSuccess: ({ serviceType }) => {
+      // Seeded into the cache before the refetch lands, so a caller that
+      // selects what it just created — the event form does — has something to
+      // draw immediately rather than a blank chip for a round trip. Sorted by
+      // name because the route is, so the new chip does not jump afterwards.
+      if (serviceType) {
+        queryClient.setQueryData<ServiceType[]>(serviceTypesKey(orgId), (current) =>
+          current
+            ? [...current, serviceType].sort((a, b) => a.name.localeCompare(b.name))
+            : [serviceType],
+        );
+      }
+
       queryClient.invalidateQueries({ queryKey: serviceTypesKey(orgId) });
     },
   });

@@ -8,6 +8,8 @@ import { TextInput } from "react-native";
 import { AppIcon } from "@/components/app-icon";
 import { Dialog } from "@/components/dialog";
 import { Choice } from "@/components/form-fields";
+import { SpotifyIcon, YoutubeIcon } from "@/components/icons/brand-icons";
+import { OpenButton } from "@/components/open-button";
 import { Center } from "@/components/ui/center";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
@@ -74,6 +76,28 @@ export function SetlistDraftList({ songs, colors, onChange }: SetlistDraftListPr
                 {song.artist}
               </Text>
             </VStack>
+
+            {/* The dashboard's editor keeps these on the draft rows, and it is
+                the one place they earn their space twice over: picking a key
+                usually means hearing the song first. */}
+            {song.spotifyUrl ? (
+              <OpenButton
+                url={song.spotifyUrl}
+                label={`Open ${song.title} in Spotify`}
+              >
+                <SpotifyIcon size={15} color={theme.textMuted} />
+              </OpenButton>
+            ) : null}
+
+            {song.youtubeUrl ? (
+              <OpenButton
+                url={song.youtubeUrl}
+                label={`Open ${song.title} in YouTube`}
+              >
+                <YoutubeIcon size={16} color={theme.textMuted} />
+              </OpenButton>
+            ) : null}
+
             <Pressable
               onPress={() => remove(song.id)}
               accessibilityRole="button"

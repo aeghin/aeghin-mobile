@@ -9,6 +9,7 @@ import LayoutTemplate from "lucide-react-native/icons/layout-template";
 import Lock from "lucide-react-native/icons/lock";
 import MapPin from "lucide-react-native/icons/map-pin";
 import NotepadText from "lucide-react-native/icons/notepad-text";
+import Plus from "lucide-react-native/icons/plus";
 import Send from "lucide-react-native/icons/send";
 import Sparkles from "lucide-react-native/icons/sparkles";
 import Tags from "lucide-react-native/icons/tags";
@@ -36,6 +37,7 @@ import {
 } from "@/components/form-fields";
 import { OrgAvatar } from "@/components/org-avatar";
 import { useCurrentOrganization } from "@/components/organization-provider";
+import { ServiceTypeDialog } from "@/components/service-type-dialog";
 import { Box } from "@/components/ui/box";
 import { Divider } from "@/components/ui/divider";
 import { HStack } from "@/components/ui/hstack";
@@ -425,6 +427,7 @@ function CreateEventForm({
   const [expiresAt, setExpiresAt] = useState<number>(seed.expiresAt);
   const [smartScheduling, setSmartScheduling] = useState(seed.smartScheduling);
   const [busy, setBusy] = useState<MemberAvailability | null>(null);
+  const [addingService, setAddingService] = useState(false);
 
   // Derived rather than synced: a range change would otherwise have to write
   // `times` from an effect, and every day already falls back to a default.
@@ -628,7 +631,7 @@ function CreateEventForm({
                 }
                 footnote={
                   serviceTypes.data?.length === 0
-                    ? "Add a service type in Settings before creating an event."
+                    ? "Every event needs a service type. Tap New to make the first one."
                     : undefined
                 }
               >
@@ -669,6 +672,22 @@ function CreateEventForm({
                           </Pressable>
                         );
                       })}
+
+                      {/* The dashboard puts a `+` beside its service-type
+                          select so a first event never dead-ends in Settings.
+                          Same idea, as one more chip on the end of the row. */}
+                      <Pressable
+                        onPress={() => setAddingService(true)}
+                        accessibilityRole="button"
+                        accessibilityLabel="New service type"
+                        className="rounded-full border border-dashed px-3 py-1.5 data-[active=true]:opacity-60"
+                        style={{ borderColor: theme.border, backgroundColor: theme.card }}
+                      >
+                        <HStack className="items-center gap-1">
+                          <AppIcon icon={Plus} size={13} color={brand.orange} />
+                          <Text className="text-[13px] font-semibold text-brand">New</Text>
+                        </HStack>
+                      </Pressable>
                     </HStack>
                   )}
                 </FormBlock>
@@ -837,6 +856,16 @@ function CreateEventForm({
           )}
         </VStack>
       </ScrollView>
+
+      {/* `key` remounts it, so a cancelled draft is not still in the fields
+          next time — the same trick the other dialogs on this screen use. */}
+      <ServiceTypeDialog
+        key={addingService ? "new-service" : "closed"}
+        visible={addingService}
+        organizationId={organizationId}
+        onClose={() => setAddingService(false)}
+        onCreated={(created) => setServiceTypeId(created.id)}
+      />
     </VStack>
   );
 }

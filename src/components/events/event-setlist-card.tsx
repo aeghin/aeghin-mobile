@@ -2,8 +2,6 @@ import AudioLines from "lucide-react-native/icons/audio-lines";
 import FileText from "lucide-react-native/icons/file-text";
 import Music from "lucide-react-native/icons/music";
 import Pencil from "lucide-react-native/icons/pencil";
-import { Linking } from "react-native";
-import type { ReactNode } from "react";
 
 import { AppIcon } from "@/components/app-icon";
 import {
@@ -14,6 +12,7 @@ import {
   DetailEmpty,
 } from "@/components/events/event-detail-parts";
 import { SpotifyIcon, YoutubeIcon } from "@/components/icons/brand-icons";
+import { OpenButton } from "@/components/open-button";
 import { Box } from "@/components/ui/box";
 import { Center } from "@/components/ui/center";
 import { Divider } from "@/components/ui/divider";
@@ -29,7 +28,6 @@ import type { EventSetlistSong, ServiceType } from "@/types/event";
 import type { SongAttachment } from "@/types/song";
 
 /** Tap targets for the links. Below 28 they get hard to hit. */
-const TAP = 28;
 const NUMBER = 22;
 /** Hairlines start past the position badge, so they line up with the titles. */
 const SEPARATOR_INSET = 14 + NUMBER + 10;
@@ -238,30 +236,3 @@ function AttachmentButton({ attachment }: { attachment: SongAttachment }) {
   );
 }
 
-/**
- * Hands a URL to the system.
- *
- * Nothing is rendered in-app: a Spotify link belongs to Spotify, and a PDF
- * chart to whatever the player already reads charts in.
- */
-function OpenButton({
-  url,
-  label,
-  children,
-}: {
-  url: string;
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <Pressable
-      onPress={() => Linking.openURL(url)}
-      accessibilityRole="link"
-      accessibilityLabel={label}
-      className="items-center justify-center rounded-md data-[active=true]:bg-border/60"
-      style={{ width: TAP, height: TAP }}
-    >
-      {children}
-    </Pressable>
-  );
-}

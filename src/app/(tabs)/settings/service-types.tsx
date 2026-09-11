@@ -1,6 +1,5 @@
 import { Stack } from "expo-router";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
-import Palette from "lucide-react-native/icons/palette";
 import Plus from "lucide-react-native/icons/plus";
 import Tags from "lucide-react-native/icons/tags";
 import { useState } from "react";
@@ -9,10 +8,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppIcon } from "@/components/app-icon";
 import { EventsEmptyState } from "@/components/events/events-empty-state";
-import { Dialog } from "@/components/dialog";
-import { ErrorBanner, Field, FormInput } from "@/components/form-fields";
 import { InsetCard } from "@/components/inset-list";
 import { useCurrentOrganization } from "@/components/organization-provider";
+import { ServiceTypeDialog } from "@/components/service-type-dialog";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
 import { HStack } from "@/components/ui/hstack";
@@ -22,31 +20,15 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
-import {
-  useAddServiceType,
-  useDeleteServiceType,
-  useServiceTypes,
-  useUpdateServiceType,
-  type ServiceTypeInput,
-} from "@/hooks/use-service-types";
+import { useDeleteServiceType, useServiceTypes } from "@/hooks/use-service-types";
 import { useTheme } from "@/hooks/use-theme";
 import { canManageOrg } from "@/lib/config/roles";
 import { getServiceColors } from "@/lib/config/service-types";
 import { failureMessage } from "@/lib/failure";
-import type { ServiceType, ServiceTypeColor } from "@/types/event";
+import type { ServiceType } from "@/types/event";
 
 const TAB_BAR_CLEARANCE = 64;
 
-const COLORS: ServiceTypeColor[] = [
-  "indigo",
-  "amber",
-  "emerald",
-  "pink",
-  "violet",
-  "red",
-  "blue",
-  "cyan",
-];
 
 /** The dashboard's service-type settings: what kinds of service the organization runs. */
 export default function ServiceTypesScreen() {
@@ -180,93 +162,5 @@ export default function ServiceTypesScreen() {
         organizationId={organizationId}
       />
     </VStack>
-  );
-}
-
-function ServiceTypeDialog({
-  visible,
-  serviceType,
-  onClose,
-  organizationId,
-}: {
-  visible: boolean;
-  serviceType?: ServiceType;
-  onClose: () => void;
-  organizationId: string;
-}) {
-  const theme = useTheme();
-  const add = useAddServiceType(organizationId);
-  const update = useUpdateServiceType(organizationId);
-
-  const [draft, setDraft] = useState<ServiceTypeInput>({
-    name: serviceType?.name ?? "",
-    color: serviceType?.color ?? "indigo",
-  });
-  const [error, setError] = useState<string | null>(null);
-
-  const name = draft.name.trim();
-  const ready = name.length > 0 && name.length <= 25;
-
-  const submit = () => {
-    setError(null);
-    const options = { onSuccess: onClose, onError: (failure: unknown) => setError(failureMessage(failure)) };
-    if (serviceType) {
-      update.mutate({ id: serviceType.id, name, color: draft.color }, options);
-    } else {
-      add.mutate({ name, color: draft.color }, options);
-    }
-  };
-
-  return (
-    <Dialog
-      visible={visible}
-      icon={Palette}
-      title={serviceType ? "Edit service type" : "New service type"}
-      description="Every event belongs to one. The colour is what tells them apart."
-      action={{ label: "Save", onPress: submit, disabled: !ready }}
-      submitting={add.isPending || update.isPending}
-      onClose={onClose}
-    >
-      <ErrorBanner message={error} />
-
-      <Field label="Name" hint="Up to 25 characters.">
-        <FormInput
-          value={draft.name}
-          onChangeText={(value) => setDraft((current) => ({ ...current, name: value }))}
-          placeholder="Sunday Service"
-          autoCapitalize="words"
-          maxLength={25}
-          autoFocus
-        />
-      </Field>
-
-      <Field label="Colour">
-        <HStack className="flex-wrap gap-2">
-          {COLORS.map((color) => {
-            const colors = getServiceColors(color, theme);
-            const selected = draft.color === color;
-            return (
-              <Pressable
-                key={color}
-                onPress={() => setDraft((current) => ({ ...current, color }))}
-                accessibilityRole="radio"
-                accessibilityState={{ selected }}
-                accessibilityLabel={color}
-                className="items-center justify-center rounded-full"
-                style={{
-                  width: 40,
-                  height: 40,
-                  backgroundColor: colors.surface,
-                  borderWidth: 2,
-                  borderColor: selected ? colors.base : "transparent",
-                }}
-              >
-                <Box className="h-5 w-5 rounded-full" style={{ backgroundColor: colors.base }} />
-              </Pressable>
-            );
-          })}
-        </HStack>
-      </Field>
-    </Dialog>
   );
 }

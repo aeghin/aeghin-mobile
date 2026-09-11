@@ -1,10 +1,10 @@
 import AudioLines from "lucide-react-native/icons/audio-lines";
 import EllipsisVertical from "lucide-react-native/icons/ellipsis-vertical";
 import FileText from "lucide-react-native/icons/file-text";
-import { Linking } from "react-native";
 
 import { AppIcon } from "@/components/app-icon";
 import { SpotifyIcon, YoutubeIcon } from "@/components/icons/brand-icons";
+import { OPEN_BUTTON_TAP, OpenButton } from "@/components/open-button";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
@@ -23,9 +23,6 @@ export const SONG_SEPARATOR_INSET = PADDING;
 
 /** How many themes fit before the row starts counting instead. Web shows 3. */
 const THEMES_SHOWN = 3;
-
-/** Tap targets for the links and attachments. Below 28 they get hard to hit. */
-const TAP = 28;
 
 type SongRowProps = {
   song: LibrarySong;
@@ -83,7 +80,7 @@ export function SongRow({ song, canManage, onActions }: SongRowProps) {
             accessibilityRole="button"
             accessibilityLabel={`Actions for ${song.title}`}
             className="items-center justify-center rounded-md data-[active=true]:bg-border/60"
-            style={{ width: 26, height: TAP }}
+            style={{ width: 26, height: OPEN_BUTTON_TAP }}
           >
             <AppIcon icon={EllipsisVertical} size={16} color={theme.textMuted} />
           </Pressable>
@@ -162,32 +159,6 @@ function AttachmentButton({ attachment }: { attachment: SongAttachment }) {
         color={theme.textMuted}
       />
     </OpenButton>
-  );
-}
-
-type OpenButtonProps = {
-  url: string;
-  label: string;
-  children: React.ReactNode;
-};
-
-/**
- * Hands a URL to the system.
- *
- * Nothing is rendered in-app: a Spotify link belongs to Spotify, and a PDF
- * chart to whatever the player already reads charts in.
- */
-function OpenButton({ url, label, children }: OpenButtonProps) {
-  return (
-    <Pressable
-      onPress={() => Linking.openURL(url)}
-      accessibilityRole="link"
-      accessibilityLabel={label}
-      className="items-center justify-center rounded-md data-[active=true]:bg-border/60"
-      style={{ width: TAP, height: TAP }}
-    >
-      {children}
-    </Pressable>
   );
 }
 

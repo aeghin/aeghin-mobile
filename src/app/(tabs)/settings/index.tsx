@@ -1,9 +1,14 @@
 import { useUser } from "@clerk/expo";
 import { useRouter } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import Activity from "lucide-react-native/icons/activity";
 import Building2 from "lucide-react-native/icons/building-2";
 import CalendarOff from "lucide-react-native/icons/calendar-off";
+import ExternalLink from "lucide-react-native/icons/external-link";
+import FileText from "lucide-react-native/icons/file-text";
+import LifeBuoy from "lucide-react-native/icons/life-buoy";
 import LayoutTemplate from "lucide-react-native/icons/layout-template";
+import ShieldCheck from "lucide-react-native/icons/shield-check";
 import Sparkles from "lucide-react-native/icons/sparkles";
 import Tags from "lucide-react-native/icons/tags";
 import UserRound from "lucide-react-native/icons/user-round";
@@ -18,6 +23,7 @@ import { VStack } from "@/components/ui/vstack";
 import { useBillingStatus } from "@/hooks/use-billing";
 import { useTheme } from "@/hooks/use-theme";
 import { MOBILE_PURCHASES_ENABLED } from "@/lib/config/purchases";
+import { legalLinks } from "@/lib/config/links";
 import { canManageOrg, getRoleConfig } from "@/lib/config/roles";
 
 const TAB_BAR_CLEARANCE = 64;
@@ -115,8 +121,44 @@ export default function SettingsScreen() {
               Blockouts are per organization. Account covers your name, email, password and sign-out.
             </Text>
           </VStack>
+
+          <VStack>
+            <SectionLabel>About</SectionLabel>
+            <InsetCard elevated>
+              <InsetRow
+                icon={ShieldCheck}
+                label="Privacy Policy"
+                trailing={ExternalLink}
+                onPress={() => openLink(legalLinks.privacy)}
+              />
+              <InsetRow
+                icon={FileText}
+                label="Terms & Conditions"
+                trailing={ExternalLink}
+                onPress={() => openLink(legalLinks.terms)}
+              />
+              <InsetRow
+                icon={LifeBuoy}
+                label="Support"
+                trailing={ExternalLink}
+                onPress={() => openLink(legalLinks.support)}
+              />
+            </InsetCard>
+          </VStack>
         </VStack>
       </ScrollView>
     </VStack>
   );
+}
+
+/**
+ * Opens one of the public pages.
+ *
+ * In an in-app browser rather than by handing the URL to Safari: these are a
+ * detour from settings, not a departure, and the reader comes straight back.
+ * A failure is swallowed — there is nothing useful to say about a browser that
+ * would not open, and an alert over a privacy policy helps nobody.
+ */
+function openLink(url: string) {
+  WebBrowser.openBrowserAsync(url).catch(() => {});
 }

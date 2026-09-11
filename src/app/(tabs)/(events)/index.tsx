@@ -43,6 +43,7 @@ import {
   useUserEvents,
 } from "@/hooks/use-events";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
+import { useRefetchOnFocus } from "@/hooks/use-refetch-on-focus";
 import { useServiceTypes } from "@/hooks/use-service-types";
 import { useTheme } from "@/hooks/use-theme";
 import { ApiError } from "@/lib/api";
@@ -155,6 +156,10 @@ export default function EventsScreen() {
   );
 
   const pullToRefresh = usePullToRefresh(refresh);
+
+  // Coming back to this tab is the phone's version of navigating to the page:
+  // whoever answered an invitation since it was last read is what changed.
+  useRefetchOnFocus([userEvents, serviceTypes, canManage && orgEvents]);
 
   const services = serviceTypes.data ?? NO_SERVICES;
   // A first load and a failed one both have nothing behind them, and an empty

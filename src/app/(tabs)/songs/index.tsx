@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppHeader } from "@/components/app-header";
 import { AppIcon, type AppIconName } from "@/components/app-icon";
+import { SegmentedControl, type Segment } from "@/components/events/segmented-control";
 import { InsetCard } from "@/components/inset-list";
 import { useCurrentOrganization } from "@/components/organization-provider";
 import {
@@ -19,6 +20,7 @@ import {
   SongRow,
   SongRowSkeleton,
 } from "@/components/songs/song-row";
+import { SongKeysPane } from "@/components/songs/song-keys-pane";
 import { SongAttachmentsDialog } from "@/components/songs/song-attachments-dialog";
 import { SongFormDialog } from "@/components/songs/song-form-dialog";
 import { FilterDialog, SortDialog } from "@/components/songs/song-dialogs";
@@ -30,6 +32,7 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand, withAlpha } from "@/constants/branding";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
+import { useSongKeys } from "@/hooks/use-song-keys";
 import { useTheme } from "@/hooks/use-theme";
 import {
   useAddSong,
@@ -39,6 +42,7 @@ import {
 } from "@/hooks/use-songs";
 import { ApiError } from "@/lib/api";
 import { canManageOrg } from "@/lib/config/roles";
+import { isVocalist } from "@/lib/config/volunteer-roles";
 import {
   SORT_OPTIONS,
   artistsOf,
@@ -47,10 +51,20 @@ import {
   toggle,
   type SortKey,
 } from "@/lib/songs/library";
-import type { LibrarySong, SongInput } from "@/types/song";
+import type { LibrarySong, SongInput, SongKey } from "@/types/song";
 
 /** Stable identity, so an empty library does not remake the array each render. */
 const NO_SONGS: LibrarySong[] = [];
+
+/** The same, for a journal that hasn't loaded or has nothing in it. */
+const NO_KEYS: SongKey[] = [];
+
+/**
+ * The screen's two halves: the organization's library, and the caller's own
+ * key journal. The journal is the dashboard's My Keys tab, which only lead
+ * vocalists and BGVs are offered — so only they see the control at all.
+ */
+type Pane = "library" | "keys";
 
 /** How much page the tab bar covers once the list has scrolled under it. */
 const TAB_BAR_CLEARANCE = 64;
@@ -64,7 +78,11 @@ export default function SongsScreen() {
   const canManage = canManageOrg(organization?.role);
 
   const songs = useSongs(organizationId);
-  const pullToRefresh = usePullToRefresh(songs.refetch);
+
+  // Gated on the caller's volunteer roles, the way the dashboard gates its own
+  // tab. Somebody who doesn't sing never asks for a journal they cannot open.
+  const canSeeKeys = isVocalist(organization?.volunteerRoles);
+  const songKeys = useSongKeys(organizationId, { enabled: canSeeKeys });
 
   const addSong = useAddSong(organizationId);
   const updateSong = useUpdateSong(organizationId);
@@ -78,6 +96,19 @@ export default function SongsScreen() {
 
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
+
+  const [pane, setPane] = useState<Pane>("library");
+
+  // Resolved rather than stored: switching to an organization this person does
+  // not sing in takes the control away, and a remembered "keys" would strand
+  // the screen on a pane with no way back.
+  const activePane = canSeeKeys ? pane : "library";
+
+  // The pull refreshes whichever pane is showing. `refetch` is stable per
+  // query, so swapping the two here costs the control nothing.
+  const pullToRefresh = usePullToRefresh(
+    activePane === "library" ? songs.refetch : songKeys.refetch,
+  );
 
   // `undefined` while closed, `null` for a new song, a song when editing one.
   const [editing, setEditing] = useState<LibrarySong | null | undefined>(
@@ -176,6 +207,13 @@ export default function SongsScreen() {
   const sortLabel =
     SORT_OPTIONS.find((option) => option.value === sort)?.label ?? "Sort";
 
+  // Only the journal carries a count: the library prints its own under the
+  // toolbar, and printing it twice on one screen says nothing new.
+  const panes: Segment<Pane>[] = [
+    { value: "library", label: "Library" },
+    { value: "keys", label: "My Keys", count: songKeys.data?.length || undefined },
+  ];
+
   return (
     <VStack className="flex-1 bg-grouped">
       <AppHeader />
@@ -198,119 +236,137 @@ export default function SongsScreen() {
           />
         }
       >
-        {/* ── Toolbar ──────────────────────────────────────────────────── */}
-        <HStack
-          className="mb-2.5 items-center gap-2 rounded-xl border px-3"
-          style={{ borderColor: theme.border, backgroundColor: theme.card }}
-        >
-          <AppIcon icon={Search} size={16} color={theme.textMuted} />
+        {canSeeKeys ? (
+          <Box className="mb-3">
+            <SegmentedControl segments={panes} value={activePane} onChange={setPane} />
+          </Box>
+        ) : null}
 
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Search songs, artists or themes"
-            placeholderTextColor={theme.textMuted}
-            style={{ flex: 1, fontSize: 15, paddingVertical: 10, color: theme.text }}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="search"
-          />
-
-          {query ? (
-            <Pressable
-              onPress={() => setQuery("")}
-              accessibilityRole="button"
-              accessibilityLabel="Clear search"
-              hitSlop={8}
-            >
-              <AppIcon icon={X} size={14} color={theme.textMuted} />
-            </Pressable>
-          ) : null}
-        </HStack>
-
-        <HStack className="mb-3 gap-2">
-          <ToolbarChip
-            icon={SlidersHorizontal}
-            label="Filters"
-            count={activeFilters}
-            onPress={() => setFiltersOpen(true)}
-          />
-          <ToolbarChip
-            icon={ArrowUpDown}
-            label={sortLabel}
-            onPress={() => setSortOpen(true)}
-          />
-
-          {canManage ? <AddSongButton onPress={() => setEditing(null)} /> : null}
-        </HStack>
-
-        {/* ── How much of the library is showing ───────────────────────── */}
-        {songs.isPending || songs.isError ? null : (
-          <HStack className="mb-3 flex-wrap items-center gap-1.5">
-            <Text className="text-[12px] font-medium text-muted-foreground">
-              {narrowed
-                ? `${visible.length} result${visible.length === 1 ? "" : "s"}`
-                : `${library.length} song${library.length === 1 ? "" : "s"}`}
-            </Text>
-
-            {Array.from(selectedThemes).map((value) => (
-              <RemovableChip
-                key={`theme-${value}`}
-                label={value}
-                capitalize
-                onPress={() =>
-                  setSelectedThemes((current) => toggle(current, value))
-                }
-              />
-            ))}
-
-            {Array.from(selectedArtists).map((value) => (
-              <RemovableChip
-                key={`artist-${value}`}
-                label={value}
-                onPress={() =>
-                  setSelectedArtists((current) => toggle(current, value))
-                }
-              />
-            ))}
-
-            {narrowed ? (
-              <Pressable
-                onPress={clearFilters}
-                accessibilityRole="button"
-                hitSlop={6}
-              >
-                <Text className="text-[12px] font-medium text-muted-foreground underline">
-                  Clear all
-                </Text>
-              </Pressable>
-            ) : null}
-          </HStack>
-        )}
-
-        {/* ── The library ──────────────────────────────────────────────── */}
-        {songs.isPending ? (
-          <InsetCard elevated separatorInset={SONG_SEPARATOR_INSET}>
-            {Array.from({ length: 6 }, (_, index) => (
-              <SongRowSkeleton key={index} index={index} />
-            ))}
-          </InsetCard>
-        ) : visible.length === 0 ? (
-          <EmptyState
-            {...emptyStateFor({ isError: songs.isError, narrowed })}
-            onClear={narrowed ? clearFilters : undefined}
+        {activePane === "keys" ? (
+          <SongKeysPane
+            organizationId={organizationId}
+            entries={songKeys.data ?? NO_KEYS}
+            isPending={songKeys.isPending}
+            isError={songKeys.isError}
+            catalog={library}
           />
         ) : (
-          <InsetCard elevated separatorInset={SONG_SEPARATOR_INSET}>
-            {visible.map((song) => (
-              <SongRow
-                key={song.id}
-                song={song}
-                canManage={canManage}
-                onActions={() => openActions(song)}
+          <>
+            {/* ── Toolbar ──────────────────────────────────────────────────── */}
+            <HStack
+              className="mb-2.5 items-center gap-2 rounded-xl border px-3"
+              style={{ borderColor: theme.border, backgroundColor: theme.card }}
+            >
+              <AppIcon icon={Search} size={16} color={theme.textMuted} />
+
+              <TextInput
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Search songs, artists or themes"
+                placeholderTextColor={theme.textMuted}
+                style={{ flex: 1, fontSize: 15, paddingVertical: 10, color: theme.text }}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="search"
               />
-            ))}
-          </InsetCard>
+
+              {query ? (
+                <Pressable
+                  onPress={() => setQuery("")}
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear search"
+                  hitSlop={8}
+                >
+                  <AppIcon icon={X} size={14} color={theme.textMuted} />
+                </Pressable>
+              ) : null}
+            </HStack>
+
+            <HStack className="mb-3 gap-2">
+              <ToolbarChip
+                icon={SlidersHorizontal}
+                label="Filters"
+                count={activeFilters}
+                onPress={() => setFiltersOpen(true)}
+              />
+              <ToolbarChip
+                icon={ArrowUpDown}
+                label={sortLabel}
+                onPress={() => setSortOpen(true)}
+              />
+
+              {canManage ? <AddSongButton onPress={() => setEditing(null)} /> : null}
+            </HStack>
+
+            {/* ── How much of the library is showing ───────────────────────── */}
+            {songs.isPending || songs.isError ? null : (
+              <HStack className="mb-3 flex-wrap items-center gap-1.5">
+                <Text className="text-[12px] font-medium text-muted-foreground">
+                  {narrowed
+                    ? `${visible.length} result${visible.length === 1 ? "" : "s"}`
+                    : `${library.length} song${library.length === 1 ? "" : "s"}`}
+                </Text>
+
+                {Array.from(selectedThemes).map((value) => (
+                  <RemovableChip
+                    key={`theme-${value}`}
+                    label={value}
+                    capitalize
+                    onPress={() =>
+                      setSelectedThemes((current) => toggle(current, value))
+                    }
+                  />
+                ))}
+
+                {Array.from(selectedArtists).map((value) => (
+                  <RemovableChip
+                    key={`artist-${value}`}
+                    label={value}
+                    onPress={() =>
+                      setSelectedArtists((current) => toggle(current, value))
+                    }
+                  />
+                ))}
+
+                {narrowed ? (
+                  <Pressable
+                    onPress={clearFilters}
+                    accessibilityRole="button"
+                    hitSlop={6}
+                  >
+                    <Text className="text-[12px] font-medium text-muted-foreground underline">
+                      Clear all
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </HStack>
+            )}
+
+            {/* ── The library ──────────────────────────────────────────────── */}
+            {songs.isPending ? (
+              <InsetCard elevated separatorInset={SONG_SEPARATOR_INSET}>
+                {Array.from({ length: 6 }, (_, index) => (
+                  <SongRowSkeleton key={index} index={index} />
+                ))}
+              </InsetCard>
+            ) : visible.length === 0 ? (
+              <EmptyState
+                {...emptyStateFor({ isError: songs.isError, narrowed })}
+                onClear={narrowed ? clearFilters : undefined}
+              />
+            ) : (
+              <InsetCard elevated separatorInset={SONG_SEPARATOR_INSET}>
+                {visible.map((song) => (
+                  <SongRow
+                    key={song.id}
+                    song={song}
+                    canManage={canManage}
+                    onActions={() => openActions(song)}
+                  />
+                ))}
+              </InsetCard>
+            )}
+          </>
         )}
       </ScrollView>
 

@@ -59,6 +59,51 @@ export type LibrarySong = {
   attachments: SongAttachment[];
 };
 
+/**
+ * One line of the caller's own key journal — the dashboard's My Keys tab.
+ *
+ * `title` and `artist` arrive resolved: the live song's while the link holds,
+ * the snapshot taken when the entry was written once the song is gone. The
+ * `library*` fields and the links are the song's own, and are null for an
+ * entry that no longer points at one.
+ *
+ * Mirrors the wire type in the web app's
+ * `app/api/mobile/v1/organizations/[orgId]/song-keys/route.ts`.
+ */
+export type SongKey = {
+  id: string;
+  /** Null when the song has left the library. Entries outlive their songs. */
+  songId: string | null;
+  title: string;
+  artist: string;
+  /** The key *you* sing it in, which is the whole point of the journal. */
+  pitch: Pitch;
+  keyQuality: KeyQuality;
+  notes: string | null;
+  updatedAt: string;
+  /** What the library files it under, for the "library Bb" line when they differ. */
+  libraryPitch: Pitch | null;
+  libraryKeyQuality: KeyQuality | null;
+  spotifyUrl: string | null;
+  youtubeUrl: string | null;
+};
+
+/**
+ * What the journal's two write routes take.
+ *
+ * `title` and `artist` are sent for a freehand entry only — for a linked one
+ * the server re-reads both off the Song row and ignores what was sent, so an
+ * entry can never drift from the song it names.
+ */
+export type SongKeyInput = {
+  songId: string | null;
+  title: string;
+  artist: string;
+  pitch: Pitch;
+  keyQuality: KeyQuality;
+  notes: string;
+};
+
 /** What both write routes accept — the whole song, as the web form submits it. */
 export type SongInput = {
   title: string;

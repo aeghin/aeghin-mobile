@@ -75,6 +75,13 @@ export const KEY_OPTIONS: KeyOption[] = [
 export const formatKey = (pitch: Pitch, quality: KeyQuality): string =>
   `${PITCH_LABELS[pitch]}${quality === "MINOR" ? "m" : ""}`;
 
+/**
+ * How long a key journal note may be, matching `MAX_KEY_NOTE_LENGTH` in the
+ * web app's `lib/validations/song-key.ts`. The server refuses a longer one, so
+ * the field caps typing rather than letting a save fail on it.
+ */
+export const MAX_KEY_NOTE_LENGTH = 280;
+
 /** The time signatures the web form offers, in its order. */
 export const TIME_SIGNATURES = ["4/4", "3/4", "6/8", "12/8", "2/4", "5/4"];
 

@@ -38,6 +38,20 @@ export const volunteerRoleConfig: Record<VolunteerRole, VolunteerRoleConfig> = {
 export const getVolunteerRoleConfig = (role: VolunteerRole) =>
   volunteerRoleConfig[role];
 
+/**
+ * Whether somebody sings — a lead vocalist or a BGV.
+ *
+ * The one volunteer-role question the app asks outside a roster: the key
+ * journal belongs to whoever stands at a microphone, and the dashboard gates
+ * its My Keys tab on exactly these two roles.
+ *
+ * Takes a possibly-missing list on purpose. `volunteerRoles` arrived on the
+ * organization payload after the first release, so a cached list from before
+ * it shipped has none — which reads as "not a vocalist" rather than throwing.
+ */
+export const isVocalist = (roles: VolunteerRole[] | undefined): boolean =>
+  roles?.some((role) => role === "LEAD_VOCALIST" || role === "BGVS") ?? false;
+
 export type RoleCategory = "band" | "vocals" | "production" | "hospitality";
 
 /**

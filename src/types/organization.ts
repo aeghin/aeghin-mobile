@@ -9,6 +9,15 @@ export type OrganizationSummary = {
   logoUrl: string | null;
   role: OrgRole;
   memberCount: number;
+  /**
+   * The caller's own volunteer roles here — what they can be scheduled for.
+   * My Keys is gated on it, the way the dashboard gates its own tab.
+   *
+   * Optional because it arrived after the first release: an app holding a
+   * cached list from before it shipped would otherwise read `undefined` and
+   * crash on `.includes`. Read it through `isVocalist`, never directly.
+   */
+  volunteerRoles?: VolunteerRole[];
 };
 
 export type OrganizationDetail = OrganizationSummary & {

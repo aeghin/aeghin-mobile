@@ -107,3 +107,21 @@ export function blendOver(base: string, overlay: string, alpha: number): string 
 
   return `#${mix(br, or)}${mix(bg, og)}${mix(bb, ob)}`.toUpperCase();
 }
+
+/**
+ * What the setlist's media links are tinted.
+ *
+ * These are the colours the dashboard gives the same marks on `hover:` — a
+ * phone has no hover, so the hover state is the resting state here. Tinting
+ * them is what lets the glyphs drop their grey button chrome and still read as
+ * separate, recognisable targets in a row that carries several.
+ */
+export const mediaTint = {
+  /** Tailwind green-500, the web's `hover:text-green-500`. */
+  spotify: "#22C55E",
+  /** Tailwind red-500, shared by YouTube and by PDF charts. */
+  youtube: "#EF4444",
+  chart: "#EF4444",
+  /** Tailwind sky-500, the web's `hover:text-sky-500` for backing tracks. */
+  audio: "#0EA5E9",
+} as const;

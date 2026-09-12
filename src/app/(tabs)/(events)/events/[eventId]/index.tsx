@@ -29,6 +29,7 @@ import {
   useRemoveEventRole,
 } from "@/hooks/use-events";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
+import { useSongKeys } from "@/hooks/use-song-keys";
 import { useTheme } from "@/hooks/use-theme";
 import { ApiError } from "@/lib/api";
 import { getServiceColors } from "@/lib/config/service-types";
@@ -66,6 +67,23 @@ export default function EventDetailScreen() {
 
   const cancelAssignment = useCancelAssignment(organizationId, eventId ?? "");
   const removeRole = useRemoveEventRole(organizationId, eventId ?? "");
+
+  // Offering the one-tap save comes off this event's roster rather than off
+  // the membership's volunteer roles — if you're singing here you get it, and
+  // the roster is already loaded. The dashboard reads it the same way.
+  const canSaveKeys = event
+    ? event.assignments.some(
+        (assignment) =>
+          assignment.userId === event.viewer.userId &&
+          assignment.status === "ACCEPTED" &&
+          (assignment.role === "LEAD_VOCALIST" || assignment.role === "BGVS"),
+      )
+    : false;
+
+  // Their own journal, so each setlist row can say whether this key is already
+  // in it. Nobody else's request is made: a player who doesn't sing here never
+  // asks for one.
+  const songKeys = useSongKeys(organizationId, { enabled: canSaveKeys });
 
   const [vocalistsFor, setVocalistsFor] = useState<EventSetlistSong | null>(null);
 
@@ -161,6 +179,9 @@ export default function EventDetailScreen() {
                   ? () => router.push(`/events/${event.id}/setlist`)
                   : undefined
               }
+              organizationId={organizationId}
+              canSaveKeys={canSaveKeys}
+              myKeys={songKeys.data}
             />
 
             <EventTeamCard

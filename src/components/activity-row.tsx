@@ -64,7 +64,9 @@ function describe(item: ActivityItem): Part[] {
         ? [name(item.actorName), plain(" sent invites for "), name(item.eventName)]
         : [name(item.actorName), plain(" invited "), name(item.targetName), plain(" to the organization")];
     case "INVITE_ACCEPTED":
-      return [name(item.actorName), plain(" accepted their invitation and joined")];
+      return item.eventName
+        ? [name(item.actorName), plain(" accepted "), name(item.targetName), ...onEvent(item.eventName)]
+        : [name(item.actorName), plain(" accepted their invitation and joined")];
     case "INVITE_DECLINED":
       return [name(item.actorName), plain(" declined their invitation")];
     case "INVITE_CANCELED":

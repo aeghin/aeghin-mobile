@@ -1,16 +1,18 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
 import CircleSlash from "lucide-react-native/icons/circle-slash";
+import Pencil from "lucide-react-native/icons/pencil";
+import Trash2 from "lucide-react-native/icons/trash-2";
 import { useState } from "react";
-import { Alert, RefreshControl, ScrollView } from "react-native";
+import { RefreshControl, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { Dialog } from "@/components/dialog";
 import { EventChatCard } from "@/components/events/event-chat-card";
 import {
   EventDetailHero,
   EventDetailHeroSkeleton,
 } from "@/components/events/event-detail-hero";
-import { EventManageCard } from "@/components/events/event-manage-card";
 import { EventSetlistCard } from "@/components/events/event-setlist-card";
 import { EventSmartSchedulingCard } from "@/components/events/event-smart-scheduling-card";
 import { EventTeamCard } from "@/components/events/event-team-card";
@@ -20,11 +22,13 @@ import {
 } from "@/components/events/event-when-where-card";
 import { EventsEmptyState } from "@/components/events/events-empty-state";
 import { VocalistDialog } from "@/components/events/vocalist-dialog";
+import { ErrorBanner } from "@/components/form-fields";
 import { useCurrentOrganization } from "@/components/organization-provider";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
 import {
   useCancelAssignment,
+  useDeleteEvent,
   useEventDetails,
   useRemoveEventRole,
 } from "@/hooks/use-events";
@@ -41,12 +45,59 @@ import type { EventDetailsAssignment, EventSetlistSong, VolunteerRole } from "@/
 const TAB_BAR_CLEARANCE = 64;
 
 /**
+ * What a manager is being asked to confirm.
+ *
+ * It carries its own words rather than pointing back at the event, because the
+ * dialog outlives the answer: {@link Dialog} keeps its children mounted so the
+ * card has something to fade out, and a descriptor cleared on close would fade
+ * a blank card.
+ */
+type Confirm =
+  | { kind: "deleteEvent"; name: string }
+  | { kind: "removeAssignment"; assignment: EventDetailsAssignment }
+  | { kind: "removeRole"; role: VolunteerRole };
+
+/** What each one says. Every case is destructive and none of them is undoable. */
+function describeConfirm(confirm: Confirm) {
+  switch (confirm.kind) {
+    case "deleteEvent":
+      return {
+        title: "Delete event",
+        description: `${confirm.name} and its roster, setlist and chat will be deleted. This can't be undone.`,
+        label: "Delete",
+      };
+
+    case "removeAssignment": {
+      const { user, role } = confirm.assignment;
+      const name = `${user.firstName} ${user.lastName}`.trim();
+
+      return {
+        title: "Remove from event",
+        description: `${name} will be taken off ${getVolunteerRoleConfig(role).label}.`,
+        label: "Remove",
+      };
+    }
+
+    case "removeRole":
+      return {
+        title: "Remove role",
+        description: `${getVolunteerRoleConfig(confirm.role).label} will come off this event's roster.`,
+        label: "Remove",
+      };
+  }
+}
+
+/**
  * One event in full.
  *
  * The sections are the dashboard's, in the order its grid falls back to on a
  * narrow viewport: what this is, what auto-fill has been doing, when and
- * where, the setlist, the team, the chat — and, for managers, the actions the
- * web puts in the header.
+ * where, the setlist, the team, the chat.
+ *
+ * Every manager action sits on the section it changes — the setlist's editor
+ * on the setlist card, the roster's on the Team card — and the two that change
+ * the *whole* event hang off the hero's ⋮, which is where the dashboard keeps
+ * them too.
  */
 export default function EventDetailScreen() {
   const theme = useTheme();
@@ -67,6 +118,7 @@ export default function EventDetailScreen() {
 
   const cancelAssignment = useCancelAssignment(organizationId, eventId ?? "");
   const removeRole = useRemoveEventRole(organizationId, eventId ?? "");
+  const removeEvent = useDeleteEvent(organizationId, eventId ?? "");
 
   // Offering the one-tap save comes off this event's roster rather than off
   // the membership's volunteer roles — if you're singing here you get it, and
@@ -87,41 +139,65 @@ export default function EventDetailScreen() {
 
   const [vocalistsFor, setVocalistsFor] = useState<EventSetlistSong | null>(null);
 
-  const confirmRemoveAssignment = (assignment: EventDetailsAssignment) => {
-    const name = `${assignment.user.firstName} ${assignment.user.lastName}`.trim();
-    Alert.alert(
-      "Remove from event",
-      `${name} will be taken off ${getVolunteerRoleConfig(assignment.role).label}.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Remove",
-          style: "destructive",
-          onPress: () =>
-            cancelAssignment.mutate(assignment.userId, {
-              onError: (error) => Alert.alert("Couldn't remove", failureMessage(error)),
-            }),
-        },
-      ],
-    );
+  // `confirm` is what the dialog *says*; `confirmOpen` is whether it is up.
+  // Two pieces rather than one nullable, so closing does not blank the card
+  // it is still fading out.
+  const [confirm, setConfirm] = useState<Confirm | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+
+  const ask = (next: Confirm) => {
+    setConfirmError(null);
+    setConfirm(next);
+    setConfirmOpen(true);
   };
 
-  const confirmRemoveRole = (role: VolunteerRole) =>
-    Alert.alert(
-      "Remove role",
-      `${getVolunteerRoleConfig(role).label} will come off this event's roster.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Remove",
-          style: "destructive",
-          onPress: () =>
-            removeRole.mutate(role, {
-              onError: (error) => Alert.alert("Couldn't remove", failureMessage(error)),
-            }),
-        },
-      ],
-    );
+  // A failure keeps the dialog up and says why, rather than closing and
+  // leaving the roster looking as though the removal worked.
+  const failed = (error: unknown) => setConfirmError(failureMessage(error));
+
+  const runConfirm = () => {
+    if (!confirm) return;
+
+    switch (confirm.kind) {
+      case "deleteEvent":
+        removeEvent.mutate(undefined, {
+          onSuccess: () => {
+            setConfirmOpen(false);
+
+            // A deep link opens this screen with nothing behind it, and there
+            // `back()` is a no-op that would leave you sitting on an event
+            // that no longer exists. The events tab is `/`.
+            if (router.canGoBack()) router.back();
+            else router.replace("/");
+          },
+          onError: failed,
+        });
+        return;
+
+      case "removeAssignment":
+        cancelAssignment.mutate(confirm.assignment.userId, {
+          onSuccess: () => setConfirmOpen(false),
+          onError: failed,
+        });
+        return;
+
+      case "removeRole":
+        removeRole.mutate(confirm.role, {
+          onSuccess: () => setConfirmOpen(false),
+          onError: failed,
+        });
+    }
+  };
+
+  const confirmBusy =
+    confirm?.kind === "deleteEvent"
+      ? removeEvent.isPending
+      : confirm?.kind === "removeRole"
+        ? removeRole.isPending
+        : cancelAssignment.isPending;
+
+  const confirmWords = confirm ? describeConfirm(confirm) : null;
 
   return (
     <VStack className="flex-1 bg-grouped">
@@ -154,7 +230,27 @@ export default function EventDetailScreen() {
           <DetailLoading />
         ) : (
           <VStack className="gap-4">
-            <EventDetailHero event={event} />
+            <EventDetailHero
+              event={event}
+              actions={
+                event.viewer.canManage
+                  ? [
+                      {
+                        icon: Pencil,
+                        label: "Edit details",
+                        onPress: () => router.push(`/events/${event.id}/edit`),
+                      },
+                      {
+                        icon: Trash2,
+                        label: "Delete event",
+                        onPress: () =>
+                          ask({ kind: "deleteEvent", name: event.name }),
+                        destructive: true,
+                      },
+                    ]
+                  : undefined
+              }
+            />
 
             {event.viewer.canManage ? (
               <EventSmartSchedulingCard
@@ -185,12 +281,18 @@ export default function EventDetailScreen() {
             />
 
             <EventTeamCard
-              assignments={event.assignments}
-              rolesNeeded={event.rolesNeeded}
-              currentUserId={event.viewer.userId}
-              service={event.serviceType}
-              onRemoveAssignment={event.viewer.canManage ? confirmRemoveAssignment : undefined}
-              onRemoveRole={event.viewer.canManage ? confirmRemoveRole : undefined}
+              organizationId={organizationId}
+              event={event}
+              onRemoveAssignment={
+                event.viewer.canManage
+                  ? (assignment) => ask({ kind: "removeAssignment", assignment })
+                  : undefined
+              }
+              onRemoveRole={
+                event.viewer.canManage
+                  ? (role) => ask({ kind: "removeRole", role })
+                  : undefined
+              }
             />
 
             <EventChatCard
@@ -199,13 +301,24 @@ export default function EventDetailScreen() {
               service={event.serviceType}
               onOpen={() => router.push(`/events/${event.id}/chat`)}
             />
-
-            {event.viewer.canManage ? (
-              <EventManageCard organizationId={organizationId} event={event} />
-            ) : null}
           </VStack>
         )}
       </ScrollView>
+
+      {confirmWords ? (
+        <Dialog
+          visible={confirmOpen}
+          icon={CircleAlert}
+          tone="destructive"
+          title={confirmWords.title}
+          description={confirmWords.description}
+          action={{ label: confirmWords.label, onPress: runConfirm }}
+          submitting={confirmBusy}
+          onClose={() => setConfirmOpen(false)}
+        >
+          {confirmError ? <ErrorBanner message={confirmError} /> : null}
+        </Dialog>
+      ) : null}
 
       {event ? (
         <VocalistDialog

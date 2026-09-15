@@ -33,7 +33,10 @@ function EmailTeamBody({
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const ready = subject.trim().length > 0 && body.trim().length > 0;
+  // Nobody accepted means nobody receives it, so there is nothing to send —
+  // the description already explains why, this stops it going anyway.
+  const ready =
+    acceptedCount > 0 && subject.trim().length > 0 && body.trim().length > 0;
 
   const submit = () => {
     setError(null);

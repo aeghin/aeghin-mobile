@@ -65,7 +65,7 @@ type InviteToEventDialogProps = {
  *
  * The one shape that differs from the web is the role: the dashboard opens
  * this dialog from a role's own row, so its role is fixed, while the phone has
- * a single Invite entry on the Manage card and picks the role inside. What it
+ * a single Invite pill on the Team card and picks the role inside. What it
  * offers is still the roster and nothing else — widening that is what Add
  * roles is for. The check is unaffected — availability is keyed by member and
  * hours, never by role — so switching roles re-uses the same answer.
@@ -243,7 +243,7 @@ function InviteToEventBody({
 
       <Field
         label="Role"
-        hint={noRoles ? "Add a role from the Manage card, then invite into it." : undefined}
+        hint={noRoles ? "Add a role from the Team card, then invite into it." : undefined}
       >
         <VolunteerRolePicker
           roles={roles}

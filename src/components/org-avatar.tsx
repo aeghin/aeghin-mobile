@@ -73,7 +73,7 @@ export function OrgAvatar({
 
       {logoUrl ? (
         <Image
-          source={{ uri: logoUrl }}
+          source={{ uri: avatarSource(logoUrl) }}
           className="absolute h-full w-full"
           style={{ borderRadius }}
           contentFit="cover"
@@ -84,4 +84,11 @@ export function OrgAvatar({
       ) : null}
     </Avatar>
   );
+}
+
+const CLERK_AVATAR_WIDTH = 256;
+
+function avatarSource(url: string): string {
+  if (!url.startsWith("https://img.clerk.com/")) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}width=${CLERK_AVATAR_WIDTH}`;
 }

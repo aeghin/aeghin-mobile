@@ -179,7 +179,13 @@ export function Dialog({
 
           {children ? (
             <ScrollView
-              contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16 }}
+              // The bottom pad clears the footer hairline: without it the last
+              // field sits right on the rule and reads as clipped.
+              contentContainerStyle={{
+                paddingHorizontal: 20,
+                paddingTop: 16,
+                paddingBottom: 20,
+              }}
               keyboardDismissMode="on-drag"
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}

@@ -1,13 +1,22 @@
 import ChevronDown from "lucide-react-native/icons/chevron-down";
+import CircleAlert from "lucide-react-native/icons/circle-alert";
+import Mail from "lucide-react-native/icons/mail";
+import Plus from "lucide-react-native/icons/plus";
+import UserPlus from "lucide-react-native/icons/user-plus";
 import Users from "lucide-react-native/icons/users";
+import Zap from "lucide-react-native/icons/zap";
 import { useState } from "react";
+import { Alert } from "react-native";
 
-import { AppIcon } from "@/components/app-icon";
+import { AppIcon, type AppIconName } from "@/components/app-icon";
+import { AddRolesDialog } from "@/components/events/add-roles-dialog";
+import { EmailTeamDialog } from "@/components/events/email-team-dialog";
 import {
   DetailCard,
   DetailCardHeader,
   DetailCount,
 } from "@/components/events/event-detail-parts";
+import { InviteToEventDialog } from "@/components/events/invite-to-event-dialog";
 import { OrgAvatar } from "@/components/org-avatar";
 import { Box } from "@/components/ui/box";
 import { Center } from "@/components/ui/center";
@@ -17,6 +26,7 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { withAlpha } from "@/constants/branding";
+import { useSetSmartScheduling } from "@/hooks/use-events";
 import { useTheme } from "@/hooks/use-theme";
 import { getServiceColors, WASH_STOPS } from "@/lib/config/service-types";
 import {
@@ -33,10 +43,11 @@ import {
   ROLE_ORDER,
   type RoleCategory,
 } from "@/lib/config/volunteer-roles";
+import { failureMessage } from "@/lib/failure";
 import { tintedGlow, tintedTopWash } from "@/lib/gradients";
 import type {
+  EventDetails,
   EventDetailsAssignment,
-  ServiceType,
   VolunteerRole,
 } from "@/types/event";
 
@@ -63,18 +74,64 @@ type Category = {
   key: RoleCategory;
   label: string;
   groups: RoleGroup[];
-  total: number;
+  /** Places to fill, not people invited — see {@link slotsOf}. */
+  slots: number;
   accepted: number;
+  /** At least one role here has stalled — see {@link hasStalled}. */
+  stalled: boolean;
 };
 
+/**
+ * A role that has stopped moving on its own.
+ *
+ * Somebody was invited, it fell through — declined, removed, or the deadline
+ * passed with no answer — and there is nobody accepted and nothing in flight
+ * to replace them. That is the state a manager has to *do* something about,
+ * and it is the only thing the warning glyph marks.
+ *
+ * Deliberately not "short of people": on a fresh event every category is
+ * short, so a glyph on each is decoration rather than a signal, and the count
+ * beside it already says `0/4`. What the count cannot say is whether nothing
+ * has happened yet or something went wrong.
+ */
+const hasStalled = (groups: RoleGroup[], now: number) =>
+  groups.some(
+    (group) =>
+      group.items.length > 0 && !group.items.some((item) => isLive(item, now)),
+  );
+
+/**
+ * How many places a set of roles asks for — the number the confirmed count is
+ * measured against.
+ *
+ * A role nobody is on yet still counts as one: it is a hole in the event, and
+ * counting only the invitations sent reports an eight-role event with one
+ * player on it as `1/1` — fully staffed, which is the opposite of the truth.
+ * A role carrying several people counts each of them, so a pair of BGVs asks
+ * for two.
+ *
+ * Only people who **accepted** widen a role past one. An invitation in flight
+ * must not move the target, or inviting two players for one open spot reports
+ * a four-piece band as `0/5` — and a decline would then shrink the denominator
+ * back, so the number a manager is watching moves for reasons that have
+ * nothing to do with the event being any more or less staffed. A second
+ * *accepted* player is different: there really are two people on that role
+ * now, and the count says so.
+ */
+const slotsOf = (groups: RoleGroup[]) =>
+  groups.reduce(
+    (count, group) =>
+      count +
+      Math.max(
+        1,
+        group.items.filter((item) => item.status === "ACCEPTED").length,
+      ),
+    0,
+  );
+
 type EventTeamCardProps = {
-  assignments: EventDetailsAssignment[];
-  /** What the event asked for, which is what makes an unfilled role visible. */
-  rolesNeeded: VolunteerRole[];
-  /** The viewer's own database id, so their row can be marked. */
-  currentUserId: string;
-  /** The event's service type, which tints the card's header the way the web does. */
-  service: ServiceType;
+  organizationId: string;
+  event: EventDetails;
   /** Managers only: take somebody off the event. Live rows become tappable. */
   onRemoveAssignment?: (assignment: EventDetailsAssignment) => void;
   /** Managers only: take an empty role off the roster. */
@@ -82,27 +139,36 @@ type EventTeamCardProps = {
 };
 
 /**
- * Who is on the event and what they answered.
+ * Who is on the event, what they answered, and — for a manager — every way to
+ * change it.
+ *
+ * This is where the roster is *worked on*, not merely read: every action that
+ * changes it — invite, add roles, email, auto-fill — sits under the title
+ * rather than at the bottom of the page.
  *
  * Declined and canceled people stay on the list rather than disappearing —
  * struck through, as the web shows them. A role that lost somebody is a fact
  * about the event, and a roster that silently shortens hides it.
  */
 export function EventTeamCard({
-  assignments,
-  rolesNeeded,
-  currentUserId,
-  service,
+  organizationId,
+  event,
   onRemoveAssignment,
   onRemoveRole,
 }: EventTeamCardProps) {
   const theme = useTheme();
-  const colors = getServiceColors(service.color, theme);
+  const colors = getServiceColors(event.serviceType.color, theme);
   const [open, setOpen] = useState<RoleCategory[]>(DEFAULT_OPEN);
   // Read once per mount: "has this invitation lapsed" must not flip mid-render.
   const [now] = useState(() => Date.now());
 
-  const total = assignments.length;
+  const [dialog, setDialog] = useState<"invite" | "roles" | "email" | null>(null);
+
+  const smart = useSetSmartScheduling(organizationId, event.id);
+
+  const { assignments, viewer } = event;
+  const canManage = viewer.canManage;
+
   const acceptedCount = assignments.filter(
     (assignment) => assignment.status === "ACCEPTED",
   ).length;
@@ -110,18 +176,19 @@ export function EventTeamCard({
   // A role belongs on the roster if the event declared it or somebody is on
   // it. The union keeps events created before `rolesNeeded` was persisted
   // intact — the same reason the web takes it.
-  const rosterRoles = new Set<VolunteerRole>([
-    ...rolesNeeded,
-    ...assignments.map((assignment) => assignment.role),
-  ]);
+  const rosterRoles = ROLE_ORDER.filter(
+    (role) =>
+      event.rolesNeeded.includes(role) ||
+      assignments.some((assignment) => assignment.role === role),
+  );
 
   const categories: Category[] = ROLE_CATEGORIES.map((key) => {
-    const groups = ROLE_ORDER.filter(
-      (role) => roleToCategory[role] === key && rosterRoles.has(role),
-    ).map((role) => ({
-      role,
-      items: assignments.filter((assignment) => assignment.role === role),
-    }));
+    const groups = rosterRoles
+      .filter((role) => roleToCategory[role] === key)
+      .map((role) => ({
+        role,
+        items: assignments.filter((assignment) => assignment.role === role),
+      }));
 
     const items = groups.flatMap((group) => group.items);
 
@@ -129,10 +196,13 @@ export function EventTeamCard({
       key,
       label: roleCategoryConfig[key].label,
       groups,
-      total: items.length,
+      slots: slotsOf(groups),
       accepted: items.filter((item) => item.status === "ACCEPTED").length,
+      stalled: hasStalled(groups, now),
     };
   }).filter((category) => category.groups.length > 0);
+
+  const totalSlots = categories.reduce((count, category) => count + category.slots, 0);
 
   const toggle = (key: RoleCategory) =>
     setOpen((current) =>
@@ -141,87 +211,214 @@ export function EventTeamCard({
         : [...current, key],
     );
 
+  const toggleSmart = (enabled: boolean) =>
+    smart.mutate(enabled, {
+      onError: (error) => Alert.alert("Couldn't update", failureMessage(error)),
+    });
+
   return (
-    <DetailCard>
-      {/* The web tints only the top of this card and masks the wash away by
-          75% of its height. `overflow-hidden` on the strip clips the blooms
-          the way the card's own rounding does there. */}
-      <Box
-        pointerEvents="none"
-        className="absolute inset-x-0 top-0 overflow-hidden"
-        style={{ height: WASH_HEIGHT }}
+    <>
+      <DetailCard>
+        {/* The web tints only the top of this card and masks the wash away by
+            75% of its height. `overflow-hidden` on the strip clips the blooms
+            the way the card's own rounding does there. */}
+        <Box
+          pointerEvents="none"
+          className="absolute inset-x-0 top-0 overflow-hidden"
+          style={{ height: WASH_HEIGHT }}
+        >
+          <Box
+            className="absolute inset-0"
+            style={tintedTopWash(colors.base, colors.sheenAlpha, WASH_STOPS)}
+          />
+          <Box
+            className="absolute -right-16 -top-16 h-40 w-40 rounded-full"
+            style={tintedGlow(colors.base, "lead", colors.glowSoftAlpha)}
+          />
+          <Box
+            className="absolute -bottom-16 -left-16 h-32 w-32 rounded-full"
+            style={tintedGlow(colors.base, "trail", colors.glowSoftAlpha)}
+          />
+        </Box>
+
+        <DetailCardHeader
+          icon={Users}
+          title="Team"
+          trailing={<DetailCount>{`${acceptedCount}/${totalSlots} confirmed`}</DetailCount>}
+        />
+
+        {/* The dashboard's three roster-wide actions, on their own line under
+            the title exactly as its narrow column puts them. */}
+        {canManage ? (
+          <HStack className="flex-wrap gap-1 px-3.5 pb-3">
+            <ActionChip icon={UserPlus} label="Invite" onPress={() => setDialog("invite")} />
+            <ActionChip
+              icon={Zap}
+              label="Auto-fill"
+              checked={event.smartSchedulingEnabled}
+              tint={event.smartSchedulingEnabled ? theme.success : undefined}
+              busy={smart.isPending}
+              onPress={() => toggleSmart(!event.smartSchedulingEnabled)}
+            />
+            <ActionChip icon={Plus} label="Add roles" onPress={() => setDialog("roles")} />
+            {/* The dashboard hides this until somebody has accepted. Here it
+                stays: four pills are a fixed row, and one going missing reads
+                as a fault rather than as "there is nobody to email yet" — which
+                the dialog says in words, and now refuses to send on. */}
+            <ActionChip icon={Mail} label="Email" onPress={() => setDialog("email")} />
+          </HStack>
+        ) : null}
+
+        {categories.length === 0 ? (
+          <Text className="px-3.5 pb-4 pt-1 text-[13px] text-muted-foreground">
+            {canManage
+              ? "No roles on this event yet. Add roles to start building the team."
+              : "No roles on this event yet."}
+          </Text>
+        ) : (
+          <VStack className="pb-1">
+            {categories.map((category) => (
+              <VStack key={category.key}>
+                {/* Under the card header as well as between sections, so the
+                    first category reads as a row rather than as the title. */}
+                <Divider />
+
+                <Pressable
+                  onPress={() => toggle(category.key)}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: open.includes(category.key) }}
+                  accessibilityLabel={`${category.label}, ${category.accepted} of ${category.slots} confirmed${
+                    category.stalled ? ", needs attention" : ""
+                  }`}
+                  className="data-[active=true]:bg-border/40"
+                >
+                  <HStack className="items-center gap-2 px-3.5 py-3">
+                    <Text className="flex-1 text-[13.5px] font-semibold text-foreground">
+                      {category.label}
+                    </Text>
+
+                    {category.stalled ? (
+                      <AppIcon icon={CircleAlert} size={13} color={theme.warning} />
+                    ) : null}
+
+                    <DetailCount>
+                      {`${category.accepted}/${category.slots}`}
+                    </DetailCount>
+
+                    <Chevron expanded={open.includes(category.key)} />
+                  </HStack>
+                </Pressable>
+
+                {open.includes(category.key) ? (
+                  <VStack className="gap-4 px-3.5 pb-4 pt-0.5">
+                    {category.groups.map((group) => (
+                      <RoleGroupBlock
+                        key={group.role}
+                        group={group}
+                        currentUserId={viewer.userId}
+                        onRemoveAssignment={onRemoveAssignment}
+                        onRemoveRole={onRemoveRole}
+                        now={now}
+                      />
+                    ))}
+                  </VStack>
+                ) : null}
+              </VStack>
+            ))}
+          </VStack>
+        )}
+      </DetailCard>
+
+      {/* Managers only, and not merely for the gate: `InviteToEventBody` reads
+          the org roster on mount, not on open, so mounting these for everyone
+          bought every member a members fetch they can never use. They used to
+          hang off the Manage card, which was already behind `canManage`. */}
+      {canManage ? (
+        <>
+          <InviteToEventDialog
+            visible={dialog === "invite"}
+            onClose={() => setDialog(null)}
+            organizationId={organizationId}
+            eventId={event.id}
+            rosterRoles={rosterRoles}
+            assignments={assignments}
+            dates={event.dates}
+          />
+          <AddRolesDialog
+            visible={dialog === "roles"}
+            onClose={() => setDialog(null)}
+            organizationId={organizationId}
+            eventId={event.id}
+            existing={rosterRoles}
+          />
+          <EmailTeamDialog
+            visible={dialog === "email"}
+            onClose={() => setDialog(null)}
+            organizationId={organizationId}
+            eventId={event.id}
+            acceptedCount={acceptedCount}
+          />
+        </>
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * One of the card's roster-wide actions: a small pill, the web's ghost button.
+ *
+ * Four of these have to sit on one line inside the card, so the padding is
+ * tighter than a tap target would otherwise want — `hitSlop` gives the finger
+ * back what the box gives up.
+ */
+function ActionChip({
+  icon,
+  label,
+  onPress,
+  tint,
+  checked,
+  busy,
+}: {
+  icon: AppIconName;
+  label: string;
+  onPress: () => void;
+  /** Colours the pill when the action is *on*, as auto-fill goes green. */
+  tint?: string;
+  /**
+   * Present on a pill that toggles. The label does not spell the state out —
+   * the colour carries it — so this is what says "on" to a screen reader,
+   * which cannot see the colour at all.
+   */
+  checked?: boolean;
+  busy?: boolean;
+}) {
+  const theme = useTheme();
+  const color = tint ?? theme.textMuted;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={busy}
+      hitSlop={{ top: 8, bottom: 8 }}
+      accessibilityRole={checked === undefined ? "button" : "switch"}
+      accessibilityLabel={label}
+      accessibilityState={checked === undefined ? undefined : { checked }}
+      className="rounded-full data-[active=true]:opacity-60"
+      style={{ opacity: busy ? 0.5 : 1 }}
+    >
+      <HStack
+        className="items-center gap-1 rounded-full border px-2 py-1.5"
+        style={{
+          borderColor: tint ? withAlpha(tint, 0.35) : theme.border,
+          backgroundColor: tint ? withAlpha(tint, 0.1) : theme.surface,
+        }}
       >
-        <Box
-          className="absolute inset-0"
-          style={tintedTopWash(colors.base, colors.sheenAlpha, WASH_STOPS)}
-        />
-        <Box
-          className="absolute -right-16 -top-16 h-40 w-40 rounded-full"
-          style={tintedGlow(colors.base, "lead", colors.glowSoftAlpha)}
-        />
-        <Box
-          className="absolute -bottom-16 -left-16 h-32 w-32 rounded-full"
-          style={tintedGlow(colors.base, "trail", colors.glowSoftAlpha)}
-        />
-      </Box>
-
-      <DetailCardHeader
-        icon={Users}
-        title="Team"
-        trailing={<DetailCount>{`${acceptedCount}/${total} confirmed`}</DetailCount>}
-      />
-
-      {categories.length === 0 ? (
-        <Text className="px-3.5 pb-4 pt-1 text-[13px] text-muted-foreground">
-          No roles on this event yet.
+        <AppIcon icon={icon} size={12} color={color} />
+        <Text className="text-[12px] font-semibold" style={{ color }}>
+          {label}
         </Text>
-      ) : (
-        <VStack className="pb-1">
-          {categories.map((category) => (
-            <VStack key={category.key}>
-              {/* Under the card header as well as between sections, so the
-                  first category reads as a row rather than as the title. */}
-              <Divider />
-
-              <Pressable
-                onPress={() => toggle(category.key)}
-                accessibilityRole="button"
-                accessibilityState={{ expanded: open.includes(category.key) }}
-                accessibilityLabel={`${category.label}, ${category.accepted} of ${category.total} confirmed`}
-                className="data-[active=true]:bg-border/40"
-              >
-                <HStack className="items-center gap-2 px-3.5 py-3">
-                  <Text className="flex-1 text-[13.5px] font-semibold text-foreground">
-                    {category.label}
-                  </Text>
-
-                  <DetailCount>
-                    {`${category.accepted}/${category.total}`}
-                  </DetailCount>
-
-                  <Chevron expanded={open.includes(category.key)} />
-                </HStack>
-              </Pressable>
-
-              {open.includes(category.key) ? (
-                <VStack className="gap-4 px-3.5 pb-4 pt-0.5">
-                  {category.groups.map((group) => (
-                    <RoleGroupBlock
-                      key={group.role}
-                      group={group}
-                      currentUserId={currentUserId}
-                      onRemoveAssignment={onRemoveAssignment}
-                      onRemoveRole={onRemoveRole}
-                      now={now}
-                    />
-                  ))}
-                </VStack>
-              ) : null}
-            </VStack>
-          ))}
-        </VStack>
-      )}
-    </DetailCard>
+      </HStack>
+    </Pressable>
   );
 }
 

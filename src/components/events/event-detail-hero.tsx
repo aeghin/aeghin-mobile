@@ -1,3 +1,4 @@
+import { ActionMenu, type ActionMenuItem } from "@/components/action-menu";
 import { ServiceBadge, ServiceRail } from "@/components/events/chips";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
@@ -14,6 +15,21 @@ import type { EventDetails } from "@/types/event";
 /** Matches the web's 64px tile, which is also a comfortable thumb-sized block. */
 const TILE = 64;
 
+/** Room the ⋮ needs in the corner it shares with the service badge. */
+const MENU_CLEARANCE = 34;
+
+type EventDetailHeroProps = {
+  event: EventDetails;
+  /**
+   * Managers only: what the ⋮ in the top corner offers.
+   *
+   * The dashboard hangs its event menu off this same corner, and for the same
+   * reason — editing and deleting act on the *whole* event, so neither belongs
+   * beside one section of it the way the roster and setlist actions do.
+   */
+  actions?: ActionMenuItem[];
+};
+
 /**
  * The top of the event screen: what this is, when it starts, and what kind of
  * service it belongs to.
@@ -22,7 +38,7 @@ const TILE = 64;
  * dashboard's hero does the same, and it is what makes two events on one
  * calendar tell themselves apart before either name is read.
  */
-export function EventDetailHero({ event }: { event: EventDetails }) {
+export function EventDetailHero({ event, actions }: EventDetailHeroProps) {
   const theme = useTheme();
   const colors = getServiceColors(event.serviceType.color, theme);
 
@@ -46,6 +62,12 @@ export function EventDetailHero({ event }: { event: EventDetails }) {
         className="absolute -bottom-14 -left-14 h-32 w-32 rounded-full"
         style={tintedGlow(colors.base, "trail", colors.glowStrongAlpha)}
       />
+
+      {actions && actions.length > 0 ? (
+        <Box className="absolute right-2 top-2 z-10">
+          <ActionMenu label={`Actions for ${event.name}`} items={actions} />
+        </Box>
+      ) : null}
 
       <HStack className="items-start gap-3.5 py-4 pl-[17px] pr-4">
         {tile ? (
@@ -72,7 +94,9 @@ export function EventDetailHero({ event }: { event: EventDetails }) {
         ) : null}
 
         <VStack className="flex-1 gap-2 pt-0.5">
-          <HStack>
+          {/* The name and description start below the ⋮, so only this row
+              has to keep out from under it. */}
+          <HStack style={{ paddingRight: actions ? MENU_CLEARANCE : 0 }}>
             <ServiceBadge service={event.serviceType} />
           </HStack>
 

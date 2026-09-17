@@ -144,8 +144,10 @@ function seedFromTemplate(template: EventTemplate, serviceTypes: ServiceType[]):
   });
 
   // The offset runs backwards from the first day, so a rehearsal can land
-  // before today when the next occurrence is only a day or two out. The picker
-  // refuses past days, so seed nothing rather than a date they cannot re-pick.
+  // before today when the next occurrence is only a day or two out. Seed
+  // nothing then: a rehearsal is optional, and the template's own is the one
+  // three days before the service — not some other day picked to keep it. A
+  // date nobody chose, switched on by default, is worse than none.
   const rehearsalDate =
     template.rehearsalDayOffset != null
       ? addDays(first, template.rehearsalDayOffset)
@@ -287,6 +289,27 @@ export default function CreateEventScreen() {
   // A template's values are its starting state, so the form cannot be built
   // until both it and the service types it names have landed.
   const waiting = templateId !== null && (!templates.data || !serviceTypes.data);
+
+  // Neither query will retry a 4xx, so without this the spinner below is
+  // permanent: a screen opened straight onto a template has nothing to fall
+  // back to, and no error of its own to show.
+  if (waiting && (templates.isError || serviceTypes.isError)) {
+    return (
+      <VStack className="flex-1 items-center justify-center gap-2 bg-grouped px-8">
+        <Stack.Screen options={{ title: "New event", headerBackTitle: "Events" }} />
+        <AppIcon icon={CircleAlert} size={30} color={theme.textMuted} />
+        <Text className="text-[15px] font-semibold text-foreground">Couldn&apos;t load the template</Text>
+        <Text className="text-center text-[13px] text-muted-foreground">
+          Check your connection and try again.
+        </Text>
+        <Pressable onPress={() => setTemplateId(null)} accessibilityRole="button" hitSlop={8}>
+          <Text className="text-[14px] font-semibold" style={{ color: brand.orange }}>
+            Start from blank
+          </Text>
+        </Pressable>
+      </VStack>
+    );
+  }
 
   if (waiting) {
     return (

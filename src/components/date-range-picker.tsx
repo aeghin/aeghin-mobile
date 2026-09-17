@@ -53,6 +53,13 @@ type DateRangePickerProps = {
   accent?: string;
   /** Picks one day rather than a span. `end` always comes back null. */
   single?: boolean;
+  /**
+   * The earliest day that can be picked. Defaults to today, which is what a
+   * new event wants. An edit screen passes the date it was *already* holding
+   * when that has since passed — otherwise the day it is showing as selected
+   * is one the grid refuses to give back.
+   */
+  minDay?: string;
 };
 
 /**
@@ -66,9 +73,11 @@ export function DateRangePicker({
   bare = false,
   accent = brand.orange,
   single = false,
+  minDay,
 }: DateRangePickerProps) {
   const theme = useTheme();
   const today = todayKey();
+  const earliest = minDay && minDay < today ? minDay : today;
   const [month, setMonth] = useState(() => (value.start ? value.start.slice(0, 7) : currentMonthKey()));
 
   const cells = gridFor(month);
@@ -126,7 +135,7 @@ export function DateRangePicker({
           {cells.slice(row * 7, row * 7 + 7).map((day, column) => {
             if (!day) return <Box key={column} className="flex-1" style={{ height: 38 }} />;
 
-            const past = day < today;
+            const past = day < earliest;
             const edge = day === value.start || day === value.end;
             const between = inRange(day);
 

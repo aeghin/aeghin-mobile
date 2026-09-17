@@ -60,6 +60,23 @@ type DayRange = { start: string | null; end: string | null };
 /** `"09:00"` — the clock face of an instant, read in UTC like everything else. */
 const clockOf = (iso: string) => new Date(iso).toISOString().slice(11, 16);
 
+/** Two hours after a `"HH:MM"` clock, kept inside the same day. */
+const twoHoursAfter = (clock: string) => {
+  const [hours, minutes] = clock.split(":").map(Number);
+  const end = Math.min(hours * 60 + minutes + 120, 23 * 60 + 59);
+  return `${String(Math.floor(end / 60)).padStart(2, "0")}:${String(end % 60).padStart(2, "0")}`;
+};
+
+/**
+ * The floor for a picker already holding `current`. Today normally, but a date
+ * that has since passed stays reachable — an event being edited after the fact
+ * must not show a selected day the grid then refuses to hand back.
+ */
+const earliestPickable = (current: string | null | undefined) => {
+  const today = todayKey();
+  return current && current < today ? current : today;
+};
+
 /** The event's stored dates, as the form's range and per-day hours. */
 function seedFrom(dates: EventDate[]) {
   const sorted = [...dates].sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -155,17 +172,20 @@ function EditForm({
   const [location, setLocation] = useState(event.location);
   const [range, setRange] = useState(seed.range);
   const [times, setTimes] = useState(seed.times);
-  const [rehearsal, setRehearsal] = useState<NewEventDay | null>(() =>
-    event.rehearsalStart
-      ? {
-          date: dayKey(event.rehearsalStart),
-          startTime: clockOf(event.rehearsalStart),
-          endTime: event.rehearsalEnd
-            ? clockOf(event.rehearsalEnd)
-            : clockOf(event.rehearsalStart),
-        }
-      : null,
-  );
+  // An end equal to the start would fail the check below on a form nobody has
+  // touched yet, leaving Save greyed out and the reason pointing at a field
+  // they never filled in. Two hours is the same span a new rehearsal defaults to.
+  const storedRehearsal: NewEventDay | null = event.rehearsalStart
+    ? {
+        date: dayKey(event.rehearsalStart),
+        startTime: clockOf(event.rehearsalStart),
+        endTime: event.rehearsalEnd
+          ? clockOf(event.rehearsalEnd)
+          : twoHoursAfter(clockOf(event.rehearsalStart)),
+      }
+    : null;
+
+  const [rehearsal, setRehearsal] = useState<NewEventDay | null>(storedRehearsal);
 
   const [error, setError] = useState<string | null>(null);
   const [clashes, setClashes] = useState<Clash[]>([]);
@@ -404,7 +424,13 @@ function EditForm({
             }
           >
             <FormBlock>
-              <DateRangePicker value={range} onChange={changeRange} bare accent={accent} />
+              <DateRangePicker
+                value={range}
+                onChange={changeRange}
+                bare
+                accent={accent}
+                minDay={earliestPickable(seed.range.start)}
+              />
             </FormBlock>
 
             {days.map((day) => (
@@ -450,6 +476,7 @@ function EditForm({
                     bare
                     single
                     accent={accent}
+                    minDay={earliestPickable(storedRehearsal?.date)}
                   />
                   <HStack className="items-center gap-2">
                     <TimeField

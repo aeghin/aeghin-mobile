@@ -79,6 +79,12 @@ export type OrganizationEvent = {
    */
   assignments: EventAssignment[];
   rolesNeeded: VolunteerRole[];
+  /**
+   * Optional rehearsal, wall-clock like {@link EventDate}. Null when there is
+   * none. Informational only — it never makes anybody unavailable.
+   */
+  rehearsalStart: string | null;
+  rehearsalEnd: string | null;
   /** Declining auto-invites the next best available member for that role. */
   smartSchedulingEnabled: boolean;
   /**
@@ -187,6 +193,9 @@ export type EventDetails = {
   organizationName: string;
   serviceType: ServiceType;
   dates: EventDate[];
+  /** Wall-clock like `dates`; null when the event has no rehearsal. */
+  rehearsalStart: string | null;
+  rehearsalEnd: string | null;
   assignments: EventDetailsAssignment[];
   setlist: EventSetlistSong[];
   /**
@@ -234,6 +243,8 @@ export type NewEvent = {
   /** Days an invitee has to answer: 3, 5 or 7. */
   expiresAt: number;
   smartSchedulingEnabled: boolean;
+  /** Optional rehearsal, the same day-and-clock shape as `days`. */
+  rehearsal?: NewEventDay | null;
   /** Who to invite, per role. Every role optional. */
   roleAssignments: Record<string, string[]>;
 };
@@ -265,6 +276,13 @@ export type EventTemplate = {
   /** Days an invitee gets to answer on events built from this: 3, 5 or 7. */
   expiresInDays: number;
   smartSchedulingEnabled: boolean;
+  /**
+   * Optional rehearsal, offset from the first day the way `days` positions
+   * are: 0 the same day, negative before it. All three set, or all null.
+   */
+  rehearsalDayOffset: number | null;
+  rehearsalStartTime: string | null;
+  rehearsalEndTime: string | null;
   serviceTypeId: string;
   serviceType: ServiceType;
 };
@@ -280,6 +298,17 @@ export type EventTemplateInput = {
   rolesNeeded: VolunteerRole[];
   expiresInDays: number;
   smartSchedulingEnabled: boolean;
+  /** Null clears it. Omitted leaves whatever is stored alone. */
+  rehearsal?: TemplateRehearsal | null;
+};
+
+/** A template's rehearsal, positioned relative to its first day. */
+export type TemplateRehearsal = {
+  /** 0 the same day, negative before it. */
+  dayOffset: number;
+  /** `"19:00"`. */
+  startTime: string;
+  endTime: string;
 };
 
 /**
@@ -293,6 +322,8 @@ export type EventEdit = {
   description?: string;
   location: string;
   days: NewEventDay[];
+  /** Null clears the rehearsal. Omitted leaves the stored one alone. */
+  rehearsal?: NewEventDay | null;
 };
 
 /** An event somebody is already booked on over the hours being planned. */

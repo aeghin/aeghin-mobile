@@ -41,6 +41,8 @@ export type EventDraft = {
   assignments: DraftAssignment[];
   expiresInDays: 3 | 5 | 7;
   smartSchedulingEnabled: boolean;
+  /** Resolved to a real date, unlike a template's offset. Null when none. */
+  rehearsal: DraftDay | null;
   summary: string;
   warnings: DraftWarning[];
   unfilledRoles: VolunteerRole[];

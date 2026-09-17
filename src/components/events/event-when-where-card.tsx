@@ -1,4 +1,5 @@
 import Calendar from "lucide-react-native/icons/calendar";
+import CalendarClock from "lucide-react-native/icons/calendar-clock";
 import Clock from "lucide-react-native/icons/clock";
 import MapPin from "lucide-react-native/icons/map-pin";
 
@@ -15,6 +16,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { getServiceColors } from "@/lib/config/service-types";
 import {
   formatDateSpan,
+  formatRehearsal,
   formatShortDate,
   formatTime,
   isMultiDay,
@@ -46,15 +48,20 @@ export function EventWhenWhereCard({
   dates,
   location,
   service,
+  rehearsalStart = null,
+  rehearsalEnd = null,
 }: {
   dates: EventDate[];
   location: string;
   service: ServiceType;
+  rehearsalStart?: string | null;
+  rehearsalEnd?: string | null;
 }) {
   const theme = useTheme();
   const colors = getServiceColors(service.color, theme);
 
   const sorted = sortDates(dates);
+  const rehearsal = formatRehearsal(rehearsalStart, rehearsalEnd);
   // Only a genuine change of calendar day earns a date on every time row —
   // two blocks on one morning would otherwise print the same date twice.
   const spansDays = isMultiDay(dates);
@@ -77,6 +84,10 @@ export function EventWhenWhereCard({
       label: spansDays ? formatShortDate(date.startTime) : "Time",
       value: `${formatTime(date.startTime)} – ${formatTime(date.endTime)}`,
     })),
+
+    ...(rehearsal
+      ? [{ key: "rehearsal", icon: CalendarClock, label: "Rehearsal", value: rehearsal }]
+      : []),
 
     { key: "where", icon: MapPin, label: "Where", value: location },
   ];

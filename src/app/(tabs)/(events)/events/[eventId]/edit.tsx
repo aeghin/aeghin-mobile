@@ -1,5 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import Calendar from "lucide-react-native/icons/calendar";
+import CalendarClock from "lucide-react-native/icons/calendar-clock";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
 import Clock from "lucide-react-native/icons/clock";
 import Info from "lucide-react-native/icons/info";
@@ -8,7 +9,7 @@ import NotepadText from "lucide-react-native/icons/notepad-text";
 import TriangleAlert from "lucide-react-native/icons/triangle-alert";
 import Type from "lucide-react-native/icons/type";
 import { useMemo, useState } from "react";
-import { ScrollView } from "react-native";
+import { ScrollView, Switch } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppIcon } from "@/components/app-icon";
@@ -33,11 +34,13 @@ import { brand, withAlpha } from "@/constants/branding";
 import { useCheckAvailability, useEditEvent, useEventDetails } from "@/hooks/use-events";
 import { useTheme } from "@/hooks/use-theme";
 import {
+  addDays,
   dayKey,
   daysInRange,
   formatShortDate,
   formatTime,
   keyToDate,
+  todayKey,
 } from "@/lib/events/format";
 import { getServiceColors } from "@/lib/config/service-types";
 import { failureMessage } from "@/lib/failure";
@@ -152,6 +155,17 @@ function EditForm({
   const [location, setLocation] = useState(event.location);
   const [range, setRange] = useState(seed.range);
   const [times, setTimes] = useState(seed.times);
+  const [rehearsal, setRehearsal] = useState<NewEventDay | null>(() =>
+    event.rehearsalStart
+      ? {
+          date: dayKey(event.rehearsalStart),
+          startTime: clockOf(event.rehearsalStart),
+          endTime: event.rehearsalEnd
+            ? clockOf(event.rehearsalEnd)
+            : clockOf(event.rehearsalStart),
+        }
+      : null,
+  );
 
   const [error, setError] = useState<string | null>(null);
   const [clashes, setClashes] = useState<Clash[]>([]);
@@ -180,8 +194,30 @@ function EditForm({
 
   const badOrder = payloadDays.find((day) => day.endTime <= day.startTime);
 
+  const badRehearsal = rehearsal !== null && rehearsal.endTime <= rehearsal.startTime;
+
+  const toggleRehearsal = (on: boolean) => {
+    if (!on) {
+      setRehearsal(null);
+      return;
+    }
+
+    const today = todayKey();
+    const dayBefore = days.length > 0 ? addDays(days[0], -1) : today;
+
+    setRehearsal({
+      date: dayBefore < today ? today : dayBefore,
+      startTime: "19:00",
+      endTime: "21:00",
+    });
+  };
+
   const ready =
-    name.trim().length > 0 && location.trim().length > 0 && days.length > 0 && !badOrder;
+    name.trim().length > 0 &&
+    location.trim().length > 0 &&
+    days.length > 0 &&
+    !badOrder &&
+    !badRehearsal;
 
   // Who the change has to work for. Declined invitations are nobody's problem
   // any more, which is the same line the action draws server-side.
@@ -196,6 +232,7 @@ function EditForm({
         description: description.trim() || undefined,
         location: location.trim(),
         days: payloadDays,
+        rehearsal,
       },
       {
         onSuccess: () => router.back(),
@@ -351,7 +388,13 @@ function EditForm({
                 <FormCount>{`${days.length} ${days.length === 1 ? "day" : "days"}`}</FormCount>
               ) : undefined
             }
-            error={badOrder ? "Each day has to end after it starts." : undefined}
+            error={
+              badOrder
+                ? "Each day has to end after it starts."
+                : badRehearsal
+                  ? "The rehearsal has to end after it starts."
+                  : undefined
+            }
             footnote={
               days.length === 0
                 ? "Tap a day, or a start and an end for something running across days."
@@ -383,6 +426,49 @@ function EditForm({
                 </HStack>
               </FormBlock>
             ))}
+
+            <FormBlock
+              label="Rehearsal"
+              icon={CalendarClock}
+              trailing={
+                <Switch
+                  value={rehearsal !== null}
+                  onValueChange={toggleRehearsal}
+                  trackColor={{ true: accent }}
+                />
+              }
+            >
+              {rehearsal ? (
+                <VStack className="gap-2">
+                  <DateRangePicker
+                    value={{ start: rehearsal.date, end: null }}
+                    onChange={(next) =>
+                      next.start
+                        ? setRehearsal({ ...rehearsal, date: next.start })
+                        : undefined
+                    }
+                    bare
+                    single
+                    accent={accent}
+                  />
+                  <HStack className="items-center gap-2">
+                    <TimeField
+                      value={rehearsal.startTime}
+                      onChange={(value) => setRehearsal({ ...rehearsal, startTime: value })}
+                      label="Start time"
+                      context={`Rehearsal, ${formatShortDate(keyToDate(rehearsal.date))}`}
+                    />
+                    <Text className="text-[13px] text-muted-foreground">to</Text>
+                    <TimeField
+                      value={rehearsal.endTime}
+                      onChange={(value) => setRehearsal({ ...rehearsal, endTime: value })}
+                      label="End time"
+                      context={`Rehearsal, ${formatShortDate(keyToDate(rehearsal.date))}`}
+                    />
+                  </HStack>
+                </VStack>
+              ) : null}
+            </FormBlock>
           </FormGroup>
         </VStack>
       </ScrollView>

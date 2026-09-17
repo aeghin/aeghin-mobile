@@ -17,6 +17,9 @@ export const WEEKDAY_LABELS = [
 
 export const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
-/** The weekday `offset` days after `dayOfWeek`, wrapping around the week. */
+/**
+ * The weekday `offset` days after `dayOfWeek`, wrapping around the week.
+ * `offset` may be negative — a rehearsal sits before the first day.
+ */
 export const weekdayAfter = (dayOfWeek: number, offset: number) =>
-  WEEKDAY_LABELS[(dayOfWeek + offset) % 7];
+  WEEKDAY_LABELS[(((dayOfWeek + offset) % 7) + 7) % 7];

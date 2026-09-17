@@ -2,6 +2,7 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { fetch as expoFetch } from "expo/fetch";
 import ArrowUp from "lucide-react-native/icons/arrow-up";
+import CalendarClock from "lucide-react-native/icons/calendar-clock";
 import CalendarDays from "lucide-react-native/icons/calendar-days";
 import Check from "lucide-react-native/icons/check";
 import MapPin from "lucide-react-native/icons/map-pin";
@@ -405,6 +406,7 @@ function DraftCard({
       description: draft.description.trim() || undefined,
       location: draft.location,
       days: draft.days,
+      rehearsal: draft.rehearsal,
       rolesNeeded: draft.rolesNeeded,
       expiresAt: draft.expiresInDays,
       smartSchedulingEnabled: draft.smartSchedulingEnabled,
@@ -446,6 +448,14 @@ function DraftCard({
             </Text>
           </HStack>
         ))}
+        {draft.rehearsal ? (
+          <HStack className="items-center gap-1.5">
+            <AppIcon icon={CalendarClock} size={12} color={theme.textMuted} />
+            <Text className="flex-1 text-[12.5px] text-muted-foreground">
+              {`Rehearsal ${formatShortDate(keyToDate(draft.rehearsal.date))} · ${formatClock(draft.rehearsal.startTime)} – ${formatClock(draft.rehearsal.endTime)}`}
+            </Text>
+          </HStack>
+        ) : null}
         <HStack className="items-center gap-1.5">
           <AppIcon icon={MapPin} size={12} color={theme.textMuted} />
           <Text className="flex-1 text-[12.5px] text-muted-foreground" numberOfLines={1}>

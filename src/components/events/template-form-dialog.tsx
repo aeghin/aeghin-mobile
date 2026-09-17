@@ -24,6 +24,7 @@ import type {
   EventTemplateDay,
   EventTemplateInput,
   ServiceType,
+  TemplateRehearsal,
   VolunteerRole,
 } from "@/types/event";
 
@@ -50,6 +51,21 @@ const EXPIRY_OPTIONS = [3, 5, 7] as const;
  */
 const DEFAULT_TIMES: EventTemplateDay = { startTime: "10:00", endTime: "12:00" };
 
+/** A rehearsal sits on or before the first day, never after it. */
+const REHEARSAL_OFFSETS = [0, -1, -2, -3, -4, -5, -6, -7];
+
+const DEFAULT_REHEARSAL: TemplateRehearsal = {
+  dayOffset: -1,
+  startTime: "19:00",
+  endTime: "21:00",
+};
+
+const offsetLabel = (offset: number) => {
+  if (offset === 0) return "Same day";
+  const days = Math.abs(offset);
+  return `${days} ${days === 1 ? "day" : "days"} before`;
+};
+
 const EMPTY: EventTemplateInput = {
   serviceTypeId: "",
   name: "",
@@ -60,6 +76,7 @@ const EMPTY: EventTemplateInput = {
   rolesNeeded: [],
   expiresInDays: 3,
   smartSchedulingEnabled: false,
+  rehearsal: null,
 };
 
 const draftFrom = (template: EventTemplate | undefined): EventTemplateInput =>
@@ -74,6 +91,16 @@ const draftFrom = (template: EventTemplate | undefined): EventTemplateInput =>
         rolesNeeded: template.rolesNeeded,
         expiresInDays: template.expiresInDays,
         smartSchedulingEnabled: template.smartSchedulingEnabled,
+        rehearsal:
+          template.rehearsalDayOffset == null ||
+          !template.rehearsalStartTime ||
+          !template.rehearsalEndTime
+            ? null
+            : {
+                dayOffset: template.rehearsalDayOffset,
+                startTime: template.rehearsalStartTime,
+                endTime: template.rehearsalEndTime,
+              },
       }
     : EMPTY;
 
@@ -124,7 +151,14 @@ function TemplateForm({
   const removeDay = (index: number) =>
     set("days", draft.days.filter((_, at) => at !== index));
 
+  const rehearsal = draft.rehearsal ?? null;
+
+  const setRehearsal = (patch: Partial<TemplateRehearsal>) =>
+    set("rehearsal", { ...(rehearsal ?? DEFAULT_REHEARSAL), ...patch });
+
   const badOrder = draft.days.some((day) => day.endTime <= day.startTime);
+
+  const badRehearsal = rehearsal !== null && rehearsal.endTime <= rehearsal.startTime;
 
   const ready =
     draft.serviceTypeId.length > 0 &&
@@ -132,7 +166,8 @@ function TemplateForm({
     draft.location.trim().length > 0 &&
     draft.days.length > 0 &&
     draft.rolesNeeded.length > 0 &&
-    !badOrder;
+    !badOrder &&
+    !badRehearsal;
 
   const submit = () =>
     onSubmit({
@@ -294,6 +329,57 @@ function TemplateForm({
                 </HStack>
               </Pressable>
             </>
+          ) : null}
+        </VStack>
+      </Field>
+
+      <Field
+        label="Rehearsal"
+        hint={
+          rehearsal
+            ? `Lands on ${weekdayAfter(draft.dayOfWeek, rehearsal.dayOffset)}.`
+            : "Optional. Fills itself in on events built from this."
+        }
+        error={badRehearsal ? "The rehearsal has to end after it starts." : undefined}
+      >
+        <VStack className="gap-2">
+          <HStack className="items-center gap-2.5 rounded-2xl border border-border bg-card px-3 py-2.5">
+            <Text className="flex-1 text-[15px] text-foreground">Include a rehearsal</Text>
+            <Switch
+              value={rehearsal !== null}
+              onValueChange={(on) => set("rehearsal", on ? DEFAULT_REHEARSAL : null)}
+              trackColor={{ true: brand.orange }}
+            />
+          </HStack>
+
+          {rehearsal ? (
+            <VStack className="gap-2.5 rounded-2xl border border-border bg-card px-3 py-2.5">
+              <HStack className="flex-wrap gap-1.5">
+                {REHEARSAL_OFFSETS.map((offset) => (
+                  <Choice
+                    key={offset}
+                    label={offsetLabel(offset)}
+                    selected={rehearsal.dayOffset === offset}
+                    onPress={() => setRehearsal({ dayOffset: offset })}
+                  />
+                ))}
+              </HStack>
+              <HStack className="items-center gap-2">
+                <TimeField
+                  value={rehearsal.startTime}
+                  onChange={(value) => setRehearsal({ startTime: value })}
+                  label="Start time"
+                  context={weekdayAfter(draft.dayOfWeek, rehearsal.dayOffset)}
+                />
+                <Text className="text-[13px] text-muted-foreground">to</Text>
+                <TimeField
+                  value={rehearsal.endTime}
+                  onChange={(value) => setRehearsal({ endTime: value })}
+                  label="End time"
+                  context={weekdayAfter(draft.dayOfWeek, rehearsal.dayOffset)}
+                />
+              </HStack>
+            </VStack>
           ) : null}
         </VStack>
       </Field>

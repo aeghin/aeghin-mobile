@@ -1,4 +1,5 @@
 import { Stack, useRouter } from "expo-router";
+import CalendarClock from "lucide-react-native/icons/calendar-clock";
 import CalendarPlus from "lucide-react-native/icons/calendar-plus";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
 import LayoutTemplate from "lucide-react-native/icons/layout-template";
@@ -32,7 +33,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { canManageOrg } from "@/lib/config/roles";
 import { getServiceColors } from "@/lib/config/service-types";
 import { getVolunteerRoleConfig } from "@/lib/config/volunteer-roles";
-import { WEEKDAY_LABELS } from "@/lib/config/weekdays";
+import { WEEKDAY_LABELS, weekdayAfter } from "@/lib/config/weekdays";
 import { formatClock } from "@/components/events/time-field";
 import { failureMessage } from "@/lib/failure";
 import type { EventTemplate, EventTemplateInput } from "@/types/event";
@@ -251,6 +252,15 @@ function TemplateRow({
               : `${span} · ${template.location}`}
           </Text>
         </HStack>
+
+        {template.rehearsalStartTime && template.rehearsalEndTime ? (
+          <HStack className="items-center gap-1.5">
+            <AppIcon icon={CalendarClock} size={13} color={theme.textMuted} />
+            <Text className="text-[12px] text-muted-foreground" numberOfLines={1}>
+              {`Rehearsal ${weekdayAfter(template.dayOfWeek, template.rehearsalDayOffset ?? 0)} · ${formatClock(template.rehearsalStartTime)}–${formatClock(template.rehearsalEndTime)}`}
+            </Text>
+          </HStack>
+        ) : null}
 
         {template.rolesNeeded.length > 0 ? (
           <HStack className="flex-wrap gap-1">

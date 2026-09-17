@@ -52,6 +52,11 @@ export function keyToDate(key: string): Date {
   return new Date(`${key}T00:00:00.000Z`);
 }
 
+/** The day key `count` days after `key`. `count` may be negative. */
+export function addDays(key: string, count: number): string {
+  return dayKey(new Date(keyToDate(key).getTime() + count * 86_400_000));
+}
+
 /** Whole days from one day key to another. Negative when `to` is earlier. */
 export function daysBetween(from: string, to: string): number {
   return Math.round(
@@ -226,6 +231,21 @@ export function formatDateSpan(dates: EventDate[]): string {
   const end = new Date(last.startTime);
 
   return `${formatShortDate(first.startTime)} – ${formatShortDate(end)}, ${end.getUTCFullYear()}`;
+}
+
+/**
+ * `"Thu, Sep 17 · 7:00 PM – 9:00 PM"`, or null when there is no rehearsal.
+ * Its own date is always shown: a rehearsal rarely falls on the service day.
+ */
+export function formatRehearsal(
+  start: string | null,
+  end: string | null,
+): string | null {
+  if (!start) return null;
+
+  const when = `${formatShortDate(start)} · ${formatTime(start)}`;
+
+  return end ? `${when} – ${formatTime(end)}` : when;
 }
 
 const MINUTE = 60_000;

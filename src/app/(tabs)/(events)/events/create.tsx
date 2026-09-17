@@ -1,5 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import Calendar from "lucide-react-native/icons/calendar";
+import CalendarClock from "lucide-react-native/icons/calendar-clock";
 import Check from "lucide-react-native/icons/check";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
 import Clock from "lucide-react-native/icons/clock";
@@ -57,7 +58,7 @@ import { canManageOrg } from "@/lib/config/roles";
 import { getServiceColors } from "@/lib/config/service-types";
 import { getVolunteerRoleConfig, ROLE_ORDER } from "@/lib/config/volunteer-roles";
 import {
-  dayKey,
+  addDays,
   daysInRange,
   formatShortDate,
   formatTime,
@@ -88,10 +89,6 @@ type Pane = "form" | "ai";
 
 type DayTimes = { startTime: string; endTime: string };
 
-/** The day key `count` days after `key`. */
-const addDays = (key: string, count: number) =>
-  dayKey(new Date(keyToDate(key).getTime() + count * 86_400_000));
-
 /**
  * What the form starts out holding. A template fills it, an approved AI draft
  * fills it, and blank leaves it empty.
@@ -106,6 +103,8 @@ type CreateSeed = {
   rolesNeeded: VolunteerRole[];
   expiresAt: number;
   smartScheduling: boolean;
+  /** Optional, and never part of the availability check. */
+  rehearsal: NewEventDay | null;
   /** Who to invite, per role. Only a draft ever arrives with anybody in it. */
   assignments: Record<string, string[]>;
 };
@@ -120,6 +119,7 @@ const BLANK_SEED: CreateSeed = {
   rolesNeeded: [],
   expiresAt: 3,
   smartScheduling: false,
+  rehearsal: null,
   assignments: {},
 };
 
@@ -143,6 +143,26 @@ function seedFromTemplate(template: EventTemplate, serviceTypes: ServiceType[]):
     times[addDays(first, index)] = { startTime: day.startTime, endTime: day.endTime };
   });
 
+  // The offset runs backwards from the first day, so a rehearsal can land
+  // before today when the next occurrence is only a day or two out. The picker
+  // refuses past days, so seed nothing rather than a date they cannot re-pick.
+  const rehearsalDate =
+    template.rehearsalDayOffset != null
+      ? addDays(first, template.rehearsalDayOffset)
+      : null;
+
+  const rehearsal =
+    rehearsalDate &&
+    rehearsalDate >= today &&
+    template.rehearsalStartTime &&
+    template.rehearsalEndTime
+      ? {
+          date: rehearsalDate,
+          startTime: template.rehearsalStartTime,
+          endTime: template.rehearsalEndTime,
+        }
+      : null;
+
   // A template can outlive the service type it names. Leaving it unset is what
   // puts the picker back in front of them, rather than a server refusal.
   const service = serviceTypes.find((candidate) => candidate.id === template.serviceTypeId);
@@ -160,6 +180,7 @@ function seedFromTemplate(template: EventTemplate, serviceTypes: ServiceType[]):
     rolesNeeded: template.rolesNeeded,
     expiresAt: template.expiresInDays,
     smartScheduling: template.smartSchedulingEnabled,
+    rehearsal,
     assignments: {},
   };
 }
@@ -202,6 +223,7 @@ function seedFromDraft(draft: EventDraft): CreateSeed {
     rolesNeeded: draft.rolesNeeded,
     expiresAt: draft.expiresInDays,
     smartScheduling: draft.smartSchedulingEnabled,
+    rehearsal: draft.rehearsal,
     assignments,
   };
 }
@@ -422,6 +444,7 @@ function CreateEventForm({
   const [range, setRange] = useState<{ start: string | null; end: string | null }>(seed.range);
   const [times, setTimes] = useState<Record<string, DayTimes>>(seed.times);
   const [rolesNeeded, setRolesNeeded] = useState<VolunteerRole[]>(seed.rolesNeeded);
+  const [rehearsal, setRehearsal] = useState<NewEventDay | null>(seed.rehearsal);
 
   const [assignments, setAssignments] = useState<Record<string, string[]>>(seed.assignments);
   const [expiresAt, setExpiresAt] = useState<number>(seed.expiresAt);
@@ -445,6 +468,26 @@ function CreateEventForm({
 
   const badOrder = payloadDays.find((day) => day.endTime <= day.startTime);
 
+  const badRehearsal = rehearsal !== null && rehearsal.endTime <= rehearsal.startTime;
+
+  // The day before the event, which is where most land. Clamped forward when
+  // that is already past, since the picker will not take a past day.
+  const toggleRehearsal = (on: boolean) => {
+    if (!on) {
+      setRehearsal(null);
+      return;
+    }
+
+    const today = todayKey();
+    const dayBefore = days.length > 0 ? addDays(days[0], -1) : today;
+
+    setRehearsal({
+      date: dayBefore < today ? today : dayBefore,
+      startTime: "19:00",
+      endTime: "21:00",
+    });
+  };
+
   // The form takes the hue of the event it is making, the way that event's own
   // screen will. Brand orange until a service type says otherwise.
   const chosenService = (serviceTypes.data ?? []).find((entry) => entry.id === serviceTypeId);
@@ -458,7 +501,8 @@ function CreateEventForm({
     location.trim().length > 0 &&
     days.length > 0 &&
     rolesNeeded.length > 0 &&
-    !badOrder;
+    !badOrder &&
+    !badRehearsal;
 
   const roster = members.data ?? [];
 
@@ -527,6 +571,7 @@ function CreateEventForm({
         description: description.trim() || undefined,
         location: location.trim(),
         days: payloadDays,
+        rehearsal,
         rolesNeeded,
         expiresAt,
         smartSchedulingEnabled: smartScheduling,
@@ -734,7 +779,13 @@ function CreateEventForm({
                     <FormCount>{`${days.length} ${days.length === 1 ? "day" : "days"}`}</FormCount>
                   ) : undefined
                 }
-                error={badOrder ? "Each day has to end after it starts." : undefined}
+                error={
+                  badOrder
+                    ? "Each day has to end after it starts."
+                    : badRehearsal
+                      ? "The rehearsal has to end after it starts."
+                      : undefined
+                }
                 footnote={
                   days.length === 0
                     ? "Tap a day, or a start and an end for something running across days."
@@ -766,6 +817,49 @@ function CreateEventForm({
                     </HStack>
                   </FormBlock>
                 ))}
+
+                <FormBlock
+                  label="Rehearsal"
+                  icon={CalendarClock}
+                  trailing={
+                    <Switch
+                      value={rehearsal !== null}
+                      onValueChange={toggleRehearsal}
+                      trackColor={{ true: accent }}
+                    />
+                  }
+                >
+                  {rehearsal ? (
+                    <VStack className="gap-2">
+                      <DateRangePicker
+                        value={{ start: rehearsal.date, end: null }}
+                        onChange={(next) =>
+                          next.start
+                            ? setRehearsal({ ...rehearsal, date: next.start })
+                            : undefined
+                        }
+                        bare
+                        single
+                        accent={accent}
+                      />
+                      <HStack className="items-center gap-2">
+                        <TimeField
+                          value={rehearsal.startTime}
+                          onChange={(value) => setRehearsal({ ...rehearsal, startTime: value })}
+                          label="Start time"
+                          context={`Rehearsal, ${formatShortDate(keyToDate(rehearsal.date))}`}
+                        />
+                        <Text className="text-[13px] text-muted-foreground">to</Text>
+                        <TimeField
+                          value={rehearsal.endTime}
+                          onChange={(value) => setRehearsal({ ...rehearsal, endTime: value })}
+                          label="End time"
+                          context={`Rehearsal, ${formatShortDate(keyToDate(rehearsal.date))}`}
+                        />
+                      </HStack>
+                    </VStack>
+                  ) : null}
+                </FormBlock>
               </FormGroup>
 
               <FormGroup

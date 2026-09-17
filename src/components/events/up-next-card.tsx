@@ -4,7 +4,12 @@ import Clock from "lucide-react-native/icons/clock";
 import MapPin from "lucide-react-native/icons/map-pin";
 
 import { AppIcon } from "@/components/app-icon";
-import { MetaLine, Pill, RoleChip, ServiceBadge } from "@/components/events/chips";
+import {
+  MetaLine,
+  Pill,
+  RoleChip,
+  ServiceBadge,
+} from "@/components/events/chips";
 import { Box } from "@/components/ui/box";
 import { Center } from "@/components/ui/center";
 import { Divider } from "@/components/ui/divider";
@@ -14,7 +19,11 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
 import { useTheme } from "@/hooks/use-theme";
-import { countdownLabel, formatShortDate, formatTime } from "@/lib/events/format";
+import {
+  countdownLabel,
+  formatShortDate,
+  formatTime,
+} from "@/lib/events/format";
 import { assignmentFor, type UpNext } from "@/lib/events/schedule";
 import { brandGlow, brandSheen } from "@/lib/gradients";
 import type { ServiceType } from "@/types/event";
@@ -60,7 +69,7 @@ export function UpNextCard({ upNext, service, onPress }: UpNextCardProps) {
           </Center>
 
           <Text className="flex-1 text-[11px] font-bold uppercase tracking-[1.1px] text-muted-foreground">
-            Up next
+            Upcoming
           </Text>
 
           <Pill

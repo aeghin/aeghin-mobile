@@ -264,6 +264,8 @@ export default function EventDetailScreen() {
               dates={event.dates}
               location={event.location}
               service={event.serviceType}
+              rehearsalStart={event.rehearsalStart}
+              rehearsalEnd={event.rehearsalEnd}
             />
 
             <EventSetlistCard

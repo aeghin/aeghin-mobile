@@ -51,6 +51,8 @@ type DateRangePickerProps = {
    * pass their service type's colour so the span matches the card around it.
    */
   accent?: string;
+  /** Picks one day rather than a span. `end` always comes back null. */
+  single?: boolean;
 };
 
 /**
@@ -63,6 +65,7 @@ export function DateRangePicker({
   onChange,
   bare = false,
   accent = brand.orange,
+  single = false,
 }: DateRangePickerProps) {
   const theme = useTheme();
   const today = todayKey();
@@ -71,6 +74,11 @@ export function DateRangePicker({
   const cells = gridFor(month);
 
   const pick = (day: string) => {
+    if (single) {
+      onChange({ start: day, end: null });
+      return;
+    }
+
     if (!value.start || value.end || day < value.start) {
       onChange({ start: day, end: null });
     } else {

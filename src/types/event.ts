@@ -23,7 +23,20 @@ export type VolunteerRole =
   | "USHER"
   | "GREETER";
 
-export type InvitationStatus = "PENDING" | "ACCEPTED" | "DECLINED" | "CANCELED";
+/**
+ * Mirrors the web's `InvitationStatus` enum.
+ *
+ * EXPIRED is written only by the API's hourly sweep, never by anything the app
+ * does — an invitation nobody answered before its deadline. It arrives on the
+ * wire like any other status, so the app must handle it even though it can
+ * never produce one.
+ */
+export type InvitationStatus =
+  | "PENDING"
+  | "ACCEPTED"
+  | "DECLINED"
+  | "CANCELED"
+  | "EXPIRED";
 
 /** The eight swatches `ServiceType.color` is allowed to hold. */
 export type ServiceTypeColor =
@@ -212,6 +225,11 @@ export type EventDetails = {
   /** Managers only; empty for everybody else. */
   smartSchedulingActivity: SmartSchedulingActivityItem[];
   /** Managers only; 0 for everybody else. */
+  /**
+   * Still sent by the API and still read by older installs, but no longer
+   * rendered: expiry has nothing to do with auto-fill, and a bare count named
+   * nobody. The team card labels the lapsed row itself.
+   */
   expiredInviteCount: number;
 };
 

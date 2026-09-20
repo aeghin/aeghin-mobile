@@ -1,5 +1,6 @@
 import ChevronDown from "lucide-react-native/icons/chevron-down";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
+import Hourglass from "lucide-react-native/icons/hourglass";
 import Mail from "lucide-react-native/icons/mail";
 import Plus from "lucide-react-native/icons/plus";
 import UserPlus from "lucide-react-native/icons/user-plus";
@@ -67,7 +68,10 @@ const DEFAULT_OPEN: RoleCategory[] = ["band"];
 
 type RoleGroup = {
   role: VolunteerRole;
+  /** Rendered as rows. Lapsed invitations are not in here — see {@link isLapsed}. */
   items: EventDetailsAssignment[];
+  /** Lapsed, kept for the card's disclosure and for {@link hasStalled}. */
+  expired: EventDetailsAssignment[];
 };
 
 type Category = {
@@ -97,7 +101,11 @@ type Category = {
 const hasStalled = (groups: RoleGroup[], now: number) =>
   groups.some(
     (group) =>
-      group.items.length > 0 && !group.items.some((item) => isLive(item, now)),
+      // Counts lapsed rows too. They no longer render, and without them here a
+      // role whose only invitation expired would drop to zero items and quietly
+      // stop being marked — losing the glyph in the one case it most describes.
+      (group.items.length > 0 || group.expired.length > 0) &&
+      !group.items.some((item) => isLive(item, now)),
   );
 
 /**
@@ -173,6 +181,11 @@ export function EventTeamCard({
     (assignment) => assignment.status === "ACCEPTED",
   ).length;
 
+  // Gathered card-wide rather than per role: a marker beside every affected
+  // role would grow the card in proportion to how bad the problem is, which is
+  // the opposite of what a phone wants.
+  const expired = assignments.filter((assignment) => isLapsed(assignment, now));
+
   // A role belongs on the roster if the event declared it or somebody is on
   // it. The union keeps events created before `rolesNeeded` was persisted
   // intact — the same reason the web takes it.
@@ -185,10 +198,21 @@ export function EventTeamCard({
   const categories: Category[] = ROLE_CATEGORIES.map((key) => {
     const groups = rosterRoles
       .filter((role) => roleToCategory[role] === key)
-      .map((role) => ({
-        role,
-        items: assignments.filter((assignment) => assignment.role === role),
-      }));
+      .map((role) => {
+        const forRole = assignments.filter(
+          (assignment) => assignment.role === role,
+        );
+
+        return {
+          role,
+          // A lapsed invitation leaves the roster rather than holding a slot:
+          // nobody is on this role any more, so it should read as needing
+          // someone. The names are not lost — the disclosure under the card
+          // header keeps them, one tap away and closed by default.
+          items: forRole.filter((assignment) => !isLapsed(assignment, now)),
+          expired: forRole.filter((assignment) => isLapsed(assignment, now)),
+        };
+      });
 
     const items = groups.flatMap((group) => group.items);
 
@@ -267,6 +291,10 @@ export function EventTeamCard({
                 the dialog says in words, and now refuses to send on. */}
             <ActionChip icon={Mail} label="Email" onPress={() => setDialog("email")} />
           </HStack>
+        ) : null}
+
+        {canManage && expired.length > 0 ? (
+          <ExpiredInvitesDisclosure invitees={expired} />
         ) : null}
 
         {categories.length === 0 ? (
@@ -365,6 +393,99 @@ export function EventTeamCard({
 }
 
 /**
+ * `expiresAt` is a real instant — the moment the window closed — not one of the
+ * floating-UTC wall clocks the event dates use, so this formats in the viewer's
+ * own zone. Don't align it with the UTC date helpers in `lib/events/format`.
+ */
+const formatLapsed = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+/**
+ * The invitations on this event that lapsed unanswered.
+ *
+ * Rendered only when there is something in it and closed by default, so the
+ * card costs nothing in the ordinary case. It expands in place behind a
+ * chevron — the same disclosure the Smart Scheduling card uses for its log —
+ * rather than the popover the dashboard opens on hover. A phone has no hover
+ * to open one with, and a floating list is a target the thumb has to chase.
+ *
+ * Names rather than a bare count: the count alone is what made the old Smart
+ * Scheduling chip useless, because it told nobody who to chase.
+ */
+function ExpiredInvitesDisclosure({
+  invitees,
+}: {
+  invitees: EventDetailsAssignment[];
+}) {
+  const theme = useTheme();
+  const [open, setOpen] = useState(false);
+
+  // Newest lapse first: the one most likely still worth chasing.
+  const rows = [...invitees].sort(
+    (a, b) =>
+      new Date(b.expiresAt).getTime() - new Date(a.expiresAt).getTime(),
+  );
+
+  const noun = invitees.length === 1 ? "invite" : "invites";
+
+  return (
+    <VStack className="px-3.5 pb-3">
+      <Pressable
+        onPress={() => setOpen((current) => !current)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={`${invitees.length} expired ${noun}. ${open ? "Hide" : "Show"} details.`}
+        hitSlop={{ top: 10, bottom: 10 }}
+        className="data-[active=true]:opacity-60"
+      >
+        <HStack className="items-center gap-1.5">
+          <AppIcon icon={Hourglass} size={12} color={theme.textMuted} />
+          <Text
+            className="text-[12px] font-semibold text-muted-foreground"
+            style={{ fontVariant: ["tabular-nums"] }}
+          >
+            {`${invitees.length} ${noun} expired`}
+          </Text>
+          <Box style={{ transform: [{ rotate: open ? "180deg" : "0deg" }] }}>
+            <AppIcon icon={ChevronDown} size={11} color={theme.textMuted} />
+          </Box>
+        </HStack>
+      </Pressable>
+
+      {open ? (
+        <VStack className="gap-1.5 pt-2">
+          {rows.map((assignment) => (
+            <HStack key={assignment.id} className="items-baseline gap-2">
+              <Text
+                className="text-[12.5px] font-medium text-foreground"
+                numberOfLines={1}
+              >
+                {`${assignment.user.firstName} ${assignment.user.lastName}`.trim()}
+              </Text>
+              <Text
+                className="flex-1 text-[11.5px] text-muted-foreground"
+                numberOfLines={1}
+              >
+                {getVolunteerRoleConfig(assignment.role).label}
+              </Text>
+              <Text
+                className="text-[11.5px] text-muted-foreground"
+                style={{ fontVariant: ["tabular-nums"] }}
+              >
+                {formatLapsed(assignment.expiresAt)}
+              </Text>
+            </HStack>
+          ))}
+          <Text className="pt-0.5 text-[11.5px] text-muted-foreground">
+            Re-invite from the role below to reopen.
+          </Text>
+        </VStack>
+      ) : null}
+    </VStack>
+  );
+}
+
+/**
  * One of the card's roster-wide actions: a small pill, the web's ghost button.
  *
  * Four of these have to sit on one line inside the card, so the padding is
@@ -430,6 +551,22 @@ function Chevron({ expanded }: { expanded: boolean }) {
     <Box style={{ transform: [{ rotate: expanded ? "0deg" : "-90deg" }] }}>
       <AppIcon icon={ChevronDown} size={14} color={theme.textMuted} />
     </Box>
+  );
+}
+
+/**
+ * Sent, never answered, and now unanswerable.
+ *
+ * Reads the deadline as well as the status: the API's hourly sweep is what
+ * writes EXPIRED, so for up to an hour after a lapse the row is still PENDING.
+ * Paired with {@link isLive} — an assignment is unique per event and member, so
+ * between them a pending invitation lands in exactly one bucket.
+ */
+function isLapsed(assignment: EventDetailsAssignment, now: number): boolean {
+  return (
+    assignment.status === "EXPIRED" ||
+    (assignment.status === "PENDING" &&
+      new Date(assignment.expiresAt).getTime() <= now)
   );
 }
 

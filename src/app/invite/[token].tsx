@@ -158,19 +158,27 @@ export default function InviteScreen() {
                 : ""
             }. Sign in with that address to accept it.`}
           />
+        ) : // Lapsed without ever being answered: EXPIRED once the API's hourly
+        // sweep has run, still PENDING in the window before it. Tested ahead
+        // of the generic branch below, which would otherwise report it as
+        // "already been expired" — clumsy, and the wrong screen: this one says
+        // how to get a new link. Deliberately narrow, so an accepted or
+        // declined invitation whose deadline has since passed still reports
+        // what was actually decided.
+        invitation.data.status === "EXPIRED" ||
+          (invitation.data.status === "PENDING" && invitation.data.expired) ? (
+          <Notice
+            icon={Clock}
+            tone="muted"
+            title="Invitation expired"
+            body={`Ask an owner of ${invitation.data.organization.name} to send a new one.`}
+          />
         ) : invitation.data.status !== "PENDING" ? (
           <Notice
             icon={MailX}
             tone="muted"
             title="Invitation unavailable"
             body={`This invitation has already been ${invitation.data.status.toLowerCase()}.`}
-          />
-        ) : invitation.data.expired ? (
-          <Notice
-            icon={Clock}
-            tone="muted"
-            title="Invitation expired"
-            body={`Ask an owner of ${invitation.data.organization.name} to send a new one.`}
           />
         ) : (
           <VStack className="gap-3">

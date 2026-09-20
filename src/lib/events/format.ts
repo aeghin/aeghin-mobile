@@ -189,11 +189,22 @@ export type ExpiryLabel = {
   urgent: boolean;
 };
 
-/** How long is left to answer an invitation. */
+/**
+ * How long is left to answer an invitation.
+ *
+ * The deadline is a wall-clock instant, not a calendar day: an invitation sent
+ * at 2pm with a three-day window dies at 2pm on the third day, not at the
+ * following midnight. Comparing day keys alone reported it as "Expires today"
+ * for the rest of that afternoon — beside an Accept button the server had
+ * already stopped honouring.
+ */
 export function formatExpiry(expiresAt: string, today: string): ExpiryLabel {
+  if (new Date(expiresAt).getTime() <= Date.now()) {
+    return { label: "Expired", urgent: true };
+  }
+
   const days = daysBetween(today, dayKey(expiresAt));
 
-  if (days < 0) return { label: "Expired", urgent: true };
   if (days === 0) return { label: "Expires today", urgent: true };
   if (days === 1) return { label: "Expires tomorrow", urgent: true };
   return { label: `Expires in ${days} days`, urgent: false };

@@ -256,7 +256,6 @@ export default function EventDetailScreen() {
               <EventSmartSchedulingCard
                 enabled={event.smartSchedulingEnabled}
                 items={event.smartSchedulingActivity}
-                expiredCount={event.expiredInviteCount}
               />
             ) : null}
 

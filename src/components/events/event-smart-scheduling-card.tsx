@@ -1,6 +1,5 @@
 import CalendarClock from "lucide-react-native/icons/calendar-clock";
 import ChevronDown from "lucide-react-native/icons/chevron-down";
-import MailWarning from "lucide-react-native/icons/mail-warning";
 import TriangleAlert from "lucide-react-native/icons/triangle-alert";
 import UserSearch from "lucide-react-native/icons/user-search";
 import Zap from "lucide-react-native/icons/zap";
@@ -51,7 +50,6 @@ const ROW_STYLES: Record<SmartActivityType, RowStyle> = {
 type EventSmartSchedulingCardProps = {
   enabled: boolean;
   items: SmartSchedulingActivityItem[];
-  expiredCount: number;
 };
 
 /**
@@ -68,7 +66,6 @@ type EventSmartSchedulingCardProps = {
 export function EventSmartSchedulingCard({
   enabled,
   items,
-  expiredCount,
 }: EventSmartSchedulingCardProps) {
   const theme = useTheme();
   const [open, setOpen] = useState(false);
@@ -80,7 +77,7 @@ export function EventSmartSchedulingCard({
     UNFILLED.includes(item.type),
   ).length;
 
-  if (!enabled && items.length === 0 && expiredCount === 0) {
+  if (!enabled && items.length === 0) {
     return null;
   }
 
@@ -95,12 +92,6 @@ export function EventSmartSchedulingCard({
       key: "unfilled",
       icon: CalendarClock,
       label: `${unfilledCount} ${unfilledCount === 1 ? "slot" : "slots"} left open`,
-      color: theme.warning,
-    },
-    expiredCount > 0 && {
-      key: "expired",
-      icon: MailWarning,
-      label: `${expiredCount} ${expiredCount === 1 ? "invite" : "invites"} expired`,
       color: theme.warning,
     },
   ].filter(Boolean) as {

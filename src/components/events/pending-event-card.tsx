@@ -155,6 +155,60 @@ export function PendingEventCard({
   );
 }
 
+/**
+ * An invitation that lapsed before it was answered.
+ *
+ * Deliberately inert — no Accept, no Decline, no tap. These used to drop off
+ * the tab the moment they lapsed, which read as the invitation never having
+ * arrived; this says what actually happened. Reopening one is an admin's move,
+ * since re-inviting is what resets the window, so there is nothing to press.
+ *
+ * Flatter than a live card on purpose: no service rail, no buttons, muted
+ * text. It is a record, and it must not compete for the thumb with the cards
+ * above it that still want an answer.
+ */
+export function ExpiredInviteCard({
+  event,
+  service,
+}: {
+  event: OrganizationEvent;
+  service: ServiceType | undefined;
+}) {
+  const assignment =
+    event.assignments.find((a) => a.status === "EXPIRED") ??
+    event.assignments.find((a) => a.status === "PENDING") ??
+    null;
+
+  return (
+    <VStack className="gap-2 rounded-2xl border border-border bg-surface px-3.5 py-3 opacity-80">
+      <HStack className="items-center gap-2">
+        <ServiceBadge service={service} />
+        <Box className="flex-1" />
+        {assignment ? <RoleChip role={assignment.role} /> : null}
+      </HStack>
+
+      <Text
+        className="text-[15px] font-semibold leading-[20px] tracking-[-0.2px] text-muted-foreground"
+        numberOfLines={2}
+      >
+        {event.name}
+      </Text>
+
+      <VStack className="gap-1">
+        <MetaLine icon={Calendar}>{formatDateRange(event.dates)}</MetaLine>
+        <MetaLine icon={MapPin}>{event.location}</MetaLine>
+      </VStack>
+
+      <HStack className="items-center gap-1.5 pt-0.5">
+        <Pill label="Invite expired" tone="neutral" icon={Hourglass} />
+        <Text className="flex-1 text-[11.5px] text-muted-foreground" numberOfLines={2}>
+          Ran out before it was answered. Ask an admin for a new one.
+        </Text>
+      </HStack>
+    </VStack>
+  );
+}
+
 type AnswerButtonProps = {
   kind: PendingAction;
   label: string;

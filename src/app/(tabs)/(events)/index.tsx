@@ -22,6 +22,7 @@ import {
   ServiceFilter,
 } from "@/components/events/events-filter-bar";
 import {
+  ExpiredInviteCard,
   PendingEventCard,
   PendingEventCardSkeleton,
   type PendingAction,
@@ -35,6 +36,7 @@ import { useCurrentOrganization } from "@/components/organization-provider";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
 import {
@@ -49,7 +51,6 @@ import { ApiError } from "@/lib/api";
 import { canManageOrg } from "@/lib/config/roles";
 import {
   currentMonthKey,
-  dayKey,
   formatMonth,
   todayKey,
 } from "@/lib/events/format";
@@ -101,6 +102,9 @@ export default function EventsScreen() {
 
   // ── View state ────────────────────────────────────────────────────────
   // A null tab means the viewer has not chosen one; the screen picks below.
+  // Read once per mount, like EventTeamCard: "has this invitation lapsed" must
+  // not flip between renders, and Date.now() during render is impure.
+  const [now] = useState(() => Date.now());
   const [tab, setTab] = useState<EventsTab | null>(null);
   const [scope, setScope] = useState<TimeScope>("upcoming");
   const [month, setMonth] = useState(currentMonthKey);
@@ -173,17 +177,37 @@ export default function EventsScreen() {
     (scope === "past" || !isEventPast(event, today));
 
   // An invitation nobody answered in time is not one you can answer now: the
-  // server refuses it, and the web dashboard stopped listing it a day ago.
+  // server refuses it the moment it lapses.
+  //
+  // Compared as an instant, not a day key. `dayKey(expiresAt) >= today` kept a
+  // lapsed invitation on the tab, with working Accept and Decline buttons, for
+  // the rest of the calendar day it died on — and the server answered those
+  // with a 409. The API's hourly sweep also rewrites these to EXPIRED, which
+  // `assignmentFor(event, "PENDING")` stops matching; this covers the window
+  // before the sweep reaches them.
   const isInvitation = (event: OrganizationEvent) => {
     const assignment = assignmentFor(event, "PENDING");
     return (
       assignment !== null &&
-      dayKey(assignment.expiresAt) >= today &&
+      new Date(assignment.expiresAt).getTime() > now &&
       !isEventPast(event, today)
     );
   };
 
+  // The other half of isInvitation: sent, never answered, and now unanswerable.
+  // EXPIRED once the API's hourly sweep has written it, still PENDING in the
+  // window before. An assignment is unique per event and member, so between the
+  // two predicates an invitation lands in exactly one list.
+  const isLapsedInvitation = (event: OrganizationEvent) =>
+    event.assignments.some(
+      (assignment) =>
+        assignment.status === "EXPIRED" ||
+        (assignment.status === "PENDING" &&
+          new Date(assignment.expiresAt).getTime() <= now),
+    ) && !isEventPast(event, today);
+
   const invitations = myEvents.filter(isInvitation);
+  const lapsed = myEvents.filter(isLapsedInvitation);
   const accepted = myEvents.filter(
     (event) => assignmentFor(event, "ACCEPTED") !== null,
   );
@@ -231,6 +255,7 @@ export default function EventsScreen() {
   ];
 
   const visibleInvitations = invitations.filter(matchesService);
+  const visibleLapsed = lapsed.filter(matchesService);
 
   const scheduled = (activeTab === "all" ? allEvents : accepted)
     .filter(matchesService)
@@ -275,7 +300,7 @@ export default function EventsScreen() {
     }
 
     if (activeTab === "pending") {
-      if (visibleInvitations.length === 0) {
+      if (visibleInvitations.length === 0 && visibleLapsed.length === 0) {
         return serviceId ? (
           <EventsEmptyState
             icon={ICON.filter}
@@ -314,6 +339,21 @@ export default function EventsScreen() {
               onPress={canManage ? () => openEvent(event.id) : undefined}
             />
           ))}
+
+          {visibleLapsed.length > 0 ? (
+            <VStack className="gap-3 pt-1">
+              <Text className="text-[11px] font-bold uppercase tracking-[0.7px] text-muted-foreground">
+                Expired
+              </Text>
+              {visibleLapsed.map((event) => (
+                <ExpiredInviteCard
+                  key={event.id}
+                  event={event}
+                  service={serviceById.get(event.serviceTypeId)}
+                />
+              ))}
+            </VStack>
+          ) : null}
         </VStack>
       );
     }

@@ -3,6 +3,7 @@ import CircleAlert from "lucide-react-native/icons/circle-alert";
 import CircleCheckBig from "lucide-react-native/icons/circle-check-big";
 import CircleX from "lucide-react-native/icons/circle-x";
 import Clock from "lucide-react-native/icons/clock";
+import Hourglass from "lucide-react-native/icons/hourglass";
 import Mail from "lucide-react-native/icons/mail";
 import { Alert, RefreshControl, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -47,6 +48,7 @@ const STATUS_TONE: Record<
   ACCEPTED: { label: "Accepted", tone: "success", icon: CircleCheckBig },
   DECLINED: { label: "Declined", tone: "danger", icon: CircleX },
   CANCELED: { label: "Canceled", tone: "neutral", icon: Clock },
+  EXPIRED: { label: "Expired", tone: "neutral", icon: Hourglass },
 };
 
 /** The dashboard's Invitations tab: everyone asked to join, and whether they have. */
@@ -153,10 +155,16 @@ export default function InvitationsScreen() {
                   invitation={invitation}
                   today={today}
                   // The dashboard's own rule: a pending invitation can be
-                  // resent or called off, a canceled one can be sent afresh,
-                  // and an answered one is done with.
+                  // resent or called off, a canceled or lapsed one can be sent
+                  // afresh, and an answered one is done with.
+                  //
+                  // EXPIRED has to be in here. It is the state where a resend
+                  // is most obviously the right move, and leaving it out left
+                  // a lapsed invitation with no action on it at all.
                   onResend={
-                    invitation.status === "PENDING" || invitation.status === "CANCELED"
+                    invitation.status === "PENDING" ||
+                    invitation.status === "CANCELED" ||
+                    invitation.status === "EXPIRED"
                       ? () => confirmResend(invitation)
                       : undefined
                   }
@@ -193,7 +201,10 @@ function InvitationRow({
 
   // The web words these apart, and so does this: reviving a canceled
   // invitation is a new one going out, not the same one going out again.
-  const resendLabel = invitation.status === "CANCELED" ? "Send again" : "Resend";
+  const resendLabel =
+    invitation.status === "CANCELED" || invitation.status === "EXPIRED"
+      ? "Send again"
+      : "Resend";
 
   return (
     <VStack className="gap-1.5 px-3.5 py-3">

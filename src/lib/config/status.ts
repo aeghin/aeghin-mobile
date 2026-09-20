@@ -1,5 +1,6 @@
 import Check from "lucide-react-native/icons/check";
 import Clock from "lucide-react-native/icons/clock";
+import Hourglass from "lucide-react-native/icons/hourglass";
 import X from "lucide-react-native/icons/x";
 
 import type { AppIconName } from "@/components/app-icon";
@@ -39,6 +40,7 @@ export const ROW_FILL_ALPHA = 0.02;
 const EMERALD_500 = "#00BC7D";
 const AMBER_500 = "#FE9A00";
 const RED_500 = "#FB2C36";
+const SLATE_500 = "#62748E";
 
 export function getStatusConfig(status: InvitationStatus): StatusConfig {
   switch (status) {
@@ -58,11 +60,25 @@ export function getStatusConfig(status: InvitationStatus): StatusConfig {
       };
     case "DECLINED":
       return { label: "Declined", color: RED_500, icon: X, ringAlpha: 0.6 };
+    // Slate rather than red: a lapse is an absence of an answer, not a
+    // refusal, and reading it as loudly as DECLINED misreports what happened.
+    //
+    // This case has to exist before the API can return the status. Without it
+    // the `default` below caught EXPIRED and rendered it as a red "Canceled"
+    // X — a lapsed invitation reported as one somebody withdrew, which is the
+    // kind of wrong that gets acted on.
+    case "EXPIRED":
+      return { label: "Expired", color: SLATE_500, icon: Hourglass, ringAlpha: 0.6 };
     default:
       return { label: "Canceled", color: RED_500, icon: X, ringAlpha: 0.6 };
   }
 }
 
-/** The two statuses the web strikes through rather than dropping from the list. */
+/**
+ * Statuses that dim rather than being dropped from the list.
+ *
+ * EXPIRED belongs here: the row is just as settled as a decline, and leaving
+ * it out left a lapsed invitation looking as live as one still in flight.
+ */
 export const isInactiveStatus = (status: InvitationStatus): boolean =>
-  status === "DECLINED" || status === "CANCELED";
+  status === "DECLINED" || status === "CANCELED" || status === "EXPIRED";

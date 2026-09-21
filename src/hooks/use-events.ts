@@ -307,6 +307,26 @@ export function useCancelAssignment(orgId: string, eventId: string) {
   );
 }
 
+// Reopens a lapsed invitation. The route refuses anything still live, and
+// re-checks the volunteer role and blockout dates, so a refusal is worth showing.
+export function useResendAssignment(orgId: string, eventId: string) {
+  return useEventWrite(orgId, eventId, (memberId: string) =>
+    apiPost<{ success: true }>(
+      `${eventPath(orgId, eventId)}/assignments/${memberId}/resend`,
+    ),
+  );
+}
+
+// Removes the row outright, unlike useCancelAssignment which keeps it as
+// CANCELED. Lapsed rows only — the route refuses anything still live.
+export function useDeleteExpiredAssignment(orgId: string, eventId: string) {
+  return useEventWrite(orgId, eventId, (memberId: string) =>
+    apiDelete<{ success: true }>(
+      `${eventPath(orgId, eventId)}/assignments/${memberId}/expired`,
+    ),
+  );
+}
+
 export function useEmailTeam(orgId: string, eventId: string) {
   return useMutation({
     mutationFn: (input: { subject: string; body: string }) =>

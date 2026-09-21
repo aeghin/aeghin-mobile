@@ -2,12 +2,15 @@ import ChevronDown from "lucide-react-native/icons/chevron-down";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
 import Mail from "lucide-react-native/icons/mail";
 import Plus from "lucide-react-native/icons/plus";
+import RefreshCw from "lucide-react-native/icons/refresh-cw";
+import Trash2 from "lucide-react-native/icons/trash-2";
 import UserPlus from "lucide-react-native/icons/user-plus";
 import Users from "lucide-react-native/icons/users";
 import Zap from "lucide-react-native/icons/zap";
 import { useState } from "react";
 import { Alert } from "react-native";
 
+import { ActionMenu } from "@/components/action-menu";
 import { AppIcon, type AppIconName } from "@/components/app-icon";
 import { AddRolesDialog } from "@/components/events/add-roles-dialog";
 import { EmailTeamDialog } from "@/components/events/email-team-dialog";
@@ -67,13 +70,7 @@ const DEFAULT_OPEN: RoleCategory[] = ["band"];
 
 type RoleGroup = {
   role: VolunteerRole;
-  /** Rendered as rows. Lapsed invitations are not in here — see {@link isLapsed}. */
   items: EventDetailsAssignment[];
-  /**
-   * Lapsed. Not rendered anywhere — kept solely so {@link hasStalled} can still
-   * mark the role, which is now the only signal that an invitation fell through.
-   */
-  expired: EventDetailsAssignment[];
 };
 
 type Category = {
@@ -103,11 +100,7 @@ type Category = {
 const hasStalled = (groups: RoleGroup[], now: number) =>
   groups.some(
     (group) =>
-      // Counts lapsed rows too. They no longer render, and without them here a
-      // role whose only invitation expired would drop to zero items and quietly
-      // stop being marked — losing the glyph in the one case it most describes.
-      (group.items.length > 0 || group.expired.length > 0) &&
-      !group.items.some((item) => isLive(item, now)),
+      group.items.length > 0 && !group.items.some((item) => isLive(item, now)),
   );
 
 /**
@@ -146,6 +139,10 @@ type EventTeamCardProps = {
   onRemoveAssignment?: (assignment: EventDetailsAssignment) => void;
   /** Managers only: take an empty role off the roster. */
   onRemoveRole?: (role: VolunteerRole) => void;
+  /** Managers only: reopen a lapsed invitation. */
+  onResendInvite?: (assignment: EventDetailsAssignment) => void;
+  /** Managers only: clear a lapsed invitation off the roster. */
+  onDeleteExpired?: (assignment: EventDetailsAssignment) => void;
 };
 
 /**
@@ -165,6 +162,8 @@ export function EventTeamCard({
   event,
   onRemoveAssignment,
   onRemoveRole,
+  onResendInvite,
+  onDeleteExpired,
 }: EventTeamCardProps) {
   const theme = useTheme();
   const colors = getServiceColors(event.serviceType.color, theme);
@@ -195,25 +194,10 @@ export function EventTeamCard({
   const categories: Category[] = ROLE_CATEGORIES.map((key) => {
     const groups = rosterRoles
       .filter((role) => roleToCategory[role] === key)
-      .map((role) => {
-        const forRole = assignments.filter(
-          (assignment) => assignment.role === role,
-        );
-
-        return {
-          role,
-          // A lapsed invitation leaves the roster rather than holding a slot:
-          // nobody is on this role any more, so it should read as needing
-          // someone, and a dead row suppressed that. The name is deliberately
-          // not replaced with a marker here — the role's own warning glyph
-          // says something fell through, and a line per affected role would
-          // grow the card in proportion to how bad the problem is, which is
-          // the opposite of what a phone wants. Whoever lapsed is still
-          // reachable: they are selectable again in the invite dialog.
-          items: forRole.filter((assignment) => !isLapsed(assignment, now)),
-          expired: forRole.filter((assignment) => isLapsed(assignment, now)),
-        };
-      });
+      .map((role) => ({
+        role,
+        items: assignments.filter((assignment) => assignment.role === role),
+      }));
 
     const items = groups.flatMap((group) => group.items);
 
@@ -344,6 +328,8 @@ export function EventTeamCard({
                         currentUserId={viewer.userId}
                         onRemoveAssignment={onRemoveAssignment}
                         onRemoveRole={onRemoveRole}
+                        onResendInvite={onResendInvite}
+                        onDeleteExpired={onDeleteExpired}
                         now={now}
                       />
                     ))}
@@ -488,12 +474,16 @@ function RoleGroupBlock({
   currentUserId,
   onRemoveAssignment,
   onRemoveRole,
+  onResendInvite,
+  onDeleteExpired,
   now,
 }: {
   group: RoleGroup;
   currentUserId: string;
   onRemoveAssignment?: (assignment: EventDetailsAssignment) => void;
   onRemoveRole?: (role: VolunteerRole) => void;
+  onResendInvite?: (assignment: EventDetailsAssignment) => void;
+  onDeleteExpired?: (assignment: EventDetailsAssignment) => void;
   now: number;
 }) {
   const theme = useTheme();
@@ -541,18 +531,33 @@ function RoleGroupBlock({
         </Text>
       ) : (
         <VStack className="gap-1.5">
-          {group.items.map((assignment) => (
-            <AssignmentRow
-              key={assignment.id}
-              assignment={assignment}
-              isCurrentUser={assignment.userId === currentUserId}
-              onPress={
-                onRemoveAssignment && isLive(assignment, now)
-                  ? () => onRemoveAssignment(assignment)
-                  : undefined
-              }
-            />
-          ))}
+          {group.items.map((assignment) => {
+            const lapsed = isLapsed(assignment, now);
+
+            return (
+              <AssignmentRow
+                key={assignment.id}
+                assignment={assignment}
+                isCurrentUser={assignment.userId === currentUserId}
+                expired={lapsed}
+                onPress={
+                  onRemoveAssignment && isLive(assignment, now)
+                    ? () => onRemoveAssignment(assignment)
+                    : undefined
+                }
+                onResend={
+                  onResendInvite && lapsed
+                    ? () => onResendInvite(assignment)
+                    : undefined
+                }
+                onDelete={
+                  onDeleteExpired && lapsed
+                    ? () => onDeleteExpired(assignment)
+                    : undefined
+                }
+              />
+            );
+          })}
         </VStack>
       )}
     </VStack>
@@ -562,17 +567,27 @@ function RoleGroupBlock({
 function AssignmentRow({
   assignment,
   isCurrentUser,
+  expired,
   onPress,
+  onResend,
+  onDelete,
 }: {
   assignment: EventDetailsAssignment;
   isCurrentUser: boolean;
+  /** Reads the deadline as well as the status — see {@link isLapsed}. */
+  expired: boolean;
   /** Managers only: the row opens the remove-from-event confirmation. */
   onPress?: () => void;
+  onResend?: () => void;
+  onDelete?: () => void;
 }) {
   const theme = useTheme();
 
-  const status = getStatusConfig(assignment.status);
-  const inactive = isInactiveStatus(assignment.status);
+  // A lapsed invitation shows EXPIRED even while the sweep still has it PENDING.
+  const status = getStatusConfig(expired ? "EXPIRED" : assignment.status);
+  const inactive = expired || isInactiveStatus(assignment.status);
+
+  const menu = expired && onResend && onDelete;
 
   const fullName =
     `${assignment.user.firstName} ${assignment.user.lastName}`.trim();
@@ -625,7 +640,9 @@ function AssignmentRow({
         className={`flex-1 text-[14px] font-medium ${
           inactive ? "text-muted-foreground" : "text-foreground"
         }`}
-        style={inactive ? { textDecorationLine: "line-through" } : undefined}
+        style={
+          inactive && !expired ? { textDecorationLine: "line-through" } : undefined
+        }
         numberOfLines={1}
       >
         {isCurrentUser ? "You" : fullName}
@@ -634,6 +651,22 @@ function AssignmentRow({
       <Text className="text-[11.5px] font-semibold" style={{ color: status.color }}>
         {status.label}
       </Text>
+
+      {menu ? (
+        <ActionMenu
+          label={`Actions for ${fullName || "this invitation"}`}
+          heading="Action(s)"
+          items={[
+            { icon: RefreshCw, label: "Resend Invitation", onPress: onResend },
+            {
+              icon: Trash2,
+              label: "Delete Expired Invite",
+              onPress: onDelete,
+              destructive: true,
+            },
+          ]}
+        />
+      ) : null}
     </HStack>
   );
 

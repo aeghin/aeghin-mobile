@@ -4,7 +4,7 @@ import CircleSlash from "lucide-react-native/icons/circle-slash";
 import Pencil from "lucide-react-native/icons/pencil";
 import Trash2 from "lucide-react-native/icons/trash-2";
 import { useState } from "react";
-import { RefreshControl, ScrollView } from "react-native";
+import { Alert, RefreshControl, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Dialog } from "@/components/dialog";
@@ -29,8 +29,10 @@ import { brand } from "@/constants/branding";
 import {
   useCancelAssignment,
   useDeleteEvent,
+  useDeleteExpiredAssignment,
   useEventDetails,
   useRemoveEventRole,
+  useResendAssignment,
 } from "@/hooks/use-events";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useSongKeys } from "@/hooks/use-song-keys";
@@ -55,6 +57,7 @@ const TAB_BAR_CLEARANCE = 64;
 type Confirm =
   | { kind: "deleteEvent"; name: string }
   | { kind: "removeAssignment"; assignment: EventDetailsAssignment }
+  | { kind: "deleteExpired"; assignment: EventDetailsAssignment }
   | { kind: "removeRole"; role: VolunteerRole };
 
 /** What each one says. Every case is destructive and none of them is undoable. */
@@ -75,6 +78,17 @@ function describeConfirm(confirm: Confirm) {
         title: "Remove from event",
         description: `${name} will be taken off ${getVolunteerRoleConfig(role).label}.`,
         label: "Remove",
+      };
+    }
+
+    case "deleteExpired": {
+      const { user, role } = confirm.assignment;
+      const name = `${user.firstName} ${user.lastName}`.trim();
+
+      return {
+        title: "Delete expired invite",
+        description: `${name}'s expired ${getVolunteerRoleConfig(role).label} invitation comes off the roster, and the role reads as needing someone again.`,
+        label: "Delete",
       };
     }
 
@@ -117,6 +131,8 @@ export default function EventDetailScreen() {
   const event = details.data;
 
   const cancelAssignment = useCancelAssignment(organizationId, eventId ?? "");
+  const resendInvite = useResendAssignment(organizationId, eventId ?? "");
+  const deleteExpired = useDeleteExpiredAssignment(organizationId, eventId ?? "");
   const removeRole = useRemoveEventRole(organizationId, eventId ?? "");
   const removeEvent = useDeleteEvent(organizationId, eventId ?? "");
 
@@ -182,6 +198,13 @@ export default function EventDetailScreen() {
         });
         return;
 
+      case "deleteExpired":
+        deleteExpired.mutate(confirm.assignment.userId, {
+          onSuccess: () => setConfirmOpen(false),
+          onError: failed,
+        });
+        return;
+
       case "removeRole":
         removeRole.mutate(confirm.role, {
           onSuccess: () => setConfirmOpen(false),
@@ -195,7 +218,9 @@ export default function EventDetailScreen() {
       ? removeEvent.isPending
       : confirm?.kind === "removeRole"
         ? removeRole.isPending
-        : cancelAssignment.isPending;
+        : confirm?.kind === "deleteExpired"
+          ? deleteExpired.isPending
+          : cancelAssignment.isPending;
 
   const confirmWords = confirm ? describeConfirm(confirm) : null;
 
@@ -292,6 +317,20 @@ export default function EventDetailScreen() {
               onRemoveRole={
                 event.viewer.canManage
                   ? (role) => ask({ kind: "removeRole", role })
+                  : undefined
+              }
+              onResendInvite={
+                event.viewer.canManage
+                  ? (assignment) =>
+                      resendInvite.mutate(assignment.userId, {
+                        onError: (error) =>
+                          Alert.alert("Couldn't resend", failureMessage(error)),
+                      })
+                  : undefined
+              }
+              onDeleteExpired={
+                event.viewer.canManage
+                  ? (assignment) => ask({ kind: "deleteExpired", assignment })
                   : undefined
               }
             />

@@ -56,6 +56,8 @@ export type UseEventChatReturn = {
   status: ConnectionStatus;
   isPending: boolean;
   isError: boolean;
+  /** Errored with nothing to show. A failed refetch keeps its messages. */
+  isLoadingError: boolean;
   refetch: () => void;
   send: (body: string) => Promise<void>;
   loadOlder: () => Promise<void>;
@@ -224,6 +226,11 @@ export function useEventChat(orgId: string, eventId: string): UseEventChatReturn
       );
       setOlder((current) => mergeById([...page.messages].reverse(), current));
       setCursor(page.nextCursor);
+    } catch {
+      // Swallowed on purpose. The caller is an `onEndReached`, which has
+      // nowhere to report to, and without this the rejection was unhandled.
+      // The cursor is left where it was, so scrolling to the end again asks
+      // for the same page rather than skipping it.
     } finally {
       setLoadingOlder(false);
     }
@@ -236,6 +243,7 @@ export function useEventChat(orgId: string, eventId: string): UseEventChatReturn
     status,
     isPending: history.isPending,
     isError: history.isError,
+    isLoadingError: history.isLoadingError,
     refetch: history.refetch,
     send,
     loadOlder,

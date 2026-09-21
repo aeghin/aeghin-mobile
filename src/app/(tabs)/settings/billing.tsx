@@ -87,14 +87,14 @@ export default function BillingScreen() {
           />
         }
       >
-        {billing.isError ? (
+        {billing.isLoadingError ? (
           <EventsEmptyState
             icon={CircleAlert}
             title="Couldn't load billing"
             body="Pull down to try again."
             tone="error"
           />
-        ) : billing.isPending || !status ? (
+        ) : !status ? (
           <VStack className="items-center py-10">
             <Spinner color={theme.textMuted} />
           </VStack>

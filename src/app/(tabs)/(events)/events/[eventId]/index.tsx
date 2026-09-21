@@ -130,6 +130,12 @@ export default function EventDetailScreen() {
   const pullToRefresh = usePullToRefresh(details.refetch);
   const event = details.data;
 
+  // A 404 is authoritative: the event is gone, so a cached copy must stop
+  // being shown. Every other failure leaves the cache alone — `isError` goes
+  // true on a failed *refetch* too, and dropping a rendered event because a
+  // pull-to-refresh timed out loses something the phone still has.
+  const eventGone = details.error instanceof ApiError && details.error.status === 404;
+
   const cancelAssignment = useCancelAssignment(organizationId, eventId ?? "");
   const resendInvite = useResendAssignment(organizationId, eventId ?? "");
   const deleteExpired = useDeleteExpiredAssignment(organizationId, eventId ?? "");
@@ -249,9 +255,9 @@ export default function EventDetailScreen() {
           />
         }
       >
-        {details.isError ? (
+        {details.isLoadingError || eventGone ? (
           <Unavailable error={details.error} />
-        ) : details.isPending || !event ? (
+        ) : !event ? (
           <DetailLoading />
         ) : (
           <VStack className="gap-4">

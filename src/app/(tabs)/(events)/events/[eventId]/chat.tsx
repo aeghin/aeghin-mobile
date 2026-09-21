@@ -127,7 +127,7 @@ export default function EventChatScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        {chat.isError ? (
+        {chat.isLoadingError ? (
           <Box className="flex-1 justify-center">
             <EventsEmptyState
               icon={CircleAlert}
@@ -137,7 +137,7 @@ export default function EventChatScreen() {
               action={{ label: "Try again", onPress: () => chat.refetch() }}
             />
           </Box>
-        ) : chat.isPending || !chat.messages ? (
+        ) : !chat.messages ? (
           <Box className="flex-1 items-center justify-center">
             <Spinner color={theme.textMuted} />
           </Box>

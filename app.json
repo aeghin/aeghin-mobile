@@ -70,6 +70,12 @@
         "projectId": "9f21aa97-004f-46e1-a69e-b9b7e5026b04"
       }
     },
-    "owner": "aeghins-team"
+    "owner": "aeghins-team",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/9f21aa97-004f-46e1-a69e-b9b7e5026b04"
+    }
   }
 }

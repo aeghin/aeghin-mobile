@@ -2,6 +2,7 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import Calendar from "lucide-react-native/icons/calendar";
 import CalendarClock from "lucide-react-native/icons/calendar-clock";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
+import CircleSlash from "lucide-react-native/icons/circle-slash";
 import Clock from "lucide-react-native/icons/clock";
 import Info from "lucide-react-native/icons/info";
 import MapPin from "lucide-react-native/icons/map-pin";
@@ -33,6 +34,7 @@ import { VStack } from "@/components/ui/vstack";
 import { brand, withAlpha } from "@/constants/branding";
 import { useCheckAvailability, useEditEvent, useEventDetails } from "@/hooks/use-events";
 import { useTheme } from "@/hooks/use-theme";
+import { ApiError } from "@/lib/api";
 import {
   addDays,
   dayKey,
@@ -118,12 +120,37 @@ export default function EditEventScreen() {
 
   const details = useEventDetails(organizationId, eventId ?? "");
 
-  if (details.isPending || !details.data) {
+  // Gated on the data, not on `isPending`. A cold failure is neither pending
+  // nor holding anything, and a 4xx is never retried, so testing `isPending`
+  // alone left a spinner that could not end. Data outlives a failed *refetch*
+  // — see `isRefetchError` — and this deliberately lets that through: a
+  // refresh dropping while the form is open keeps the form.
+  if (!details.data) {
+    const gone = details.error instanceof ApiError && details.error.status === 404;
+
     return (
-      <Box className="flex-1 items-center justify-center bg-grouped">
+      <VStack className="flex-1 items-center justify-center gap-2 bg-grouped px-8">
         <Stack.Screen options={{ title: "Edit event", headerBackTitle: "Event" }} />
-        <Spinner color={theme.textMuted} />
-      </Box>
+        {details.isError ? (
+          <>
+            <AppIcon
+              icon={gone ? CircleSlash : CircleAlert}
+              size={30}
+              color={theme.textMuted}
+            />
+            <Text className="text-[15px] font-semibold text-foreground">
+              {gone ? "Event unavailable" : "Couldn't load the event"}
+            </Text>
+            <Text className="text-center text-[13px] text-muted-foreground">
+              {gone
+                ? "It may have been deleted, or you're no longer on it."
+                : "Check your connection and try again."}
+            </Text>
+          </>
+        ) : (
+          <Spinner color={theme.textMuted} />
+        )}
+      </VStack>
     );
   }
 

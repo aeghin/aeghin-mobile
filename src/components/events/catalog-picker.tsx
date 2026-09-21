@@ -119,7 +119,11 @@ export function CatalogPicker({ organizationId, draftSongIds, colors, onAdd }: C
         </HStack>
       ) : visible.length === 0 ? (
         <Text className="py-8 text-center text-[13px] text-muted-foreground">
-          {catalog.length === 0 ? "No songs in the library yet." : "No songs match."}
+          {catalog.length > 0
+            ? "No songs match."
+            : songs.isError
+              ? "Couldn't load the song library."
+              : "No songs in the library yet."}
         </Text>
       ) : (
         <VStack className="overflow-hidden rounded-2xl border border-border bg-card">

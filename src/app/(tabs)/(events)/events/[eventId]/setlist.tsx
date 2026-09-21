@@ -1,10 +1,13 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import CircleAlert from "lucide-react-native/icons/circle-alert";
+import CircleSlash from "lucide-react-native/icons/circle-slash";
 import Lock from "lucide-react-native/icons/lock";
 import Sparkles from "lucide-react-native/icons/sparkles";
 import { useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AppIcon } from "@/components/app-icon";
 import { AiProUpsell, AiUpgradeCard } from "@/components/events/ai-plan-cards";
 import { AiSetlistPanel } from "@/components/events/ai-setlist-panel";
 import { CatalogPicker } from "@/components/events/catalog-picker";
@@ -21,6 +24,7 @@ import { useBillingStatus } from "@/hooks/use-billing";
 import { useEventDetails } from "@/hooks/use-events";
 import { useSaveSetlist } from "@/hooks/use-setlist";
 import { useTheme } from "@/hooks/use-theme";
+import { ApiError } from "@/lib/api";
 import { getServiceColors } from "@/lib/config/service-types";
 import { failureMessage } from "@/lib/failure";
 import type { EventSetlistSong } from "@/types/event";
@@ -56,12 +60,36 @@ export default function SetlistEditorScreen() {
   const details = useEventDetails(organizationId, eventId ?? "");
   const theme = useTheme();
 
-  if (details.isPending || !details.data) {
+  // Gated on the data rather than on `isPending`, for the reason spelled out
+  // in `edit.tsx`: a cold failure is neither pending nor holding anything, and
+  // a 4xx never retries, so the spinner had no way to end. A failed refetch
+  // keeps its data and falls straight through to the editor.
+  if (!details.data) {
+    const gone = details.error instanceof ApiError && details.error.status === 404;
+
     return (
-      <Box className="flex-1 items-center justify-center bg-grouped">
+      <VStack className="flex-1 items-center justify-center gap-2 bg-grouped px-8">
         <Stack.Screen options={{ title: "Setlist" }} />
-        <Spinner color={theme.textMuted} />
-      </Box>
+        {details.isError ? (
+          <>
+            <AppIcon
+              icon={gone ? CircleSlash : CircleAlert}
+              size={30}
+              color={theme.textMuted}
+            />
+            <Text className="text-[15px] font-semibold text-foreground">
+              {gone ? "Event unavailable" : "Couldn't load the setlist"}
+            </Text>
+            <Text className="text-center text-[13px] text-muted-foreground">
+              {gone
+                ? "It may have been deleted, or you're no longer on it."
+                : "Check your connection and try again."}
+            </Text>
+          </>
+        ) : (
+          <Spinner color={theme.textMuted} />
+        )}
+      </VStack>
     );
   }
 

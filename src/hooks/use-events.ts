@@ -2,6 +2,7 @@ import { useAuth } from "@clerk/expo";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
+import { notificationsKey } from "@/hooks/use-notifications";
 import { apiDelete, apiDeleteWithBody, apiGet, apiPatch, apiPost } from "@/lib/api";
 import type {
   EventDetails,
@@ -201,6 +202,8 @@ export function useRespondToInvitation(orgId: string) {
       queryClient.invalidateQueries({
         queryKey: eventDetailsKey(userId, orgId, eventId),
       });
+      // Answering clears the caller's own "waiting on your answer" row.
+      queryClient.invalidateQueries({ queryKey: notificationsKey(userId) });
     },
   });
 }
@@ -250,6 +253,8 @@ function useEventWrite<TVariables, TData = { success: true }>(
       queryClient.invalidateQueries({ queryKey: eventDetailsKey(userId, orgId, eventId) });
       queryClient.invalidateQueries({ queryKey: ["organizations", userId, "user-events", orgId] });
       queryClient.invalidateQueries({ queryKey: ["organizations", userId, "org-events", orgId] });
+      // Every one of these can open or close a role, which is what the bell counts.
+      queryClient.invalidateQueries({ queryKey: notificationsKey(userId) });
     },
   });
 }
@@ -362,6 +367,7 @@ export function useCreateEvent(orgId: string) {
       queryClient.invalidateQueries({ queryKey: ["organizations", userId, "user-events", orgId] });
       // `upcomingEventCount` lives on the organization detail.
       queryClient.invalidateQueries({ queryKey: ["organizations", userId, "detail", orgId] });
+      queryClient.invalidateQueries({ queryKey: notificationsKey(userId) });
     },
   });
 }

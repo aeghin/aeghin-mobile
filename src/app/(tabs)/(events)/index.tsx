@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import Calendar from "lucide-react-native/icons/calendar";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
 import CircleCheckBig from "lucide-react-native/icons/circle-check-big";
@@ -106,6 +106,9 @@ export default function EventsScreen() {
   // not flip between renders, and Date.now() during render is impure.
   const [now] = useState(() => Date.now());
   const [tab, setTab] = useState<EventsTab | null>(null);
+  // A "waiting on your answer" notification lands here asking for Pending. The
+  // ask stands until the viewer picks a tab, which clears it.
+  const { tab: requestedTab } = useLocalSearchParams<{ tab?: string }>();
   const [scope, setScope] = useState<TimeScope>("upcoming");
   const [month, setMonth] = useState(currentMonthKey);
   const [serviceId, setServiceId] = useState<string | null>(null);
@@ -132,6 +135,14 @@ export default function EventsScreen() {
       );
     },
     [respondMutate],
+  );
+
+  const chooseTab = useCallback(
+    (next: EventsTab) => {
+      setTab(next);
+      if (requestedTab) router.setParams({ tab: undefined });
+    },
+    [requestedTab, router],
   );
 
   const openEvent = useCallback(
@@ -217,7 +228,9 @@ export default function EventsScreen() {
   // the data arrives on is already right instead of correcting itself a render
   // later. Answering pins the tab, so this can read the live list without
   // moving anyone off the invitation they just answered.
-  const chosenTab = tab ?? (invitations.length > 0 ? "pending" : "schedule");
+  const chosenTab =
+    (requestedTab === "pending" ? "pending" : tab) ??
+    (invitations.length > 0 ? "pending" : "schedule");
 
   // A tab can vanish under you when the role changes; derive rather than
   // correct after the fact, so there is never a frame pointing at nothing.
@@ -443,7 +456,7 @@ export default function EventsScreen() {
             <SegmentedControl
               segments={segments}
               value={activeTab}
-              onChange={setTab}
+              onChange={chooseTab}
             />
           </Box>
 

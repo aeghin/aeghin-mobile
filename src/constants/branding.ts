@@ -23,6 +23,8 @@ export type Palette = {
   destructive: string;
   /** Minor keys in the song library. The web's violet-700/400. */
   violet: string;
+  /** "Waiting on your answer" in the bell. The web's sky-600/400. */
+  sky: string;
   /** iOS systemGroupedBackground: the page *behind* inset cards. */
   groupedBackground: string;
   /** A card sitting on `groupedBackground`. Deliberately lighter than `surface`. */
@@ -43,6 +45,7 @@ export const palette: Record<"light" | "dark", Palette> = {
     warning: "#D97706",
     destructive: "#FF3B30",
     violet: "#6D28D9",
+    sky: "#0284C7",
     groupedBackground: "#F2F2F7",
     card: "#FFFFFF",
   },
@@ -59,6 +62,7 @@ export const palette: Record<"light" | "dark", Palette> = {
     warning: "#FBBF24",
     destructive: "#FF453A",
     violet: "#A78BFA",
+    sky: "#38BDF8",
     groupedBackground: "#0E0E10",
     card: "#1C1C1E",
   },

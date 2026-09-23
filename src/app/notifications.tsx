@@ -15,6 +15,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
+import { useExpireUserEvents } from "@/hooks/use-events";
 import {
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
@@ -37,6 +38,7 @@ export default function NotificationsScreen() {
   const router = useRouter();
   const { organizations, select } = useCurrentOrganization();
   const refetchOrganizations = useOrganizations().refetch;
+  const expireUserEvents = useExpireUserEvents();
 
   const feed = useNotifications();
   const markRead = useMarkNotificationRead();
@@ -66,6 +68,9 @@ export default function NotificationsScreen() {
     if (item.unread) markRead.mutate(item.id);
 
     select(item.organizationId);
+
+    // Nothing refetches the list on resume, so it can predate this row.
+    if (item.category === "AWAITING_RESPONSE") expireUserEvents(item.organizationId);
 
     // A pending invitee can't open the event page yet, so they answer from the
     // events list — the same split the dashboard's links make.

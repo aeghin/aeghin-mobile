@@ -65,6 +65,20 @@ export function useUserEvents(orgId: string) {
 }
 
 /**
+ * Marks the caller's list for one organization stale, refetching it if the
+ * Events screen is showing it. For the bell, whose rows can be newer.
+ */
+export function useExpireUserEvents() {
+  const { userId } = useAuth();
+  const queryClient = useQueryClient();
+
+  return (orgId: string) =>
+    queryClient.invalidateQueries({
+      queryKey: ["organizations", userId, "user-events", orgId],
+    });
+}
+
+/**
  * Every event in one organization, whoever it belongs to — the All tab.
  *
  * Owners and admins only. The route answers 403 to a plain member, so

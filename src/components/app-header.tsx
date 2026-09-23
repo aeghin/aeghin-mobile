@@ -1,7 +1,6 @@
 import { Stack, useRouter } from "expo-router";
-import ChevronDown from "lucide-react-native/icons/chevron-down";
 
-import { AppIcon } from "@/components/app-icon";
+import { HeaderCapsule } from "@/components/header-capsule";
 import { Logo } from "@/components/logo";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { OrgAvatar } from "@/components/org-avatar";
@@ -9,11 +8,9 @@ import { useCurrentOrganization } from "@/components/organization-provider";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import { useTheme } from "@/hooks/use-theme";
 
 export function AppHeader() {
   const router = useRouter();
-  const theme = useTheme();
   const { organization } = useCurrentOrganization();
 
   return (
@@ -31,9 +28,9 @@ export function AppHeader() {
 
       {organization ? (
         <Stack.Toolbar placement="right">
-          {/* One view, so the bell and switcher space the same on both platforms. */}
-          <Stack.Toolbar.View>
-            <HStack className="items-center gap-3">
+          {/* One item drawing two capsules: as separate items UIKit set them 16pt apart. */}
+          <Stack.Toolbar.View hidesSharedBackground>
+            <HStack className="items-center gap-2">
               <NotificationsBell />
 
               <Pressable
@@ -42,20 +39,14 @@ export function AppHeader() {
                 accessibilityLabel={`${organization.name}. Switch organization.`}
                 className="data-[active=true]:opacity-60"
               >
-                <HStack className="items-center gap-1.5">
+                <HeaderCapsule>
                   <OrgAvatar
                     name={organization.name}
                     logoUrl={organization.logoUrl}
-                    size={26}
+                    size={32}
+                    shape="circle"
                   />
-                  <Text
-                    className="max-w-[120px] text-[15px] font-semibold text-foreground"
-                    numberOfLines={1}
-                  >
-                    {organization.name}
-                  </Text>
-                  <AppIcon icon={ChevronDown} size={11} color={theme.textMuted} />
-                </HStack>
+                </HeaderCapsule>
               </Pressable>
             </HStack>
           </Stack.Toolbar.View>

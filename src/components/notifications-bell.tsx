@@ -2,7 +2,7 @@ import { useRouter } from "expo-router";
 import Bell from "lucide-react-native/icons/bell";
 
 import { AppIcon } from "@/components/app-icon";
-import { Box } from "@/components/ui/box";
+import { HeaderCapsule } from "@/components/header-capsule";
 import { Center } from "@/components/ui/center";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
@@ -28,10 +28,9 @@ export function NotificationsBell() {
       accessibilityLabel={
         unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"
       }
-      hitSlop={6}
       className="data-[active=true]:opacity-60"
     >
-      <Box className="h-8 w-8 items-center justify-center">
+      <HeaderCapsule>
         <AppIcon icon={Bell} size={20} color={theme.text} />
 
         {unreadCount > 0 ? (
@@ -41,7 +40,7 @@ export function NotificationsBell() {
             </Text>
           </Center>
         ) : null}
-      </Box>
+      </HeaderCapsule>
     </Pressable>
   );
 }

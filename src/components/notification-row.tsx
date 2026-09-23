@@ -29,7 +29,7 @@ const ROW_STYLES: Record<NotificationCategory, RowStyle> = {
 };
 
 // The contract is additive, so a newer server can send a category this build
-// predates. Without this its row would crash the whole sheet.
+// predates. Without this its row would crash the whole menu.
 const FALLBACK_STYLE: RowStyle = { icon: Bell, color: (t) => t.textMuted, tint: 0.12 };
 
 /** The dashboard's `describe`, plus a line for a category this build predates. */

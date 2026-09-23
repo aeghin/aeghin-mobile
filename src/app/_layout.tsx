@@ -130,8 +130,6 @@ function RootNavigator() {
           {/* Its own header too: an invitation link can land here before the
               person belongs to any organization, so there are no tabs behind it. */}
           <Stack.Screen name="invite/[token]" />
-          {/* Above the tabs: the bell is in every tab, and a row can land in any organization. */}
-          <Stack.Screen name="notifications" options={{ presentation: "modal" }} />
         </Stack.Protected>
 
         <Stack.Protected guard={!isAuthFlowComplete}>

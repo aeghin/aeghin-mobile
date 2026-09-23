@@ -1,3 +1,4 @@
+import Bell from "lucide-react-native/icons/bell";
 import CircleCheck from "lucide-react-native/icons/circle-check";
 import Inbox from "lucide-react-native/icons/inbox";
 import TriangleAlert from "lucide-react-native/icons/triangle-alert";
@@ -27,12 +28,20 @@ const ROW_STYLES: Record<NotificationCategory, RowStyle> = {
   FULLY_STAFFED: { icon: CircleCheck, color: (t) => t.success, tint: 0.1 },
 };
 
-/** The dashboard's `describe`, word for word. */
+// The contract is additive, so a newer server can send a category this build
+// predates. Without this its row would crash the whole sheet.
+const FALLBACK_STYLE: RowStyle = { icon: Bell, color: (t) => t.textMuted, tint: 0.12 };
+
+/** The dashboard's `describe`, plus a line for a category this build predates. */
 function describe(item: NotificationItem): string {
   if (item.category === "AWAITING_RESPONSE") return "Waiting on your answer";
   if (item.category === "FULLY_STAFFED") return "Fully staffed";
 
-  return item.count === 1 ? "1 role still open" : `${item.count} roles still open`;
+  if (item.category === "ROSTER_ATTENTION") {
+    return item.count === 1 ? "1 role still open" : `${item.count} roles still open`;
+  }
+
+  return "Tap for details";
 }
 
 export function NotificationRow({
@@ -43,7 +52,7 @@ export function NotificationRow({
   onPress: () => void;
 }) {
   const theme = useTheme();
-  const style = ROW_STYLES[item.category];
+  const style = ROW_STYLES[item.category] ?? FALLBACK_STYLE;
   const color = style.color(theme);
   const when = formatActivityTime(item.updatedAt);
 

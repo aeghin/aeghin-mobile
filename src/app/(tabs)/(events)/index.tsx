@@ -112,6 +112,13 @@ export default function EventsScreen() {
   const [scope, setScope] = useState<TimeScope>("upcoming");
   const [month, setMonth] = useState(currentMonthKey);
   const [serviceId, setServiceId] = useState<string | null>(null);
+  // An ask for Pending clears the filter too: the invitation it names can be
+  // for any service. Adjusted during render so the first frame is unfiltered.
+  const [prevAsk, setPrevAsk] = useState(requestedTab);
+  if (prevAsk !== requestedTab) {
+    setPrevAsk(requestedTab);
+    if (requestedTab === "pending") setServiceId(null);
+  }
 
   // ── Answering an invitation ───────────────────────────────────────────
   const respond = useRespondToInvitation(organizationId);

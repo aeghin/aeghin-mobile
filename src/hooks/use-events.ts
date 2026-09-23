@@ -65,6 +65,20 @@ export function useUserEvents(orgId: string) {
 }
 
 /**
+ * Marks the caller's list for one organization stale, refetching it if the
+ * Events screen is showing it. For the bell, whose rows can be newer.
+ */
+export function useExpireUserEvents() {
+  const { userId } = useAuth();
+  const queryClient = useQueryClient();
+
+  return (orgId: string) =>
+    queryClient.invalidateQueries({
+      queryKey: ["organizations", userId, "user-events", orgId],
+    });
+}
+
+/**
  * Every event in one organization, whoever it belongs to — the All tab.
  *
  * Owners and admins only. The route answers 403 to a plain member, so
@@ -201,6 +215,8 @@ export function useRespondToInvitation(orgId: string) {
       queryClient.invalidateQueries({
         queryKey: eventDetailsKey(userId, orgId, eventId),
       });
+      // Answering clears the caller's own "waiting on your answer" row.
+      queryClient.invalidateQueries({ queryKey: ["organizations", userId, "notifications"] });
     },
   });
 }
@@ -250,6 +266,8 @@ function useEventWrite<TVariables, TData = { success: true }>(
       queryClient.invalidateQueries({ queryKey: eventDetailsKey(userId, orgId, eventId) });
       queryClient.invalidateQueries({ queryKey: ["organizations", userId, "user-events", orgId] });
       queryClient.invalidateQueries({ queryKey: ["organizations", userId, "org-events", orgId] });
+      // Every one of these can open or close a role, which is what the bell counts.
+      queryClient.invalidateQueries({ queryKey: ["organizations", userId, "notifications"] });
     },
   });
 }
@@ -362,6 +380,7 @@ export function useCreateEvent(orgId: string) {
       queryClient.invalidateQueries({ queryKey: ["organizations", userId, "user-events", orgId] });
       // `upcomingEventCount` lives on the organization detail.
       queryClient.invalidateQueries({ queryKey: ["organizations", userId, "detail", orgId] });
+      queryClient.invalidateQueries({ queryKey: ["organizations", userId, "notifications"] });
     },
   });
 }

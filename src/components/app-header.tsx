@@ -3,6 +3,7 @@ import ChevronDown from "lucide-react-native/icons/chevron-down";
 
 import { AppIcon } from "@/components/app-icon";
 import { Logo } from "@/components/logo";
+import { NotificationsBell } from "@/components/notifications-bell";
 import { OrgAvatar } from "@/components/org-avatar";
 import { useCurrentOrganization } from "@/components/organization-provider";
 import { HStack } from "@/components/ui/hstack";
@@ -30,28 +31,33 @@ export function AppHeader() {
 
       {organization ? (
         <Stack.Toolbar placement="right">
+          {/* One view, so the bell and switcher space the same on both platforms. */}
           <Stack.Toolbar.View>
-            <Pressable
-              onPress={() => router.push("/organizations")}
-              accessibilityRole="button"
-              accessibilityLabel={`${organization.name}. Switch organization.`}
-              className="data-[active=true]:opacity-60"
-            >
-              <HStack className="items-center gap-1.5">
-                <OrgAvatar
-                  name={organization.name}
-                  logoUrl={organization.logoUrl}
-                  size={26}
-                />
-                <Text
-                  className="max-w-[150px] text-[15px] font-semibold text-foreground"
-                  numberOfLines={1}
-                >
-                  {organization.name}
-                </Text>
-                <AppIcon icon={ChevronDown} size={11} color={theme.textMuted} />
-              </HStack>
-            </Pressable>
+            <HStack className="items-center gap-3">
+              <NotificationsBell />
+
+              <Pressable
+                onPress={() => router.push("/organizations")}
+                accessibilityRole="button"
+                accessibilityLabel={`${organization.name}. Switch organization.`}
+                className="data-[active=true]:opacity-60"
+              >
+                <HStack className="items-center gap-1.5">
+                  <OrgAvatar
+                    name={organization.name}
+                    logoUrl={organization.logoUrl}
+                    size={26}
+                  />
+                  <Text
+                    className="max-w-[120px] text-[15px] font-semibold text-foreground"
+                    numberOfLines={1}
+                  >
+                    {organization.name}
+                  </Text>
+                  <AppIcon icon={ChevronDown} size={11} color={theme.textMuted} />
+                </HStack>
+              </Pressable>
+            </HStack>
           </Stack.Toolbar.View>
         </Stack.Toolbar>
       ) : null}

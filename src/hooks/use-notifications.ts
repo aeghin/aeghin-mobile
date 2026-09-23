@@ -8,7 +8,7 @@ import type { NotificationFeed, NotificationItem } from "@/types/notification";
  * Under `["organizations", userId]`, so membership writes already expire it.
  * Event writes expire it by name.
  */
-export const notificationsKey = (userId: string | null | undefined) => [
+const notificationsKey = (userId: string | null | undefined) => [
   "organizations",
   userId,
   "notifications",

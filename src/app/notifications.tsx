@@ -134,14 +134,14 @@ export default function NotificationsScreen() {
           </Box>
         )}
         ListEmptyComponent={
-          feed.isError ? (
+          feed.isLoadingError ? (
             <EventsEmptyState
               icon={CircleAlert}
               title="Couldn't load notifications"
               body="Pull down to try again."
               tone="error"
             />
-          ) : feed.isPending ? (
+          ) : !feed.data ? (
             <Box className="flex-1 items-center justify-center">
               <Spinner color={theme.textMuted} />
             </Box>

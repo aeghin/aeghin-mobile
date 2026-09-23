@@ -48,6 +48,7 @@ import {
 } from "@/lib/config/volunteer-roles";
 import { failureMessage } from "@/lib/failure";
 import { tintedGlow, tintedTopWash } from "@/lib/gradients";
+import { personName } from "@/lib/names";
 import type {
   EventDetails,
   EventDetailsAssignment,
@@ -589,8 +590,7 @@ function AssignmentRow({
 
   const menu = expired && onResend && onDelete;
 
-  const fullName =
-    `${assignment.user.firstName} ${assignment.user.lastName}`.trim();
+  const fullName = personName(assignment.user);
 
   const row = (
     <HStack

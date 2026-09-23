@@ -8,6 +8,7 @@ import { HStack } from "@/components/ui/hstack";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { useTheme } from "@/hooks/use-theme";
+import { personName } from "@/lib/names";
 
 /**
  * The shell every section of the event screen sits in.
@@ -114,7 +115,7 @@ export function AvatarStack({
   const shown = people.slice(0, max);
   const extra = people.length - shown.length;
   const names = people
-    .map((person) => `${person.firstName} ${person.lastName}`.trim())
+    .map(personName)
     .join(", ");
 
   return (
@@ -130,7 +131,7 @@ export function AvatarStack({
           }}
         >
           <OrgAvatar
-            name={`${person.firstName} ${person.lastName}`.trim()}
+            name={personName(person)}
             logoUrl={person.userImageUrl}
             size={size}
             shape="circle"

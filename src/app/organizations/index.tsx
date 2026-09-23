@@ -29,6 +29,7 @@ import { useOrganizations } from "@/hooks/use-organizations";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useTheme } from "@/hooks/use-theme";
 import { failureMessage } from "@/lib/failure";
+import { capitalizeName } from "@/lib/names";
 
 /**
  * Choosing which organization the tabs read from.
@@ -117,7 +118,7 @@ export default function OrganizationsScreen() {
 
         <VStack className="flex-1">
           <Text className="text-[17px] font-semibold text-foreground">
-            {user?.firstName ? `Hi, ${user.firstName}` : "Welcome"}
+            {user?.firstName ? `Hi, ${capitalizeName(user.firstName)}` : "Welcome"}
           </Text>
           <Text
             className="mt-px text-[13px] text-muted-foreground"

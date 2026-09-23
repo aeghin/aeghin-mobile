@@ -21,6 +21,7 @@ import { VStack } from "@/components/ui/vstack";
 import { withAlpha, type Palette } from "@/constants/branding";
 import { useTheme } from "@/hooks/use-theme";
 import { formatActivityTime } from "@/lib/events/format";
+import { capitalizeName } from "@/lib/names";
 import type { ActivityItem, ActivityType } from "@/types/activity";
 
 type RowStyle = { icon: AppIconName; color: (theme: Palette) => string };
@@ -49,6 +50,7 @@ type Part = { text: string; bold?: boolean };
 
 const name = (text: string | null): Part => ({ text: text ?? "Someone", bold: true });
 const plain = (text: string): Part => ({ text });
+const person = (text: string | null): Part => name(text && capitalizeName(text));
 const onEvent = (eventName: string | null): Part[] =>
   eventName ? [plain(" on "), name(eventName)] : [];
 
@@ -56,45 +58,45 @@ const onEvent = (eventName: string | null): Part[] =>
 function describe(item: ActivityItem): Part[] {
   switch (item.type) {
     case "EVENT_CREATED":
-      return [name(item.actorName), plain(" created the event "), name(item.eventName ?? item.targetName)];
+      return [person(item.actorName), plain(" created the event "), name(item.eventName ?? item.targetName)];
     case "EVENT_DELETED":
-      return [name(item.actorName), plain(" deleted the event "), name(item.targetName)];
+      return [person(item.actorName), plain(" deleted the event "), name(item.targetName)];
     case "INVITE_SENT":
       return item.eventName
-        ? [name(item.actorName), plain(" sent invites for "), name(item.eventName)]
-        : [name(item.actorName), plain(" invited "), name(item.targetName), plain(" to the organization")];
+        ? [person(item.actorName), plain(" sent invites for "), name(item.eventName)]
+        : [person(item.actorName), plain(" invited "), name(item.targetName), plain(" to the organization")];
     case "INVITE_ACCEPTED":
       return item.eventName
-        ? [name(item.actorName), plain(" accepted "), name(item.targetName), ...onEvent(item.eventName)]
-        : [name(item.actorName), plain(" accepted their invitation and joined")];
+        ? [person(item.actorName), plain(" accepted "), name(item.targetName), ...onEvent(item.eventName)]
+        : [person(item.actorName), plain(" accepted their invitation and joined")];
     case "INVITE_DECLINED":
-      return [name(item.actorName), plain(" declined their invitation")];
+      return [person(item.actorName), plain(" declined their invitation")];
     case "INVITE_CANCELED":
-      return [name(item.actorName), plain(" canceled the invitation to "), name(item.targetName)];
+      return [person(item.actorName), plain(" canceled the invitation to "), name(item.targetName)];
     case "AUTO_INVITE_SENT":
       return item.actorName
-        ? [plain("Smart Scheduling invited "), name(item.targetName), plain(" after "), name(item.actorName), plain(" declined"), ...onEvent(item.eventName)]
-        : [plain("Smart Scheduling auto-invited "), name(item.targetName)];
+        ? [plain("Smart Scheduling invited "), person(item.targetName), plain(" after "), person(item.actorName), plain(" declined"), ...onEvent(item.eventName)]
+        : [plain("Smart Scheduling auto-invited "), person(item.targetName)];
     case "SMART_FILL_SKIPPED":
-      return [name(item.actorName), plain(" declined "), name(item.targetName), ...onEvent(item.eventName), plain(" — auto-fill is off, so the slot is still open")];
+      return [person(item.actorName), plain(" declined "), name(item.targetName), ...onEvent(item.eventName), plain(" — auto-fill is off, so the slot is still open")];
     case "SMART_FILL_NO_CANDIDATES":
       return [plain("Smart Scheduling couldn't fill "), name(item.targetName), ...onEvent(item.eventName), plain(" — nobody in this organization has that role")];
     case "SMART_FILL_ALL_UNAVAILABLE":
       return [plain("Smart Scheduling couldn't fill "), name(item.targetName), ...onEvent(item.eventName), plain(" — everyone qualified is unavailable")];
     case "SMART_FILL_FAILED":
-      return [plain("Smart Scheduling hit an error filling "), name(item.targetName), ...onEvent(item.eventName), plain(" after "), name(item.actorName), plain(" declined")];
+      return [plain("Smart Scheduling hit an error filling "), name(item.targetName), ...onEvent(item.eventName), plain(" after "), person(item.actorName), plain(" declined")];
     case "SMART_SCHEDULING_ENABLED":
-      return [name(item.actorName), plain(" turned auto-fill on"), ...onEvent(item.eventName)];
+      return [person(item.actorName), plain(" turned auto-fill on"), ...onEvent(item.eventName)];
     case "SMART_SCHEDULING_DISABLED":
-      return [name(item.actorName), plain(" turned auto-fill off"), ...onEvent(item.eventName)];
+      return [person(item.actorName), plain(" turned auto-fill off"), ...onEvent(item.eventName)];
     case "ROLE_CHANGED":
       return item.actorName
-        ? [name(item.actorName), plain(" changed "), name(item.targetName), plain("'s role to "), name(item.detail)]
-        : [name(item.targetName), plain(" was automatically promoted to "), name(item.detail)];
+        ? [person(item.actorName), plain(" changed "), person(item.targetName), plain("'s role to "), name(item.detail)]
+        : [person(item.targetName), plain(" was automatically promoted to "), name(item.detail)];
     case "MEMBER_REMOVED":
-      return [name(item.actorName), plain(" removed "), name(item.targetName), plain(" from the organization")];
+      return [person(item.actorName), plain(" removed "), person(item.targetName), plain(" from the organization")];
     case "MEMBER_LEFT":
-      return [name(item.actorName), plain(" left the organization")];
+      return [person(item.actorName), plain(" left the organization")];
   }
 }
 

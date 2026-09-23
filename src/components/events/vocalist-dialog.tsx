@@ -16,6 +16,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { getVolunteerRoleConfig } from "@/lib/config/volunteer-roles";
 import type { ServiceColors } from "@/lib/config/service-types";
 import { failureMessage } from "@/lib/failure";
+import { personName } from "@/lib/names";
 import type { EventDetailsAssignment, EventSetlistSong } from "@/types/event";
 
 type VocalistDialogProps = {
@@ -64,7 +65,7 @@ export function VocalistDialog({
         <FormCard>
           {candidates.map((candidate, index) => {
             const isAssigned = assigned.has(candidate.userId);
-            const name = `${candidate.user.firstName} ${candidate.user.lastName}`.trim();
+            const name = personName(candidate.user);
             return (
               <VStack key={candidate.id}>
                 {index > 0 ? <Divider style={{ marginLeft: 58 }} /> : null}

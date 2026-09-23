@@ -30,6 +30,7 @@ import {
   formatTimeRange,
 } from "@/lib/events/format";
 import { assignmentFor } from "@/lib/events/schedule";
+import { capitalizeName } from "@/lib/names";
 import type { OrganizationEvent, ServiceType } from "@/types/event";
 
 export type PendingAction = "accept" | "decline";
@@ -65,7 +66,7 @@ export function PendingEventCard({
 }: PendingEventCardProps) {
   const assignment = assignmentFor(event, "PENDING");
   const expiry = assignment ? formatExpiry(assignment.expiresAt, today) : null;
-  const assignedBy = assignment?.assignedBy?.firstName ?? null;
+  const assignedBy = assignment?.assignedBy ? capitalizeName(assignment.assignedBy.firstName) : null;
 
   const summary = (
     <VStack className="gap-2.5 py-3.5 pl-[15px] pr-3.5">

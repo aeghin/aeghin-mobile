@@ -46,6 +46,7 @@ import {
 } from "@/lib/events/format";
 import { getServiceColors } from "@/lib/config/service-types";
 import { failureMessage } from "@/lib/failure";
+import { personName } from "@/lib/names";
 import type { EventDate, EventDetails, EventDetailsAssignment, NewEventDay } from "@/types/event";
 
 const TAB_BAR_CLEARANCE = 64;
@@ -318,7 +319,7 @@ function EditForm({
 
             found.push({
               userId: assignment.userId,
-              name: `${assignment.user.firstName} ${assignment.user.lastName}`.trim(),
+              name: personName(assignment.user),
               reason: blockout
                 ? `Unavailable ${formatShortDate(blockout.startDate)} – ${formatShortDate(blockout.endDate)}`
                 : `Already serving at ${conflict.eventName}, ${formatTime(conflict.startTime)}`,

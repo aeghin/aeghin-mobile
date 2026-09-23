@@ -18,6 +18,7 @@ import { useChatHistory } from "@/hooks/use-event-chat";
 import { useTheme } from "@/hooks/use-theme";
 import { getServiceColors } from "@/lib/config/service-types";
 import { formatActivityTime } from "@/lib/events/format";
+import { personName } from "@/lib/names";
 import type { ServiceType } from "@/types/event";
 
 type EventChatCardProps = {
@@ -73,7 +74,7 @@ export function EventChatCard({ organizationId, eventId, service, onOpen }: Even
           ) : latest ? (
             <>
               <OrgAvatar
-                name={`${latest.author.firstName} ${latest.author.lastName}`}
+                name={personName(latest.author)}
                 logoUrl={latest.author.userImageUrl}
                 size={32}
                 shape="circle"
@@ -81,7 +82,7 @@ export function EventChatCard({ organizationId, eventId, service, onOpen }: Even
               <VStack className="flex-1">
                 <HStack className="items-baseline gap-1.5">
                   <Text className="text-[13px] font-semibold text-foreground" numberOfLines={1}>
-                    {`${latest.author.firstName} ${latest.author.lastName}`.trim()}
+                    {personName(latest.author)}
                   </Text>
                   <Text className="text-[11px] text-muted-foreground">
                     {formatActivityTime(latest.createdAt)}

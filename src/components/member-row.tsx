@@ -10,6 +10,7 @@ import { VStack } from "@/components/ui/vstack";
 import { useTheme } from "@/hooks/use-theme";
 import { getRoleConfig } from "@/lib/config/roles";
 import { ROLE_ORDER, getVolunteerRoleConfig } from "@/lib/config/volunteer-roles";
+import { personName } from "@/lib/names";
 import type { OrganizationMember } from "@/types/organization";
 
 const AVATAR = 44;
@@ -39,11 +40,11 @@ type MemberRowProps = {
  */
 export function MemberRow({ member, isYou, onPress }: MemberRowProps) {
   const theme = useTheme();
-  const { firstName, lastName, email, imageUrl, role } = member;
+  const { email, imageUrl, role } = member;
 
   const { icon, label, textClass, tint } = getRoleConfig(role, theme);
 
-  const fullName = [firstName, lastName].filter(Boolean).join(" ") || email || "Member";
+  const fullName = personName(member) || email || "Member";
 
   // An address for whoever is allowed one, and what they play for everybody
   // else. The row is as tall as its avatar either way, so a person with

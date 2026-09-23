@@ -9,6 +9,7 @@ import { brand } from "@/constants/branding";
 import { useTheme } from "@/hooks/use-theme";
 import { getVolunteerRoleConfig } from "@/lib/config/volunteer-roles";
 import { formatExpiry, todayKey } from "@/lib/events/format";
+import { personName } from "@/lib/names";
 import type { PendingInvitation } from "@/types/organization";
 
 export type InvitationAction = "accept" | "decline";
@@ -36,7 +37,7 @@ export function InvitationCard({
 }: InvitationCardProps) {
   const { organization, invitedBy, volunteerRoles } = invitation;
   const expiry = formatExpiry(invitation.expiresAt, todayKey());
-  const inviter = `${invitedBy.firstName} ${invitedBy.lastName}`.trim();
+  const inviter = personName(invitedBy);
 
   return (
     <VStack className="gap-3 rounded-2xl border border-border bg-card p-3.5">

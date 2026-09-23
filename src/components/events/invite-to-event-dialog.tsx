@@ -25,6 +25,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { getVolunteerRoleConfig, ROLE_ORDER } from "@/lib/config/volunteer-roles";
 import { dayKey, formatDayMonth, formatTime } from "@/lib/events/format";
 import { failureMessage } from "@/lib/failure";
+import { personName } from "@/lib/names";
 import type {
   EventDate,
   EventDetailsAssignment,
@@ -174,7 +175,7 @@ function InviteToEventBody({
       return;
     }
 
-    const name = `${member.firstName} ${member.lastName}`.trim();
+    const name = personName(member);
 
     Alert.alert(
       "Scheduling Conflict",
@@ -349,7 +350,7 @@ function MemberRow({ member, selected, onEvent, blockout, conflict, onPress }: M
   const theme = useTheme();
 
   const blocked = onEvent || Boolean(blockout);
-  const name = `${member.firstName} ${member.lastName}`.trim();
+  const name = personName(member);
 
   return (
     <Pressable

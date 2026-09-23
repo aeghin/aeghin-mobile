@@ -11,6 +11,7 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { useTheme } from "@/hooks/use-theme";
 import type { ServiceColors } from "@/lib/config/service-types";
+import { personName } from "@/lib/names";
 import type { ChatMessage } from "@/types/chat";
 
 const AVATAR = 28;
@@ -38,7 +39,7 @@ type MessageRowProps = {
 export function MessageRow({ message, isMe, colors, continued }: MessageRowProps) {
   const theme = useTheme();
   const pending = message.id.startsWith("temp-");
-  const fullName = `${message.author.firstName} ${message.author.lastName}`.trim();
+  const fullName = personName(message.author);
 
   return (
     <HStack

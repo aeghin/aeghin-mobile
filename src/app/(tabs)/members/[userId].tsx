@@ -34,6 +34,7 @@ import { canManageOrg, getRoleConfig } from "@/lib/config/roles";
 import { getVolunteerRoleConfig } from "@/lib/config/volunteer-roles";
 import { formatShortDate } from "@/lib/events/format";
 import { failureMessage } from "@/lib/failure";
+import { personName } from "@/lib/names";
 import type { OrgRole } from "@/types/organization";
 
 const TAB_BAR_CLEARANCE = 64;
@@ -70,7 +71,7 @@ export default function MemberScreen() {
   const myEmail = user?.primaryEmailAddress?.emailAddress?.toLowerCase();
   const isYou = member?.email.toLowerCase() === myEmail;
 
-  const fullName = member ? `${member.firstName} ${member.lastName}`.trim() : "";
+  const fullName = member ? personName(member) : "";
   const role = member ? getRoleConfig(member.role, theme) : null;
 
   // The dashboard's rule: an admin may only act on members; an owner on anyone but themselves.

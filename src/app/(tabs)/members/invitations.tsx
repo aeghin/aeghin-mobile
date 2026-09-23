@@ -30,6 +30,7 @@ import { canManageOrg } from "@/lib/config/roles";
 import { getVolunteerRoleConfig } from "@/lib/config/volunteer-roles";
 import { formatActivityTime, formatExpiry, todayKey } from "@/lib/events/format";
 import { failureMessage } from "@/lib/failure";
+import { personName } from "@/lib/names";
 import type { InvitationStatus } from "@/types/event";
 import type { OrganizationInvitation } from "@/types/organization";
 
@@ -227,7 +228,7 @@ function InvitationRow({
       </HStack>
 
       <Text className="text-[12px] text-muted-foreground" numberOfLines={1}>
-        {`Sent by ${invitation.invitedBy.firstName} ${invitation.invitedBy.lastName} · ${formatActivityTime(invitation.createdAt)}`}
+        {`Sent by ${personName(invitation.invitedBy)} · ${formatActivityTime(invitation.createdAt)}`}
         {expiry ? ` · ${expiry.label}` : ""}
       </Text>
 

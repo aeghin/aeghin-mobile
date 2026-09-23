@@ -25,6 +25,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { MOBILE_PURCHASES_ENABLED } from "@/lib/config/purchases";
 import { legalLinks } from "@/lib/config/links";
 import { canManageOrg, getRoleConfig } from "@/lib/config/roles";
+import { capitalizeName } from "@/lib/names";
 
 const TAB_BAR_CLEARANCE = 64;
 
@@ -113,7 +114,7 @@ export default function SettingsScreen() {
               <InsetRow
                 icon={UserRound}
                 label="Account"
-                value={user?.firstName ?? undefined}
+                value={user?.firstName ? capitalizeName(user.firstName) : undefined}
                 onPress={() => router.push("/settings/account")}
               />
             </InsetCard>

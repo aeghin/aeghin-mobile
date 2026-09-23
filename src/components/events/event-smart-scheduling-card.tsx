@@ -19,6 +19,7 @@ import { VStack } from "@/components/ui/vstack";
 import { withAlpha, type Palette } from "@/constants/branding";
 import { useTheme } from "@/hooks/use-theme";
 import { formatActivityTime } from "@/lib/events/format";
+import { capitalizeName } from "@/lib/names";
 import type {
   SmartActivityType,
   SmartSchedulingActivityItem,
@@ -221,6 +222,10 @@ function Name({ children }: { children: string | null }) {
   );
 }
 
+function Person({ children }: { children: string | null }) {
+  return <Name>{children && capitalizeName(children)}</Name>;
+}
+
 /**
  * One log entry in words, matching the web's phrasing line for line — the two
  * describe the same events and should not word them differently.
@@ -230,18 +235,18 @@ function describeRow(item: SmartSchedulingActivityItem): ReactNode {
     case "AUTO_INVITE_SENT":
       return item.actorName ? (
         <>
-          Invited <Name>{item.targetName}</Name> after{" "}
-          <Name>{item.actorName}</Name> declined
+          Invited <Person>{item.targetName}</Person> after{" "}
+          <Person>{item.actorName}</Person> declined
         </>
       ) : (
         <>
-          Auto-invited <Name>{item.targetName}</Name>
+          Auto-invited <Person>{item.targetName}</Person>
         </>
       );
     case "SMART_FILL_SKIPPED":
       return (
         <>
-          <Name>{item.actorName}</Name> declined <Name>{item.targetName}</Name>{" "}
+          <Person>{item.actorName}</Person> declined <Name>{item.targetName}</Name>{" "}
           — auto-fill was off, so the slot is still open
         </>
       );
@@ -263,19 +268,19 @@ function describeRow(item: SmartSchedulingActivityItem): ReactNode {
       return (
         <>
           Hit an error filling <Name>{item.targetName}</Name> after{" "}
-          <Name>{item.actorName}</Name> declined
+          <Person>{item.actorName}</Person> declined
         </>
       );
     case "SMART_SCHEDULING_ENABLED":
       return (
         <>
-          <Name>{item.actorName}</Name> turned auto-fill on
+          <Person>{item.actorName}</Person> turned auto-fill on
         </>
       );
     case "SMART_SCHEDULING_DISABLED":
       return (
         <>
-          <Name>{item.actorName}</Name> turned auto-fill off
+          <Person>{item.actorName}</Person> turned auto-fill off
         </>
       );
     default:

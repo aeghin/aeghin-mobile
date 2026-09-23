@@ -66,6 +66,7 @@ import {
   todayKey,
 } from "@/lib/events/format";
 import { failureMessage } from "@/lib/failure";
+import { capitalizeName, personName } from "@/lib/names";
 import type {
   EventTemplate,
   MemberAvailability,
@@ -570,7 +571,7 @@ function CreateEventForm({
     if (conflict) {
       Alert.alert(
         "Already booked",
-        `${member.firstName} is on ${conflict.eventName}, ${formatTime(conflict.startTime)} to ${formatTime(conflict.endTime)}. Invite them anyway?`,
+        `${capitalizeName(member.firstName)} is on ${conflict.eventName}, ${formatTime(conflict.startTime)} to ${formatTime(conflict.endTime)}. Invite them anyway?`,
         [
           { text: "Cancel", style: "cancel" },
           { text: "Invite anyway", onPress: add },
@@ -1029,7 +1030,7 @@ function RoleSection({
             const isSelected = selected.includes(member.id);
             const blockout = availability?.blockouts[member.id];
             const conflict = availability?.conflicts[member.id];
-            const name = `${member.firstName} ${member.lastName}`.trim();
+            const name = personName(member);
 
             return (
               <VStack key={member.id}>

@@ -41,6 +41,7 @@ import { ApiError } from "@/lib/api";
 import { getServiceColors } from "@/lib/config/service-types";
 import { getVolunteerRoleConfig } from "@/lib/config/volunteer-roles";
 import { failureMessage } from "@/lib/failure";
+import { personName } from "@/lib/names";
 import type { EventDetailsAssignment, EventSetlistSong, VolunteerRole } from "@/types/event";
 
 /** How much page the tab bar covers once the list has scrolled under it. */
@@ -72,7 +73,7 @@ function describeConfirm(confirm: Confirm) {
 
     case "removeAssignment": {
       const { user, role } = confirm.assignment;
-      const name = `${user.firstName} ${user.lastName}`.trim();
+      const name = personName(user);
 
       return {
         title: "Remove from event",
@@ -83,7 +84,7 @@ function describeConfirm(confirm: Confirm) {
 
     case "deleteExpired": {
       const { user, role } = confirm.assignment;
-      const name = `${user.firstName} ${user.lastName}`.trim();
+      const name = personName(user);
 
       return {
         title: "Delete expired invite",

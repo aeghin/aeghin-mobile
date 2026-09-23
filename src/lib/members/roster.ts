@@ -17,7 +17,7 @@ import type { OrganizationMember, OrgRole } from "@/types/organization";
  * a roster is tens of rows, and filtering here keeps typing responsive.
  */
 
-/** Seniority order — how the roster is grouped, and how the filter lists them. */
+/** Seniority order — how the role filter lists them. */
 export const ORG_ROLE_ORDER: OrgRole[] = ["OWNER", "ADMIN", "MEMBER"];
 
 /** `"ALL"` is the web's own sentinel for an unset dropdown. */
@@ -57,8 +57,8 @@ function matchesQuery(member: OrganizationMember, needle: string): boolean {
  * The roster as the list should read it: matching the term, holding the org
  * role, and carrying the volunteer role — an intersection, as the web's is.
  *
- * Order is not this function's business; the screen groups what comes back by
- * seniority afterwards.
+ * Order is not this function's business; the screen puts you first afterwards,
+ * as the dashboard does.
  */
 export function filterMembers(
   members: OrganizationMember[],

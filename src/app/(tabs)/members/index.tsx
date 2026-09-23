@@ -41,7 +41,6 @@ import { canManageOrg, getRoleConfig } from "@/lib/config/roles";
 import { getVolunteerRoleConfig } from "@/lib/config/volunteer-roles";
 import {
   NO_FILTERS,
-  ORG_ROLE_ORDER,
   activeFilterCount,
   filterMembers,
   isNarrowed,
@@ -91,15 +90,19 @@ export default function OrganizationMembersScreen() {
   // The payload carries no Clerk id, so "you" is matched on email — the one
   // field both Clerk and our own User table are keyed to hold.
   const myEmail = user?.primaryEmailAddress?.emailAddress?.toLowerCase();
+  const isYou = (member: OrganizationMember) => member.email.toLowerCase() === myEmail;
 
   const activeFilters = activeFilterCount(filters);
   const narrowed = isNarrowed(filters);
 
   const visible = filterMembers(members, filters);
 
-  const roster = ORG_ROLE_ORDER.flatMap((role) =>
-    visible.filter((member) => member.role === role),
-  );
+  // The dashboard's order: you, then everyone else in the order they joined,
+  // which is the order the route already returns.
+  const roster = [
+    ...visible.filter(isYou),
+    ...visible.filter((member) => !isYou(member)),
+  ];
 
   return (
     <VStack className="flex-1 bg-grouped">
@@ -196,7 +199,7 @@ export default function OrganizationMembersScreen() {
               <MemberRow
                 key={member.id}
                 member={member}
-                isYou={member.email.toLowerCase() === myEmail}
+                isYou={isYou(member)}
                 onPress={() => router.push(`/members/${member.id}`)}
               />
             ))}

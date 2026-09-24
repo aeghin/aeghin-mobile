@@ -182,6 +182,8 @@ function SongForm({
           onChangeText={(value) => set("title", value)}
           placeholder="Goodness of God"
           autoCapitalize="words"
+          autoCorrect={false}
+          spellCheck
         />
       </Field>
 
@@ -191,6 +193,8 @@ function SongForm({
           onChangeText={(value) => set("artist", value)}
           placeholder="Bethel Music"
           autoCapitalize="words"
+          autoCorrect={false}
+          spellCheck
         />
       </Field>
 
@@ -245,6 +249,7 @@ function SongForm({
           placeholder="https://open.spotify.com/track/…"
           keyboardType="url"
           autoCapitalize="none"
+          autoCorrect={false}
         />
       </Field>
 
@@ -255,6 +260,7 @@ function SongForm({
           placeholder="https://youtube.com/watch?v=…"
           keyboardType="url"
           autoCapitalize="none"
+          autoCorrect={false}
         />
       </Field>
 

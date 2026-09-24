@@ -401,6 +401,7 @@ function DeleteOrganizationDialog({
           onChangeText={setTyped}
           placeholder={name}
           autoCapitalize="none"
+          autoCorrect={false}
           autoFocus
         />
       </Field>

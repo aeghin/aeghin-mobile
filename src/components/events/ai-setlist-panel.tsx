@@ -39,6 +39,19 @@ type SetlistTools = {
 
 type SetlistUIMessage = UIMessage<unknown, Record<string, unknown>, SetlistTools>;
 
+/**
+ * The route's own sentence out of the `{"error":"…"}` body the transport
+ * throws with, or null when the failure is something else.
+ */
+function refusalOf(raw: string): string | null {
+  try {
+    const body = JSON.parse(raw) as { error?: unknown };
+    return typeof body.error === "string" ? body.error : null;
+  } catch {
+    return null;
+  }
+}
+
 type AiSetlistPanelProps = {
   organizationId: string;
   eventId: string;
@@ -200,7 +213,9 @@ export function AiSetlistPanel({ organizationId, eventId, colors, onApply }: AiS
               ? "This organization's plan no longer includes AI setlists."
               : /catalog/i.test(error.message)
                 ? "Add songs to the library first — the agent works from your catalog."
-                : "Something went wrong. Please try again."}
+                : /AI requests/.test(error.message)
+                  ? (refusalOf(error.message) ?? "This month's AI requests are used up.")
+                  : "Something went wrong. Please try again."}
           </Text>
         ) : null}
       </ScrollView>

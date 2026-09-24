@@ -14,9 +14,13 @@ import { useTheme } from "@/hooks/use-theme";
 import { MOBILE_PURCHASES_ENABLED } from "@/lib/config/purchases";
 import { failureMessage } from "@/lib/failure";
 
-/** What the limit screens say Premium adds. The dashboard's list, word for word. */
+/**
+ * What the limit screens say Premium adds: the dashboard's list, less the lines
+ * whose numbers the server only sends for the organization's own plan.
+ */
 const PREMIUM_PERKS = [
   "Unlimited members and songs",
+  "Smart Scheduling fills declines for you",
   "AI setlist generation from your song library",
   "Billed per organization, cancel anytime",
 ];

@@ -41,6 +41,8 @@ type EventCardProps = {
    * only someone managing the roster needs to see.
    */
   showStaffing?: boolean;
+  /** Whether the plan includes auto-fill. Without it the mark stays off. */
+  autoFillAvailable?: boolean;
   onPress?: () => void;
 };
 
@@ -55,6 +57,7 @@ export function EventCard({
   event,
   service,
   showStaffing,
+  autoFillAvailable = true,
   onPress,
 }: EventCardProps) {
   const theme = useTheme();
@@ -91,7 +94,7 @@ export function EventCard({
           <HStack className="flex-wrap items-center gap-1.5">
             <ServiceBadge service={service} />
             {assignment ? <RoleChip role={assignment.role} /> : null}
-            {showStaffing && event.smartSchedulingEnabled ? (
+            {showStaffing && autoFillAvailable && event.smartSchedulingEnabled ? (
               <Pill label="Auto-fill" tone="brand" icon={Sparkles} />
             ) : null}
           </HStack>

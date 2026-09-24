@@ -50,6 +50,8 @@ const ROW_STYLES: Record<SmartActivityType, RowStyle> = {
 
 type EventSmartSchedulingCardProps = {
   enabled: boolean;
+  /** Whether the plan includes it. An enabled event on a plan without it is paused. */
+  available: boolean;
   items: SmartSchedulingActivityItem[];
 };
 
@@ -66,10 +68,13 @@ type EventSmartSchedulingCardProps = {
  */
 export function EventSmartSchedulingCard({
   enabled,
+  available,
   items,
 }: EventSmartSchedulingCardProps) {
   const theme = useTheme();
   const [open, setOpen] = useState(false);
+
+  const running = enabled && available;
 
   const filledCount = items.filter(
     (item) => item.type === "AUTO_INVITE_SENT",
@@ -102,7 +107,7 @@ export function EventSmartSchedulingCard({
     color: string;
   }[];
 
-  const accent = enabled ? theme.success : theme.textMuted;
+  const accent = running ? theme.success : theme.textMuted;
 
   return (
     <DetailCard>
@@ -110,9 +115,9 @@ export function EventSmartSchedulingCard({
         <HStack className="items-center gap-2.5">
           <Center
             className="h-8 w-8 shrink-0 rounded-xl"
-            style={{ backgroundColor: withAlpha(accent, enabled ? 0.14 : 0.1) }}
+            style={{ backgroundColor: withAlpha(accent, running ? 0.14 : 0.1) }}
           >
-            <AppIcon icon={enabled ? Zap : ZapOff} size={15} color={accent} />
+            <AppIcon icon={running ? Zap : ZapOff} size={15} color={accent} />
           </Center>
 
           <VStack className="flex-1 gap-px">
@@ -120,7 +125,7 @@ export function EventSmartSchedulingCard({
               Smart Scheduling
             </Text>
             <Text className="text-[12px] text-muted-foreground">
-              {`Auto-fill ${enabled ? "on" : "off"}`}
+              {`Auto-fill ${running ? "on" : enabled ? "paused on the Free plan" : "off"}`}
             </Text>
           </VStack>
 

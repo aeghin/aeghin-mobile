@@ -22,6 +22,7 @@ export const PLAN_COPY: Record<AiPlan, { name: string; price: string; blurb: str
     blurb: "Lifts the Free limits, plus AI setlists.",
     features: [
       "Unlimited members and songs",
+      "Smart Scheduling and last-call staffing alerts",
       "AI setlist generation",
       "Matches themes, keys, and tempo arc",
       "Works strictly from your song catalog",

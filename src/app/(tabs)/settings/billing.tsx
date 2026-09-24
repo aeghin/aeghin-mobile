@@ -24,6 +24,7 @@ import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useTheme } from "@/hooks/use-theme";
 import { MOBILE_PURCHASES_ENABLED } from "@/lib/config/purchases";
 import { canManageOrg } from "@/lib/config/roles";
+import { formatDayMonth } from "@/lib/events/format";
 import { failureMessage } from "@/lib/failure";
 import { formatStorage } from "@/lib/storage";
 import type { AiPlan, PlanLimits, PlanUsage } from "@/types/billing";
@@ -40,21 +41,28 @@ function freeFeatures(limits?: PlanLimits): string[] {
     "Create organizations, invite members, schedule events",
     limits?.members ? `Up to ${limits.members} members per organization` : "",
     "Event templates & service types",
-    "Blockout dates & smart scheduling",
+    "Blockout dates",
     "Song library with charts and audio",
     limits?.songs ? `Up to ${limits.songs} songs in your library` : "",
     limits ? `${formatStorage(limits.storage)} of storage for charts and audio` : "",
     "Setlists & per-song assignments",
     "Event chat and email notifications",
+    limits?.bulkEmails ? `${limits.bulkEmails} group emails a month` : "",
   ].filter(Boolean);
 }
 
-/** A paid plan's list, with the storage the server reports after its first line. */
+/** A paid plan's list, with what the server reports after its first line. */
 function paidFeatures(plan: AiPlan, limits?: PlanLimits): string[] {
   const [first, ...rest] = PLAN_COPY[plan].features;
 
   return limits
-    ? [first, `${formatStorage(limits.storage)} of storage for charts and audio`, ...rest]
+    ? [
+        first,
+        `${formatStorage(limits.storage)} of storage for charts and audio`,
+        limits.bulkEmails ? `${limits.bulkEmails} group emails a month` : "",
+        limits.aiRuns ? `${limits.aiRuns} AI requests a month` : "",
+        ...rest,
+      ].filter(Boolean)
     : PLAN_COPY[plan].features;
 }
 
@@ -300,10 +308,11 @@ const WARN_AT = 0.8;
 
 /** The dashboard's Plan & usage rows. Pending invites hold seats, so they fill the bar. */
 function UsageSection({ usage }: { usage: PlanUsage }) {
-  const { members, songs, storage } = usage;
+  const { members, songs, storage, bulkEmails, aiRuns, resetsAt } = usage;
 
   const seatsUsed = members.used + members.pending;
   const invited = members.pending > 0 ? `${members.pending} invited · ` : "";
+  const resets = resetsAt ? ` · Resets ${formatDayMonth(resetsAt)}` : "";
 
   return (
     <VStack>
@@ -342,6 +351,31 @@ function UsageSection({ usage }: { usage: PlanUsage }) {
           used={storage.used}
           limit={storage.limit}
         />
+        {bulkEmails ? (
+          <UsageRow
+            label="Group emails this month"
+            value={`${bulkEmails.used} / ${bulkEmails.limit}`}
+            detail={`${
+              bulkEmails.used >= bulkEmails.limit
+                ? "Limit reached"
+                : `${bulkEmails.limit - bulkEmails.used} left`
+            }${resets}`}
+            used={bulkEmails.used}
+            limit={bulkEmails.limit}
+          />
+        ) : null}
+        {/* Free has no AI, so there's no allowance to show. */}
+        {aiRuns && aiRuns.limit > 0 ? (
+          <UsageRow
+            label="AI requests this month"
+            value={`${aiRuns.used} / ${aiRuns.limit}`}
+            detail={`${
+              aiRuns.used >= aiRuns.limit ? "Limit reached" : `${aiRuns.limit - aiRuns.used} left`
+            }${resets}`}
+            used={aiRuns.used}
+            limit={aiRuns.limit}
+          />
+        ) : null}
       </InsetCard>
       {members.limit !== null ? (
         <Text className="ml-1 mt-2 text-[12px] text-muted-foreground">

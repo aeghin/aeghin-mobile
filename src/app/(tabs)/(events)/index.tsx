@@ -39,6 +39,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
+import { useSmartSchedulingAvailable } from "@/hooks/use-billing";
 import {
   useOrgEvents,
   useRespondToInvitation,
@@ -99,6 +100,7 @@ export default function EventsScreen() {
   const userEvents = useUserEvents(organizationId);
   const orgEvents = useOrgEvents(organizationId, canManage);
   const serviceTypes = useServiceTypes(organizationId);
+  const autoFillAvailable = useSmartSchedulingAvailable(organizationId);
 
   // ── View state ────────────────────────────────────────────────────────
   // A null tab means the viewer has not chosen one; the screen picks below.
@@ -422,6 +424,7 @@ export default function EventsScreen() {
                     event={event}
                     service={serviceById.get(event.serviceTypeId)}
                     showStaffing={activeTab === "all"}
+                    autoFillAvailable={autoFillAvailable}
                     // Both lists that reach here qualify: the All tab is
                     // managers only, and the Schedule tab is what this person
                     // has accepted.

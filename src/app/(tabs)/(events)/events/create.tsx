@@ -48,7 +48,7 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { VolunteerRolePicker, toggleRole } from "@/components/volunteer-role-picker";
 import { brand } from "@/constants/branding";
-import { useBillingStatus } from "@/hooks/use-billing";
+import { useBillingStatus, useSmartSchedulingAvailable } from "@/hooks/use-billing";
 import { useCheckAvailability, useCreateEvent } from "@/hooks/use-events";
 import { useMembersList } from "@/hooks/use-members-list";
 import { useServiceTypes } from "@/hooks/use-service-types";
@@ -458,6 +458,8 @@ function CreateEventForm({
   const members = useMembersList(organizationId);
   const availability = useCheckAvailability(organizationId);
   const create = useCreateEvent(organizationId);
+  // Off and locked on Free, even when a template was saved with it on.
+  const autoFillAvailable = useSmartSchedulingAvailable(organizationId);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -598,7 +600,7 @@ function CreateEventForm({
         rehearsal,
         rolesNeeded,
         expiresAt,
-        smartSchedulingEnabled: smartScheduling,
+        smartSchedulingEnabled: autoFillAvailable && smartScheduling,
         // Roles nobody was picked for go up empty, which is what leaves an
         // open slot on the roster for the team card to invite into later.
         roleAssignments: Object.fromEntries(
@@ -950,12 +952,15 @@ function CreateEventForm({
                   <VStack className="flex-1">
                     <Text className="text-[15px] text-foreground">Smart scheduling</Text>
                     <Text className="text-[12px] text-muted-foreground">
-                      A decline auto-invites the next available member for that role.
+                      {autoFillAvailable
+                        ? "A decline auto-invites the next available member for that role."
+                        : "Not included in the Free plan."}
                     </Text>
                   </VStack>
                   <Switch
-                    value={smartScheduling}
+                    value={autoFillAvailable && smartScheduling}
                     onValueChange={setSmartScheduling}
+                    disabled={!autoFillAvailable}
                     trackColor={{ true: brand.orange }}
                   />
                 </HStack>

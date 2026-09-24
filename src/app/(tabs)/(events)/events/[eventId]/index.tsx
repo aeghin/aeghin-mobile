@@ -26,6 +26,7 @@ import { ErrorBanner } from "@/components/form-fields";
 import { useCurrentOrganization } from "@/components/organization-provider";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
+import { useSmartSchedulingAvailable } from "@/hooks/use-billing";
 import {
   useCancelAssignment,
   useDeleteEvent,
@@ -142,6 +143,7 @@ export default function EventDetailScreen() {
   const deleteExpired = useDeleteExpiredAssignment(organizationId, eventId ?? "");
   const removeRole = useRemoveEventRole(organizationId, eventId ?? "");
   const removeEvent = useDeleteEvent(organizationId, eventId ?? "");
+  const autoFillAvailable = useSmartSchedulingAvailable(organizationId);
 
   // Offering the one-tap save comes off this event's roster rather than off
   // the membership's volunteer roles — if you're singing here you get it, and
@@ -287,6 +289,7 @@ export default function EventDetailScreen() {
             {event.viewer.canManage ? (
               <EventSmartSchedulingCard
                 enabled={event.smartSchedulingEnabled}
+                available={autoFillAvailable}
                 items={event.smartSchedulingActivity}
               />
             ) : null}

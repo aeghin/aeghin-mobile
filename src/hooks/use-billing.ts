@@ -5,7 +5,14 @@ import { useCallback } from "react";
 
 import { useOrganizationDetails } from "@/hooks/use-organizations";
 import { apiGet, apiPost } from "@/lib/api";
-import type { AiPlan, BillingStatus, PlanUsage, SeatUsage } from "@/types/billing";
+import { formatDayMonth } from "@/lib/events/format";
+import type {
+  AiPlan,
+  BillingStatus,
+  EmailAllowance,
+  PlanUsage,
+  SeatUsage,
+} from "@/types/billing";
 
 const billingPath = (orgId: string) => `/api/mobile/v1/organizations/${orgId}/billing`;
 
@@ -68,6 +75,37 @@ export function useSeatUsage(orgId: string): SeatUsage | null {
     members: memberCount,
     pendingInvites: pendingInvitationCount,
     left: Math.max(0, limit - memberCount - pendingInvitationCount),
+  };
+}
+
+/**
+ * Whether the organization's plan includes Smart Scheduling. True until the
+ * status lands, and from a server that predates the field, so nothing locks
+ * that the server wouldn't refuse. Display only — the server enforces.
+ */
+export function useSmartSchedulingAvailable(orgId: string): boolean {
+  const billing = useBillingStatus(orgId);
+
+  return billing.data?.limits?.smartScheduling !== false;
+}
+
+/**
+ * This month's group emails against the plan's allowance, for the two email
+ * dialogs. Read only while one is open (`enabled`), and fresh each time, since
+ * a send from the dashboard counts too. Null until it lands, or from a server
+ * that predates it. Display only — the server enforces.
+ */
+export function useEmailAllowance(orgId: string, enabled: boolean): EmailAllowance | null {
+  const usage = usePlanUsage(orgId, enabled);
+
+  const bulkEmails = usage.data?.bulkEmails;
+
+  if (!bulkEmails) return null;
+
+  return {
+    sent: bulkEmails.used,
+    limit: bulkEmails.limit,
+    resetsOn: usage.data?.resetsAt ? formatDayMonth(usage.data.resetsAt) : null,
   };
 }
 

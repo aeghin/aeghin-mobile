@@ -29,6 +29,7 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { withAlpha } from "@/constants/branding";
+import { useSmartSchedulingAvailable } from "@/hooks/use-billing";
 import { useSetSmartScheduling } from "@/hooks/use-events";
 import { useTheme } from "@/hooks/use-theme";
 import { getServiceColors, WASH_STOPS } from "@/lib/config/service-types";
@@ -175,9 +176,14 @@ export function EventTeamCard({
   const [dialog, setDialog] = useState<"invite" | "roles" | "email" | null>(null);
 
   const smart = useSetSmartScheduling(organizationId, event.id);
+  const autoFillAvailable = useSmartSchedulingAvailable(organizationId);
 
   const { assignments, viewer } = event;
   const canManage = viewer.canManage;
+
+  // An event switched on before the organization was on Free keeps its
+  // setting, but nothing is filled, so the chip reads as off.
+  const autoFillOn = event.smartSchedulingEnabled && autoFillAvailable;
 
   const acceptedCount = assignments.filter(
     (assignment) => assignment.status === "ACCEPTED",
@@ -221,10 +227,16 @@ export function EventTeamCard({
         : [...current, key],
     );
 
-  const toggleSmart = (enabled: boolean) =>
+  const toggleSmart = (enabled: boolean) => {
+    if (!autoFillAvailable) {
+      Alert.alert("Auto-fill", "Smart Scheduling isn't included in the Free plan.");
+      return;
+    }
+
     smart.mutate(enabled, {
       onError: (error) => Alert.alert("Couldn't update", failureMessage(error)),
     });
+  };
 
   return (
     <>
@@ -265,8 +277,8 @@ export function EventTeamCard({
             <ActionChip
               icon={Zap}
               label="Auto-fill"
-              checked={event.smartSchedulingEnabled}
-              tint={event.smartSchedulingEnabled ? theme.success : undefined}
+              checked={autoFillOn}
+              tint={autoFillOn ? theme.success : undefined}
               busy={smart.isPending}
               onPress={() => toggleSmart(!event.smartSchedulingEnabled)}
             />

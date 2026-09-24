@@ -109,6 +109,8 @@ type TemplateFormDialogProps = {
   /** The template being edited, or undefined when this is a new one. */
   template?: EventTemplate;
   serviceTypes: ServiceType[];
+  /** Whether the plan includes auto-fill. Without it the switch is locked off. */
+  autoFillAvailable: boolean;
   submitting: boolean;
   /** Whatever the server said, when it refused the save. */
   submitError: string | null;
@@ -129,6 +131,7 @@ function TemplateForm({
   visible,
   template,
   serviceTypes,
+  autoFillAvailable,
   submitting,
   submitError,
   onSubmit,
@@ -410,12 +413,15 @@ function TemplateForm({
         <VStack className="flex-1">
           <Text className="text-[15px] text-foreground">Auto-fill declines</Text>
           <Text className="text-[12px] text-muted-foreground">
-            Events from this template start with it on.
+            {autoFillAvailable
+              ? "Events from this template start with it on."
+              : "Not included in the Free plan."}
           </Text>
         </VStack>
         <Switch
-          value={draft.smartSchedulingEnabled}
+          value={autoFillAvailable && draft.smartSchedulingEnabled}
           onValueChange={(value) => set("smartSchedulingEnabled", value)}
+          disabled={!autoFillAvailable}
           trackColor={{ true: brand.orange }}
         />
       </HStack>

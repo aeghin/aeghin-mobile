@@ -21,6 +21,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
+import { useSmartSchedulingAvailable } from "@/hooks/use-billing";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useServiceTypes } from "@/hooks/use-service-types";
 import {
@@ -64,6 +65,7 @@ export default function TemplatesScreen() {
 
   const add = useAddTemplate(organizationId);
   const update = useUpdateTemplate(organizationId);
+  const autoFillAvailable = useSmartSchedulingAvailable(organizationId);
 
   // `undefined` while closed, `null` for a new one, a template when editing.
   const [editing, setEditing] = useState<EventTemplate | null | undefined>(undefined);
@@ -201,6 +203,7 @@ export default function TemplatesScreen() {
         visible={editing !== undefined}
         template={editing ?? undefined}
         serviceTypes={serviceTypes.data ?? []}
+        autoFillAvailable={autoFillAvailable}
         submitting={add.isPending || update.isPending}
         submitError={error}
         onSubmit={save}

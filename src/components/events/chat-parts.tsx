@@ -15,6 +15,8 @@ import { personName } from "@/lib/names";
 import type { ChatMessage } from "@/types/chat";
 
 const AVATAR = 28;
+/** Avatar to bubble; the time under the bubble indents by `AVATAR + GAP`. */
+const GAP = 8;
 
 /** `"3:42 PM"`, in device time — a message is a real instant, unlike an event date. */
 function formatMessageTime(value: string): string {
@@ -42,52 +44,60 @@ export function MessageRow({ message, isMe, colors, continued }: MessageRowProps
   const fullName = personName(message.author);
 
   return (
-    <HStack
-      className={`items-end gap-2 px-4 ${isMe ? "flex-row-reverse" : ""} ${
-        continued ? "mt-1" : "mt-3"
-      }`}
-    >
-      <Box style={{ width: AVATAR }}>
-        {continued ? null : (
-          <OrgAvatar
-            name={fullName || "?"}
-            logoUrl={message.author.userImageUrl}
-            size={AVATAR}
-            shape="circle"
-          />
-        )}
-      </Box>
-
-      <VStack className={`max-w-[76%] ${isMe ? "items-end" : "items-start"}`}>
-        {continued ? null : (
-          <Text className="mb-0.5 px-1 text-[11px] text-muted-foreground">
-            {isMe ? "You" : fullName}
-          </Text>
-        )}
-
-        <Box
-          className="rounded-2xl px-3 py-2"
-          style={{
-            backgroundColor: isMe ? colors.base : theme.surface,
-            opacity: pending ? 0.6 : 1,
-            borderBottomRightRadius: isMe ? 6 : 16,
-            borderBottomLeftRadius: isMe ? 16 : 6,
-          }}
-        >
-          <Text
-            className="text-[15px] leading-[20px]"
-            style={{ color: isMe ? "#FFFFFF" : theme.text }}
-            selectable
-          >
-            {message.body}
-          </Text>
+    <VStack className={`px-4 ${continued ? "mt-1" : "mt-3"}`}>
+      {/* The time sits outside this row so `items-end` pins the avatar to the
+          bubble's foot rather than to the line underneath it. */}
+      <HStack
+        className={`items-end ${isMe ? "flex-row-reverse" : ""}`}
+        style={{ gap: GAP }}
+      >
+        <Box style={{ width: AVATAR }}>
+          {continued ? null : (
+            <OrgAvatar
+              name={fullName || "?"}
+              logoUrl={message.author.userImageUrl}
+              size={AVATAR}
+              shape="circle"
+            />
+          )}
         </Box>
 
-        <Text className="mt-0.5 px-1 text-[10px] text-muted-foreground">
-          {pending ? "Sending…" : formatMessageTime(message.createdAt)}
-        </Text>
-      </VStack>
-    </HStack>
+        <VStack className={`max-w-[76%] ${isMe ? "items-end" : "items-start"}`}>
+          {continued ? null : (
+            <Text className="mb-0.5 px-1 text-[11px] text-muted-foreground">
+              {isMe ? "You" : fullName}
+            </Text>
+          )}
+
+          <Box
+            className="rounded-2xl px-3 py-2"
+            style={{
+              backgroundColor: isMe ? colors.base : theme.surface,
+              opacity: pending ? 0.6 : 1,
+              borderBottomRightRadius: isMe ? 6 : 16,
+              borderBottomLeftRadius: isMe ? 16 : 6,
+            }}
+          >
+            <Text
+              className="text-[15px] leading-[20px]"
+              style={{ color: isMe ? "#FFFFFF" : theme.text }}
+              selectable
+            >
+              {message.body}
+            </Text>
+          </Box>
+        </VStack>
+      </HStack>
+
+      <Text
+        className={`mt-0.5 px-1 text-[10px] text-muted-foreground ${
+          isMe ? "self-end" : "self-start"
+        }`}
+        style={isMe ? { marginRight: AVATAR + GAP } : { marginLeft: AVATAR + GAP }}
+      >
+        {pending ? "Sending…" : formatMessageTime(message.createdAt)}
+      </Text>
+    </VStack>
   );
 }
 

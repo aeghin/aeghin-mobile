@@ -17,6 +17,7 @@ import {
 } from "react-native-reanimated";
 
 import { OrganizationProvider } from "@/components/organization-provider";
+import { PushNotifications } from "@/components/push-notifications";
 import { QueryProvider } from "@/components/query-provider";
 import { GluestackUIProvider } from "@/components/ui/gluestack-ui-provider";
 import { brand, palette, type Palette } from "@/constants/branding";
@@ -136,6 +137,8 @@ function RootNavigator() {
           <Stack.Screen name="sign-in" />
         </Stack.Protected>
       </Stack>
+
+      <PushNotifications ready={isAuthFlowComplete} />
     </ThemeProvider>
   );
 }

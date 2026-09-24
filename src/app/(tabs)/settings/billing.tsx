@@ -3,7 +3,7 @@ import Check from "lucide-react-native/icons/check";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
 import CreditCard from "lucide-react-native/icons/credit-card";
 import Sparkles from "lucide-react-native/icons/sparkles";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Alert, RefreshControl, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -12,19 +12,21 @@ import { PLAN_COPY, PlanButton, planTint } from "@/components/events/ai-plan-car
 import { EventsEmptyState } from "@/components/events/events-empty-state";
 import { InsetCard, InsetRow, SectionLabel } from "@/components/inset-list";
 import { useCurrentOrganization } from "@/components/organization-provider";
+import { Box } from "@/components/ui/box";
 import { Center } from "@/components/ui/center";
 import { HStack } from "@/components/ui/hstack";
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand, withAlpha } from "@/constants/branding";
-import { useBillingPortal, useBillingStatus } from "@/hooks/use-billing";
+import { useBillingPortal, useBillingStatus, usePlanUsage } from "@/hooks/use-billing";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useTheme } from "@/hooks/use-theme";
 import { MOBILE_PURCHASES_ENABLED } from "@/lib/config/purchases";
+import { canManageOrg } from "@/lib/config/roles";
 import { failureMessage } from "@/lib/failure";
 import { formatStorage } from "@/lib/storage";
-import type { AiPlan, PlanLimits } from "@/types/billing";
+import type { AiPlan, PlanLimits, PlanUsage } from "@/types/billing";
 
 const TAB_BAR_CLEARANCE = 64;
 
@@ -63,10 +65,20 @@ export default function BillingScreen() {
 
   const { organization } = useCurrentOrganization();
   const organizationId = organization?.id ?? "";
+  const canManage = canManageOrg(organization?.role);
 
   const billing = useBillingStatus(organizationId);
-  const pullToRefresh = usePullToRefresh(billing.refetch);
+  const usage = usePlanUsage(organizationId, canManage);
   const portal = useBillingPortal(organizationId);
+
+  // A member never loads usage, and `refetch` would fetch it regardless.
+  const refetchBilling = billing.refetch;
+  const refetchUsage = usage.refetch;
+  const refresh = useCallback(
+    () => Promise.all([refetchBilling(), canManage ? refetchUsage() : null]),
+    [refetchBilling, refetchUsage, canManage],
+  );
+  const pullToRefresh = usePullToRefresh(refresh);
 
   // Stripe's return page deep-links here with what happened.
   const { checkout } = useLocalSearchParams<{ checkout?: string }>();
@@ -136,6 +148,8 @@ export default function BillingScreen() {
                   : "Core scheduling for your team."}
               </Text>
             </VStack>
+
+            {canManage && usage.data ? <UsageSection usage={usage.data} /> : null}
 
             {current && MOBILE_PURCHASES_ENABLED ? (
               <VStack>
@@ -277,6 +291,113 @@ function PlanCard({
       </VStack>
 
       {action}
+    </VStack>
+  );
+}
+
+// From this share of a limit the row turns amber, as on the dashboard.
+const WARN_AT = 0.8;
+
+/** The dashboard's Plan & usage rows. Pending invites hold seats, so they fill the bar. */
+function UsageSection({ usage }: { usage: PlanUsage }) {
+  const { members, songs, storage } = usage;
+
+  const seatsUsed = members.used + members.pending;
+  const invited = members.pending > 0 ? `${members.pending} invited · ` : "";
+
+  return (
+    <VStack>
+      <SectionLabel>Usage</SectionLabel>
+      <InsetCard elevated separatorInset={16}>
+        <UsageRow
+          label="Members"
+          value={members.limit === null ? `${members.used}` : `${members.used} / ${members.limit}`}
+          detail={
+            members.limit === null
+              ? `${invited}No limit`
+              : `${invited}${seatsUsed >= members.limit ? "Limit reached" : `${members.limit - seatsUsed} left`}`
+          }
+          used={seatsUsed}
+          limit={members.limit}
+        />
+        <UsageRow
+          label="Songs"
+          value={songs.limit === null ? `${songs.used}` : `${songs.used} / ${songs.limit}`}
+          detail={
+            songs.limit === null
+              ? "No limit"
+              : songs.used >= songs.limit
+                ? "Limit reached"
+                : `${songs.limit - songs.used} left`
+          }
+          used={songs.used}
+          limit={songs.limit}
+        />
+        <UsageRow
+          label="Storage"
+          value={`${formatStorage(storage.used)} / ${formatStorage(storage.limit)}`}
+          detail={
+            storage.used >= storage.limit ? "Full" : `${formatStorage(storage.limit - storage.used)} left`
+          }
+          used={storage.used}
+          limit={storage.limit}
+        />
+      </InsetCard>
+      {members.limit !== null ? (
+        <Text className="ml-1 mt-2 text-[12px] text-muted-foreground">
+          Pending invites count toward the member limit.
+        </Text>
+      ) : null}
+    </VStack>
+  );
+}
+
+function UsageRow({
+  label,
+  value,
+  detail,
+  used,
+  limit,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  used: number;
+  /** Null means no limit, and no bar. */
+  limit: number | null;
+}) {
+  const theme = useTheme();
+  const ratio = limit ? used / limit : 0;
+  const warn = limit !== null && ratio >= WARN_AT;
+
+  return (
+    <VStack className="gap-1.5 px-4 py-3">
+      <HStack className="items-baseline justify-between gap-2">
+        <Text className="text-[15px] text-foreground">{label}</Text>
+        <Text
+          className={`text-[14px] ${warn ? "font-semibold" : "text-muted-foreground"}`}
+          style={warn ? { color: theme.warning } : undefined}
+        >
+          {value}
+        </Text>
+      </HStack>
+      {limit !== null ? (
+        <Box
+          className="h-1.5 overflow-hidden rounded-full"
+          style={{ backgroundColor: withAlpha(theme.textMuted, 0.18) }}
+        >
+          <Box
+            className="h-full rounded-full"
+            style={{
+              width: `${Math.min(100, ratio * 100)}%` as const,
+              backgroundColor: warn ? theme.warning : brand.orange,
+            }}
+          />
+        </Box>
+      ) : null}
+      <Text className="text-[12px]" style={{ color: warn ? theme.warning : theme.textMuted }}>
+        {detail}
+      </Text>
     </VStack>
   );
 }

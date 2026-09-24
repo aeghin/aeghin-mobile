@@ -20,6 +20,18 @@ export type PlanLimits = {
   storage: number;
 };
 
+/**
+ * What `GET .../usage` answers: the organization's use of its plan. Mirrors
+ * `PlanUsage` in the NHC's `lib/billing/limits.ts`. Owners and admins only.
+ */
+export type PlanUsage = {
+  plan: "free" | "premium" | "pro";
+  members: { used: number; pending: number; limit: number | null };
+  songs: { used: number; limit: number | null };
+  /** Bytes. */
+  storage: { used: number; limit: number };
+};
+
 /** Seats on a capped plan. A pending invite holds one, since accepting it adds a member. */
 export type SeatUsage = {
   limit: number;

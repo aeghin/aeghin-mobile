@@ -5,7 +5,7 @@ import { useCallback } from "react";
 
 import { useOrganizationDetails } from "@/hooks/use-organizations";
 import { apiGet, apiPost } from "@/lib/api";
-import type { AiPlan, BillingStatus, SeatUsage } from "@/types/billing";
+import type { AiPlan, BillingStatus, PlanUsage, SeatUsage } from "@/types/billing";
 
 const billingPath = (orgId: string) => `/api/mobile/v1/organizations/${orgId}/billing`;
 
@@ -28,6 +28,22 @@ export function useBillingStatus(orgId: string) {
     enabled: Boolean(userId && orgId),
     queryFn: () => apiGet<BillingStatus>(billingPath(orgId)),
     // Entitlements land through a webhook; a fresh read after checkout matters.
+    staleTime: 0,
+  });
+}
+
+/**
+ * The organization's use of its plan, for the Plan screen. Owners and admins
+ * only — the route answers 403 to a member, so `enabled` keeps it from firing.
+ */
+export function usePlanUsage(orgId: string, canManage: boolean) {
+  const { userId } = useAuth();
+
+  return useQuery({
+    queryKey: ["organizations", userId, "usage", orgId],
+    enabled: Boolean(userId && orgId && canManage),
+    queryFn: () => apiGet<PlanUsage>(`/api/mobile/v1/organizations/${orgId}/usage`),
+    // Adding songs or files elsewhere in the app doesn't expire this, so each visit reads fresh.
     staleTime: 0,
   });
 }

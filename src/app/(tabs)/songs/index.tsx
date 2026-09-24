@@ -131,6 +131,19 @@ export default function SongsScreen() {
   const songLimit = canManage ? (billing.data?.limits?.songs ?? null) : null;
   const songLimitReached = songLimit !== null && library.length >= songLimit;
 
+  // The library's charts and audio against the plan's storage. Null until the plan loads.
+  const storageLimit = billing.data?.limits?.storage ?? null;
+  const storage =
+    storageLimit === null
+      ? null
+      : {
+          used: library.reduce(
+            (total, song) => total + song.attachments.reduce((sum, file) => sum + file.size, 0),
+            0,
+          ),
+          limit: storageLimit,
+        };
+
   const themes = useMemo(() => themesOf(library), [library]);
   const artists = useMemo(() => artistsOf(library), [library]);
 
@@ -433,6 +446,7 @@ export default function SongsScreen() {
         visible={attachingId !== null}
         song={library.find((song) => song.id === attachingId)}
         organizationId={organizationId}
+        storage={storage}
         onClose={() => setAttachingId(null)}
       />
 

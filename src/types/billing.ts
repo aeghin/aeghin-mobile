@@ -16,6 +16,8 @@ export type AiPlan = "premium" | "pro";
 export type PlanLimits = {
   members: number | null;
   songs: number | null;
+  /** Bytes of charts and audio. Capped on every plan. */
+  storage: number;
 };
 
 /** Seats on a capped plan. A pending invite holds one, since accepting it adds a member. */

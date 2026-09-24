@@ -23,13 +23,15 @@ import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useTheme } from "@/hooks/use-theme";
 import { MOBILE_PURCHASES_ENABLED } from "@/lib/config/purchases";
 import { failureMessage } from "@/lib/failure";
+import { formatStorage } from "@/lib/storage";
 import type { AiPlan, PlanLimits } from "@/types/billing";
 
 const TAB_BAR_CLEARANCE = 64;
 
 /**
  * The dashboard's Free features. The caps come from the server, so a changed
- * number doesn't wait on an app release; a paid plan's are null and drop out.
+ * number doesn't wait on an app release. The server only sends the org's own
+ * plan, so pass `limits` only when that plan is Free.
  */
 function freeFeatures(limits?: PlanLimits): string[] {
   return [
@@ -39,9 +41,19 @@ function freeFeatures(limits?: PlanLimits): string[] {
     "Blockout dates & smart scheduling",
     "Song library with charts and audio",
     limits?.songs ? `Up to ${limits.songs} songs in your library` : "",
+    limits ? `${formatStorage(limits.storage)} of storage for charts and audio` : "",
     "Setlists & per-song assignments",
     "Event chat and email notifications",
   ].filter(Boolean);
+}
+
+/** A paid plan's list, with the storage the server reports after its first line. */
+function paidFeatures(plan: AiPlan, limits?: PlanLimits): string[] {
+  const [first, ...rest] = PLAN_COPY[plan].features;
+
+  return limits
+    ? [first, `${formatStorage(limits.storage)} of storage for charts and audio`, ...rest]
+    : PLAN_COPY[plan].features;
 }
 
 /** The dashboard's pricing and billing section: what the organization has, and how to change it. */
@@ -154,7 +166,7 @@ export default function BillingScreen() {
                 <SectionLabel>{current ? "Included" : "Your plan"}</SectionLabel>
                 <InsetCard elevated>
                   <VStack className="gap-1.5 p-4">
-                    {(current ? PLAN_COPY[current].features : freeFeatures(status.limits)).map((feature) => (
+                    {(current ? paidFeatures(current, status.limits) : freeFeatures(status.limits)).map((feature) => (
                       <HStack key={feature} className="items-start gap-2">
                         <AppIcon
                           icon={Check}
@@ -175,7 +187,7 @@ export default function BillingScreen() {
                   name="Free"
                   price="$0/month"
                   blurb="Core scheduling for your team."
-                  features={freeFeatures(status.limits)}
+                  features={freeFeatures(current === null ? status.limits : undefined)}
                   tint={theme.textMuted}
                   current={current === null}
                 />
@@ -185,7 +197,10 @@ export default function BillingScreen() {
                     name={PLAN_COPY[plan].name}
                     price={PLAN_COPY[plan].price}
                     blurb={PLAN_COPY[plan].blurb}
-                    features={[...PLAN_COPY[plan].features, "Billed per organization"]}
+                    features={[
+                      ...paidFeatures(plan, current === plan ? status.limits : undefined),
+                      "Billed per organization",
+                    ]}
                     tint={planTint(plan, theme)}
                     current={current === plan}
                     action={

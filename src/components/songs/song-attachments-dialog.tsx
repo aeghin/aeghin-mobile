@@ -21,6 +21,7 @@ import { brand } from "@/constants/branding";
 import { useAddAttachments, useDeleteAttachment } from "@/hooks/use-songs";
 import { useTheme } from "@/hooks/use-theme";
 import { failureMessage } from "@/lib/failure";
+import { formatStorage } from "@/lib/storage";
 import type { UploadFile } from "@/lib/uploadthing";
 import type { LibrarySong, SongAttachment } from "@/types/song";
 
@@ -59,6 +60,8 @@ type SongAttachmentsDialogProps = {
   visible: boolean;
   song: LibrarySong | undefined;
   organizationId: string;
+  /** The library's charts and audio against the plan's storage. Null until the plan loads. */
+  storage: { used: number; limit: number } | null;
   onClose: () => void;
 };
 
@@ -66,12 +69,16 @@ export function SongAttachmentsDialog({
   visible,
   song,
   organizationId,
+  storage,
   onClose,
 }: SongAttachmentsDialogProps) {
   const theme = useTheme();
 
   const upload = useAddAttachments(organizationId);
   const remove = useDeleteAttachment(organizationId);
+
+  // Over counts too: a plan that shrank keeps its files but can't add more.
+  const full = storage !== null && storage.used >= storage.limit;
 
   const [error, setError] = useState<string | null>(null);
 
@@ -215,7 +222,7 @@ export function SongAttachmentsDialog({
 
         <Pressable
           onPress={pick}
-          disabled={upload.isPending}
+          disabled={upload.isPending || full}
           accessibilityRole="button"
           className="px-3.5 py-3"
         >
@@ -229,9 +236,12 @@ export function SongAttachmentsDialog({
               </>
             ) : (
               <>
-                <AppIcon icon={Plus} size={16} color={brand.orange} />
-                <Text className="text-[14px] font-medium" style={{ color: brand.orange }}>
-                  Add chart or track
+                <AppIcon icon={Plus} size={16} color={full ? theme.textMuted : brand.orange} />
+                <Text
+                  className="text-[14px] font-medium"
+                  style={{ color: full ? theme.textMuted : brand.orange }}
+                >
+                  {full ? "Storage full" : "Add chart or track"}
                 </Text>
               </>
             )}
@@ -243,6 +253,14 @@ export function SongAttachmentsDialog({
         <Text className="text-[12px] text-muted-foreground">
           {`PDFs up to ${megabytes(MAX_PDF_BYTES)}, audio up to ${megabytes(MAX_AUDIO_BYTES)}, ${MAX_FILES} at a time. Everyone on the team can open them.`}
         </Text>
+        {storage ? (
+          <Text
+            className={`mt-1 text-[12px] ${full ? "font-medium" : "text-muted-foreground"}`}
+            style={full ? { color: theme.warning } : undefined}
+          >
+            {`${formatStorage(storage.used)} of ${formatStorage(storage.limit)} used.${full ? " Remove files you no longer use to make room." : ""}`}
+          </Text>
+        ) : null}
       </Box>
     </Dialog>
   );

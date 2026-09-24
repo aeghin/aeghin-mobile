@@ -1,6 +1,7 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode, type Ref } from "react";
 import {
   Animated,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -65,7 +66,20 @@ type DialogProps = {
   cancelLabel?: string;
   onClose: () => void;
   children?: ReactNode;
+  /**
+   * The body's scroll view, for a dialog whose message field grows as someone
+   * types into it — see `useFollowTyping`.
+   */
+  bodyRef?: Ref<ScrollView>;
+  /**
+   * Hides the glyph and trims the description to one line while the keyboard
+   * is up, so a dialog someone writes in keeps that room for its fields.
+   */
+  compactWhileTyping?: boolean;
 };
+
+const KEYBOARD_SHOW = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+const KEYBOARD_HIDE = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
 
 export function Dialog({
   visible,
@@ -78,10 +92,30 @@ export function Dialog({
   cancelLabel = "Cancel",
   onClose,
   children,
+  bodyRef,
+  compactWhileTyping = false,
 }: DialogProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
+
+  // Only a dialog that asks for the compact header listens, so every other
+  // dialog is left alone when the keyboard comes and goes.
+  const [keyboardUp, setKeyboardUp] = useState(() => Keyboard.isVisible());
+
+  useEffect(() => {
+    if (!compactWhileTyping) return;
+
+    const show = Keyboard.addListener(KEYBOARD_SHOW, () => setKeyboardUp(true));
+    const hide = Keyboard.addListener(KEYBOARD_HIDE, () => setKeyboardUp(false));
+
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, [compactWhileTyping]);
+
+  const compact = compactWhileTyping && keyboardUp;
 
   // The web's `zoom-in-95`. Held as lazy state rather than a ref, because
   // reading `.current` during render is an error under this project's lint.
@@ -169,7 +203,7 @@ export function Dialog({
             }}
           >
             <VStack className="items-center gap-1.5 px-6 pb-1 pt-6">
-              {icon ? (
+              {icon && !compact ? (
                 <Center
                   className="mb-1.5"
                   style={{
@@ -191,7 +225,10 @@ export function Dialog({
               </Text>
 
               {description ? (
-                <Text className="max-w-[300px] text-center text-[13.5px] leading-[19px] text-muted-foreground">
+                <Text
+                  className="max-w-[300px] text-center text-[13.5px] leading-[19px] text-muted-foreground"
+                  numberOfLines={compact ? 1 : undefined}
+                >
                   {description}
                 </Text>
               ) : null}
@@ -199,6 +236,7 @@ export function Dialog({
 
             {children ? (
               <ScrollView
+                ref={bodyRef}
                 // The bottom pad clears the footer hairline: without it the last
                 // field sits right on the rule and reads as clipped.
                 contentContainerStyle={{

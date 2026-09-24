@@ -63,7 +63,15 @@ export function Field({ label, hint, error, children }: FieldProps) {
   );
 }
 
-type FormInputProps = React.ComponentProps<typeof TextInput>;
+type FormInputProps = React.ComponentProps<typeof TextInput> & {
+  /**
+   * Keeps growing with the text instead of stopping at TEXT_AREA_MAX_HEIGHT and
+   * scrolling inside itself — for a message field whose dialog body scrolls
+   * along with it (see `useFollowTyping`), so there is one scroll rather than
+   * a box scrolling inside a scrolling card.
+   */
+  grow?: boolean;
+};
 
 /**
  * Where a multiline field stops growing and scrolls inside itself instead —
@@ -72,12 +80,14 @@ type FormInputProps = React.ComponentProps<typeof TextInput>;
  */
 const TEXT_AREA_MAX_HEIGHT = 160;
 
-export function FormInput(props: FormInputProps) {
+export function FormInput({ grow = false, ...props }: FormInputProps) {
   const theme = useTheme();
 
   return (
     <TextInput
       {...props}
+      // Sized by its text, so scrolling of its own would only fight the body's.
+      scrollEnabled={grow ? false : props.scrollEnabled}
       placeholderTextColor={theme.textMuted}
       style={[
         {
@@ -91,7 +101,11 @@ export function FormInput(props: FormInputProps) {
           color: theme.text,
         },
         props.multiline
-          ? { minHeight: 96, maxHeight: TEXT_AREA_MAX_HEIGHT, textAlignVertical: "top" }
+          ? {
+              minHeight: 96,
+              maxHeight: grow ? undefined : TEXT_AREA_MAX_HEIGHT,
+              textAlignVertical: "top",
+            }
           : null,
         props.style,
       ]}

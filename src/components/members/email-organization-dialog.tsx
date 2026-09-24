@@ -1,11 +1,12 @@
 import Megaphone from "lucide-react-native/icons/megaphone";
-import { useState } from "react";
-import { Alert } from "react-native";
+import { useRef, useState } from "react";
+import { Alert, type ScrollView } from "react-native";
 
 import { Dialog } from "@/components/dialog";
 import { ErrorBanner, Field, FormInput } from "@/components/form-fields";
 import { Text } from "@/components/ui/text";
 import { useEmailAllowance } from "@/hooks/use-billing";
+import { useFollowTyping } from "@/hooks/use-follow-typing";
 import { useEmailOrganization } from "@/hooks/use-organizations";
 import { failureMessage } from "@/lib/failure";
 
@@ -41,6 +42,11 @@ function EmailOrganizationBody({
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  // A long message grows the body rather than scrolling inside its box, and
+  // the body scrolls along so the line being typed stays above the buttons.
+  const bodyRef = useRef<ScrollView>(null);
+  const followTyping = useFollowTyping(bodyRef, body);
 
   const ready = subject.trim().length > 0 && body.trim().length > 0;
 
@@ -80,6 +86,8 @@ function EmailOrganizationBody({
       action={usedUp ? undefined : { label: "Send", onPress: submit, disabled: !ready }}
       submitting={email.isPending}
       onClose={onClose}
+      bodyRef={bodyRef}
+      compactWhileTyping
     >
       {usedUp ? null : (
         <>
@@ -107,8 +115,10 @@ function EmailOrganizationBody({
               onChangeText={setBody}
               placeholder="What everyone needs to know…"
               multiline
+              grow
               maxLength={5000}
               style={{ minHeight: 160 }}
+              {...followTyping}
             />
           </Field>
         </>

@@ -182,6 +182,8 @@ function SongForm({
           onChangeText={(value) => set("title", value)}
           placeholder="Goodness of God"
           autoCapitalize="words"
+          autoCorrect={false}
+          spellCheck
         />
       </Field>
 
@@ -191,6 +193,8 @@ function SongForm({
           onChangeText={(value) => set("artist", value)}
           placeholder="Bethel Music"
           autoCapitalize="words"
+          autoCorrect={false}
+          spellCheck
         />
       </Field>
 

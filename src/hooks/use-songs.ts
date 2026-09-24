@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
+import { isPlanLimit } from "@/lib/failure";
 import { uploadToStorage, type UploadFile } from "@/lib/uploadthing";
 import type { LibrarySong, SongInput } from "@/types/song";
 
@@ -68,6 +69,13 @@ export function useAddSong(orgId: string) {
       apiPost<{ success: true }>(songsPath(orgId), song),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: songsKey(userId, orgId) });
+    },
+    // Refused as full: the library or the plan the phone counted against was
+    // stale. Both live under this key.
+    onError: (error) => {
+      if (isPlanLimit(error, "SONG_LIMIT")) {
+        queryClient.invalidateQueries({ queryKey: ["organizations", userId] });
+      }
     },
   });
 }

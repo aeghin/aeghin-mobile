@@ -23,18 +23,26 @@ import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useTheme } from "@/hooks/use-theme";
 import { MOBILE_PURCHASES_ENABLED } from "@/lib/config/purchases";
 import { failureMessage } from "@/lib/failure";
-import type { AiPlan } from "@/types/billing";
+import type { AiPlan, PlanLimits } from "@/types/billing";
 
 const TAB_BAR_CLEARANCE = 64;
 
-const FREE_FEATURES = [
-  "Create organizations, invite members, schedule events",
-  "Event templates & service types",
-  "Blockout dates & smart scheduling",
-  "Song library with charts and audio",
-  "Setlists & per-song assignments",
-  "Event chat and email notifications",
-];
+/**
+ * The dashboard's Free features. The caps come from the server, so a changed
+ * number doesn't wait on an app release; a paid plan's are null and drop out.
+ */
+function freeFeatures(limits?: PlanLimits): string[] {
+  return [
+    "Create organizations, invite members, schedule events",
+    limits?.members ? `Up to ${limits.members} members per organization` : "",
+    "Event templates & service types",
+    "Blockout dates & smart scheduling",
+    "Song library with charts and audio",
+    limits?.songs ? `Up to ${limits.songs} songs in your library` : "",
+    "Setlists & per-song assignments",
+    "Event chat and email notifications",
+  ].filter(Boolean);
+}
 
 /** The dashboard's pricing and billing section: what the organization has, and how to change it. */
 export default function BillingScreen() {
@@ -113,7 +121,7 @@ export default function BillingScreen() {
               <Text className="max-w-[300px] text-center text-[13px] text-muted-foreground">
                 {current
                   ? PLAN_COPY[current].blurb
-                  : "Core scheduling for your team. AI features are the only paid add-on."}
+                  : "Core scheduling for your team."}
               </Text>
             </VStack>
 
@@ -146,7 +154,7 @@ export default function BillingScreen() {
                 <SectionLabel>{current ? "Included" : "Your plan"}</SectionLabel>
                 <InsetCard elevated>
                   <VStack className="gap-1.5 p-4">
-                    {(current ? PLAN_COPY[current].features : FREE_FEATURES).map((feature) => (
+                    {(current ? PLAN_COPY[current].features : freeFeatures(status.limits)).map((feature) => (
                       <HStack key={feature} className="items-start gap-2">
                         <AppIcon
                           icon={Check}
@@ -167,7 +175,7 @@ export default function BillingScreen() {
                   name="Free"
                   price="$0/month"
                   blurb="Core scheduling for your team."
-                  features={FREE_FEATURES}
+                  features={freeFeatures(status.limits)}
                   tint={theme.textMuted}
                   current={current === null}
                 />

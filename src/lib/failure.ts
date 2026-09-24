@@ -43,3 +43,8 @@ function uploadMessage(error: unknown): string | undefined {
 
   return error.message || undefined;
 }
+
+/** Whether the server refused because the organization is at a plan limit. */
+export function isPlanLimit(error: unknown, code: "MEMBER_LIMIT" | "SONG_LIMIT"): boolean {
+  return error instanceof ApiError && error.code === code;
+}

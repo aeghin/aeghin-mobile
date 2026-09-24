@@ -34,34 +34,40 @@ export async function authHeaders(): Promise<Record<string, string>> {
 /** A non-2xx response. `status` drives both retry policy and UI branching. */
 export class ApiError extends Error {
   readonly status: number;
+  /** Which refusal, when the route names one — `"MEMBER_LIMIT"`, say. */
+  readonly code?: string;
 
-  constructor(status: number, message?: string) {
+  constructor(status: number, message?: string, code?: string) {
     super(message ?? `Request failed (${status}).`);
     this.name = "ApiError";
     this.status = status;
+    this.code = code;
     // Hermes: restore the prototype chain so `instanceof ApiError` holds.
     Object.setPrototypeOf(this, ApiError.prototype);
   }
 }
 
 /**
- * The `{ error }` string every mobile route answers a failure with.
+ * The `{ error, code? }` every mobile route answers a failure with.
  *
  * Worth reading for a write, where the reason is the whole message — an
  * invitation that expired says so. A body that isn't the JSON we expect is not
  * itself an error to report: a proxy's HTML timeout page must not replace the
  * status that actually explains the failure.
  */
-function errorFromBody(text: string): string | undefined {
+function errorFromBody(text: string): { message?: string; code?: string } {
   try {
-    const body = JSON.parse(text) as { error?: unknown };
-    return typeof body.error === "string" ? body.error : undefined;
+    const body = JSON.parse(text) as { error?: unknown; code?: unknown };
+    return {
+      message: typeof body.error === "string" ? body.error : undefined,
+      code: typeof body.code === "string" ? body.code : undefined,
+    };
   } catch {
-    return undefined;
+    return {};
   }
 }
 
-async function errorMessage(response: Response): Promise<string | undefined> {
+async function errorDetails(response: Response): Promise<{ message?: string; code?: string }> {
   return errorFromBody(await response.text().catch(() => ""));
 }
 
@@ -93,7 +99,8 @@ async function request<T>(
   });
 
   if (!response.ok) {
-    throw new ApiError(response.status, await errorMessage(response));
+    const { message, code } = await errorDetails(response);
+    throw new ApiError(response.status, message, code);
   }
 
   return (await response.json()) as T;

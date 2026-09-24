@@ -27,12 +27,14 @@ import {
   SEARCH_DOCK_CLEARANCE,
 } from "@/components/members-search-dock";
 import { useCurrentOrganization } from "@/components/organization-provider";
+import { PlanLimitDialog } from "@/components/plan-limit-dialog";
 import { Button, ButtonText } from "@/components/ui/button";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
+import { useSeatUsage } from "@/hooks/use-billing";
 import { useMembersList } from "@/hooks/use-members-list";
 import { useOrganizationDetails } from "@/hooks/use-organizations";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
@@ -46,6 +48,7 @@ import {
   isNarrowed,
   type RosterFilters,
 } from "@/lib/members/roster";
+import type { SeatUsage } from "@/types/billing";
 import type { OrganizationMember } from "@/types/organization";
 
 /** Stable identity so an empty roster does not remake the array each render. */
@@ -70,9 +73,13 @@ export default function OrganizationMembersScreen() {
   const details = useOrganizationDetails(id);
   const pending = details.data?.pendingInvitationCount ?? 0;
 
+  // Null unless the plan caps members.
+  const seats = useSeatUsage(id);
+
   const [inviting, setInviting] = useState(false);
   const [emailing, setEmailing] = useState(false);
   const [filtering, setFiltering] = useState(false);
+  const [showingLimit, setShowingLimit] = useState(false);
 
   // Held together rather than as three useStates: every reader below wants the
   // whole set, and `NO_FILTERS` is then one value to reset to.
@@ -139,22 +146,30 @@ export default function OrganizationMembersScreen() {
         }
       >
         {canManage && !narrowed ? (
-          <InsetCard elevated className="mb-4">
-            <InsetRow icon={UserPlus} label="Invite member" onPress={() => setInviting(true)} />
-            <InsetRow
-              icon={Mail}
-              label="Invitations"
-              value={pending > 0 ? `${pending} pending` : undefined}
-              onPress={() => router.push("/members/invitations")}
-            />
-            {members.length > 1 ? (
+          <VStack className="mb-4">
+            <InsetCard elevated>
               <InsetRow
-                icon={Megaphone}
-                label="Email everyone"
-                onPress={() => setEmailing(true)}
+                icon={UserPlus}
+                label="Invite member"
+                // A full organization gets the limit, not a form it can't send.
+                onPress={() => (seats?.left === 0 ? setShowingLimit(true) : setInviting(true))}
               />
-            ) : null}
-          </InsetCard>
+              <InsetRow
+                icon={Mail}
+                label="Invitations"
+                value={pending > 0 ? `${pending} pending` : undefined}
+                onPress={() => router.push("/members/invitations")}
+              />
+              {members.length > 1 ? (
+                <InsetRow
+                  icon={Megaphone}
+                  label="Email everyone"
+                  onPress={() => setEmailing(true)}
+                />
+              ) : null}
+            </InsetCard>
+            {seats ? <SeatsCaption seats={seats} /> : null}
+          </VStack>
         ) : null}
 
         {/* What the list is currently narrowed to, and the tap that undoes it.
@@ -242,7 +257,45 @@ export default function OrganizationMembersScreen() {
           recipientCount={members.length}
         />
       ) : null}
+
+      {organization && seats ? (
+        <PlanLimitDialog
+          visible={showingLimit}
+          icon={Users}
+          title="Member limit reached"
+          description={`${organization.name} has reached the Free plan's ${seats.limit}-member limit. Pending invites count toward it.`}
+          hint={
+            seats.pendingInvites > 0
+              ? "Cancel a pending invite under Invitations to free a spot."
+              : undefined
+          }
+          organizationId={organization.id}
+          organizationName={organization.name}
+          canSubscribe={organization.role === "OWNER"}
+          onClose={() => setShowingLimit(false)}
+        />
+      ) : null}
     </VStack>
+  );
+}
+
+/**
+ * The dashboard's Members card, as a line under the invite rows. Pending
+ * invites hold seats too, so they come off what's left.
+ */
+function SeatsCaption({ seats }: { seats: SeatUsage }) {
+  const theme = useTheme();
+  const full = seats.left === 0;
+  const invited = seats.pendingInvites > 0 ? ` · ${seats.pendingInvites} invited` : "";
+  const left = full ? "Free limit reached" : `${seats.left} left on Free`;
+
+  return (
+    <Text
+      className={`ml-1 mt-2 text-[12px] ${full ? "font-medium" : "text-muted-foreground"}`}
+      style={full ? { color: theme.warning } : undefined}
+    >
+      {`${seats.members} / ${seats.limit} members${invited} · ${left}`}
+    </Text>
   );
 }
 

@@ -15,6 +15,7 @@ import { AppIcon, type AppIconName } from "@/components/app-icon";
 import { SegmentedControl, type Segment } from "@/components/events/segmented-control";
 import { InsetCard } from "@/components/inset-list";
 import { useCurrentOrganization } from "@/components/organization-provider";
+import { PlanLimitDialog } from "@/components/plan-limit-dialog";
 import {
   SONG_SEPARATOR_INSET,
   SongRow,
@@ -31,6 +32,7 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand, withAlpha } from "@/constants/branding";
+import { useBillingStatus } from "@/hooks/use-billing";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useSongKeys } from "@/hooks/use-song-keys";
 import { useTheme } from "@/hooks/use-theme";
@@ -78,6 +80,7 @@ export default function SongsScreen() {
   const canManage = canManageOrg(organization?.role);
 
   const songs = useSongs(organizationId);
+  const billing = useBillingStatus(organizationId);
 
   // Gated on the caller's volunteer roles, the way the dashboard gates its own
   // tab. Somebody who doesn't sing never asks for a journal they cannot open.
@@ -120,8 +123,13 @@ export default function SongsScreen() {
   // so the list stays live: an upload refetches the library and the dialog has
   // to redraw from the new row, not the one that was passed in.
   const [attachingId, setAttachingId] = useState<string | null>(null);
+  const [limitOpen, setLimitOpen] = useState(false);
 
   const library = songs.data ?? NO_SONGS;
+
+  // Only managers add songs, so only they see the cap.
+  const songLimit = canManage ? (billing.data?.limits?.songs ?? null) : null;
+  const songLimitReached = songLimit !== null && library.length >= songLimit;
 
   const themes = useMemo(() => themesOf(library), [library]);
   const artists = useMemo(() => artistsOf(library), [library]);
@@ -206,6 +214,13 @@ export default function SongsScreen() {
 
   const sortLabel =
     SORT_OPTIONS.find((option) => option.value === sort)?.label ?? "Sort";
+
+  const countLabel = narrowed
+    ? `${visible.length} result${visible.length === 1 ? "" : "s"}`
+    : songLimit !== null
+      ? `${library.length} / ${songLimit} songs${songLimitReached ? " · Free limit reached" : ""}`
+      : `${library.length} song${library.length === 1 ? "" : "s"}`;
+  const countWarning = songLimitReached && !narrowed;
 
   // Only the journal carries a count: the library prints its own under the
   // toolbar, and printing it twice on one screen says nothing new.
@@ -295,16 +310,22 @@ export default function SongsScreen() {
                 onPress={() => setSortOpen(true)}
               />
 
-              {canManage ? <AddSongButton onPress={() => setEditing(null)} /> : null}
+              {canManage ? (
+                <AddSongButton
+                  // A full library gets the limit, not a form it can't save.
+                  onPress={() => (songLimitReached ? setLimitOpen(true) : setEditing(null))}
+                />
+              ) : null}
             </HStack>
 
             {/* ── How much of the library is showing ───────────────────────── */}
             {songs.isPending || songs.isError ? null : (
               <HStack className="mb-3 flex-wrap items-center gap-1.5">
-                <Text className="text-[12px] font-medium text-muted-foreground">
-                  {narrowed
-                    ? `${visible.length} result${visible.length === 1 ? "" : "s"}`
-                    : `${library.length} song${library.length === 1 ? "" : "s"}`}
+                <Text
+                  className={`text-[12px] font-medium ${countWarning ? "" : "text-muted-foreground"}`}
+                  style={countWarning ? { color: theme.warning } : undefined}
+                >
+                  {countLabel}
                 </Text>
 
                 {Array.from(selectedThemes).map((value) => (
@@ -414,6 +435,20 @@ export default function SongsScreen() {
         organizationId={organizationId}
         onClose={() => setAttachingId(null)}
       />
+
+      {organization && songLimit !== null ? (
+        <PlanLimitDialog
+          visible={limitOpen}
+          icon={Music}
+          title="Song limit reached"
+          description={`${organization.name} has reached the Free plan's ${songLimit}-song limit.`}
+          hint="Remove a song you no longer use to free a spot."
+          organizationId={organization.id}
+          organizationName={organization.name}
+          canSubscribe={organization.role === "OWNER"}
+          onClose={() => setLimitOpen(false)}
+        />
+      ) : null}
     </VStack>
   );
 }

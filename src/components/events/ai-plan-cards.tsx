@@ -21,6 +21,7 @@ export const PLAN_COPY: Record<AiPlan, { name: string; price: string; blurb: str
     price: "$39.99/month",
     blurb: "Let AI build the setlist from your catalog.",
     features: [
+      "Unlimited members and songs",
       "AI setlist generation",
       "Matches themes, keys, and tempo arc",
       "Works strictly from your song catalog",

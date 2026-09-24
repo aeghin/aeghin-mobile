@@ -3,8 +3,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as WebBrowser from "expo-web-browser";
 import { useCallback } from "react";
 
+import { useOrganizationDetails } from "@/hooks/use-organizations";
 import { apiGet, apiPost } from "@/lib/api";
-import type { AiPlan, BillingStatus } from "@/types/billing";
+import type { AiPlan, BillingStatus, SeatUsage } from "@/types/billing";
 
 const billingPath = (orgId: string) => `/api/mobile/v1/organizations/${orgId}/billing`;
 
@@ -29,6 +30,29 @@ export function useBillingStatus(orgId: string) {
     // Entitlements land through a webhook; a fresh read after checkout matters.
     staleTime: 0,
   });
+}
+
+/**
+ * The dashboard's `getSeatUsage`: members plus pending invites against the
+ * plan's cap. Null when the plan has no cap or either read is still loading.
+ * Display only — the server enforces.
+ */
+export function useSeatUsage(orgId: string): SeatUsage | null {
+  const billing = useBillingStatus(orgId);
+  const details = useOrganizationDetails(orgId);
+
+  const limit = billing.data?.limits?.members ?? null;
+
+  if (limit === null || !details.data) return null;
+
+  const { memberCount, pendingInvitationCount } = details.data;
+
+  return {
+    limit,
+    members: memberCount,
+    pendingInvites: pendingInvitationCount,
+    left: Math.max(0, limit - memberCount - pendingInvitationCount),
+  };
 }
 
 /**

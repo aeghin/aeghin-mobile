@@ -2,6 +2,7 @@ import { useAuth } from "@clerk/expo";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { apiDelete, apiGet, apiPost } from "@/lib/api";
+import { isPlanLimit } from "@/lib/failure";
 import type {
   InvitationInput,
   OrganizationInvitation,
@@ -48,6 +49,12 @@ export function useInviteMember(orgId: string) {
       // The organization detail carries `pendingInvitationCount`.
       queryClient.invalidateQueries({ queryKey: ["organizations", userId] });
     },
+    // Refused as full: the seat counts the phone showed were stale.
+    onError: (error) => {
+      if (isPlanLimit(error, "MEMBER_LIMIT")) {
+        queryClient.invalidateQueries({ queryKey: ["organizations", userId] });
+      }
+    },
   });
 }
 
@@ -83,6 +90,12 @@ export function useResendInvitation(orgId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: invitationsKey(orgId) });
       queryClient.invalidateQueries({ queryKey: ["organizations", userId] });
+    },
+    // Refused as full: the seat counts the phone showed were stale.
+    onError: (error) => {
+      if (isPlanLimit(error, "MEMBER_LIMIT")) {
+        queryClient.invalidateQueries({ queryKey: ["organizations", userId] });
+      }
     },
   });
 }

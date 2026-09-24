@@ -65,12 +65,18 @@ export function Field({ label, hint, error, children }: FieldProps) {
 
 type FormInputProps = React.ComponentProps<typeof TextInput>;
 
+/**
+ * Where a multiline field stops growing and scrolls inside itself instead —
+ * about what a dialog's body keeps above the keyboard, so the caret never
+ * slides under it however long the message gets.
+ */
+const TEXT_AREA_MAX_HEIGHT = 160;
+
 export function FormInput(props: FormInputProps) {
   const theme = useTheme();
 
   return (
     <TextInput
-      autoCorrect={false}
       {...props}
       placeholderTextColor={theme.textMuted}
       style={[
@@ -84,7 +90,9 @@ export function FormInput(props: FormInputProps) {
           fontSize: 15,
           color: theme.text,
         },
-        props.multiline ? { minHeight: 96, textAlignVertical: "top" } : null,
+        props.multiline
+          ? { minHeight: 96, maxHeight: TEXT_AREA_MAX_HEIGHT, textAlignVertical: "top" }
+          : null,
         props.style,
       ]}
     />
@@ -267,7 +275,6 @@ export function FormRow({ label, icon, ...input }: FormRowProps) {
       <Text className="text-[15px] text-foreground">{label}</Text>
 
       <TextInput
-        autoCorrect={false}
         {...input}
         placeholderTextColor={theme.textMuted}
         style={[
@@ -325,7 +332,6 @@ export function FormTextArea(props: React.ComponentProps<typeof TextInput>) {
 
   return (
     <TextInput
-      autoCorrect={false}
       multiline
       {...props}
       placeholderTextColor={theme.textMuted}

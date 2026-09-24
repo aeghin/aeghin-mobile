@@ -245,6 +245,7 @@ function SongForm({
           placeholder="https://open.spotify.com/track/…"
           keyboardType="url"
           autoCapitalize="none"
+          autoCorrect={false}
         />
       </Field>
 
@@ -255,6 +256,7 @@ function SongForm({
           placeholder="https://youtube.com/watch?v=…"
           keyboardType="url"
           autoCapitalize="none"
+          autoCorrect={false}
         />
       </Field>
 

@@ -112,6 +112,7 @@ function InviteMemberBody({
           keyboardType="email-address"
           autoCapitalize="none"
           autoComplete="email"
+          autoCorrect={false}
           autoFocus
         />
       </Field>

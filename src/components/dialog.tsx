@@ -6,6 +6,7 @@ import {
   Platform,
   Pressable as RNPressable,
   ScrollView,
+  View,
   useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -25,12 +26,16 @@ import { useTheme } from "@/hooks/use-theme";
  * sheet: a dimmed page with a centred card on it, headed by a tinted glyph, a
  * title and a line of explanation, and closed by a pair of buttons.
  *
- * The card is capped at most of the viewport and scrolls inside itself, which
- * is what lets one shape carry both a two-field form and a list of every key.
+ * The card is capped at most of the viewport — or at what the keyboard leaves
+ * of it — and scrolls inside itself, which is what lets one shape carry both a
+ * two-field form and a list of every key.
  */
 
 /** How much of the screen the card may take before its body starts scrolling. */
 const MAX_HEIGHT_RATIO = 0.86;
+
+/** What the card keeps between itself and the status bar, or the keyboard. */
+const EDGE_GAP = 12;
 
 const CARD_RADIUS = 26;
 const ICON_CIRCLE = 52;
@@ -126,106 +131,122 @@ export function Dialog({
         accessibilityLabel="Close"
       />
 
+      {/* The card shrinks into what the keyboard leaves rather than sliding
+          under it. The even padding keeps it centred at rest and off the
+          status bar; the offset hands back the bottom half of that padding
+          once the keyboard covers the screen's bottom edge. */}
       <KeyboardAvoidingView
-        style={{ flex: 1, justifyContent: "center", paddingHorizontal: 20 }}
+        style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={-insets.top}
         pointerEvents="box-none"
       >
-        <Animated.View
-          accessibilityViewIsModal
+        <View
           style={{
-            maxHeight: height * MAX_HEIGHT_RATIO - insets.top - insets.bottom,
-            borderRadius: CARD_RADIUS,
-            borderWidth: 1,
-            borderColor: theme.border,
-            backgroundColor: theme.card,
-            overflow: "hidden",
-            boxShadow: "0px 24px 48px rgba(0, 0, 0, 0.28)",
-            opacity: scale.interpolate({
-              inputRange: [0.94, 1],
-              outputRange: [0, 1],
-            }),
-            transform: [{ scale }],
+            flex: 1,
+            justifyContent: "center",
+            paddingHorizontal: 20,
+            paddingVertical: insets.top + EDGE_GAP,
           }}
+          pointerEvents="box-none"
         >
-          <VStack className="items-center gap-1.5 px-6 pb-1 pt-6">
-            {icon ? (
-              <Center
-                className="mb-1.5"
-                style={{
-                  width: ICON_CIRCLE,
-                  height: ICON_CIRCLE,
-                  borderRadius: ICON_CIRCLE / 2,
-                  backgroundColor: withAlpha(accent, 0.12),
-                }}
-              >
-                <AppIcon icon={icon} size={24} color={accent} />
-              </Center>
-            ) : null}
-
-            <Text
-              className="text-center text-[19px] font-bold tracking-[-0.3px]"
-              style={{ color: tone === "destructive" ? theme.destructive : theme.text }}
-            >
-              {title}
-            </Text>
-
-            {description ? (
-              <Text className="max-w-[300px] text-center text-[13.5px] leading-[19px] text-muted-foreground">
-                {description}
-              </Text>
-            ) : null}
-          </VStack>
-
-          {children ? (
-            <ScrollView
-              // The bottom pad clears the footer hairline: without it the last
-              // field sits right on the rule and reads as clipped.
-              contentContainerStyle={{
-                paddingHorizontal: 20,
-                paddingTop: 16,
-                paddingBottom: 20,
-              }}
-              keyboardDismissMode="on-drag"
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
-              <VStack className="gap-4">{children}</VStack>
-            </ScrollView>
-          ) : null}
-
-          <HStack
-            className="gap-2.5 px-5 pt-4"
+          <Animated.View
+            accessibilityViewIsModal
             style={{
-              paddingBottom: 20,
-              // The body scrolls under this, so a dialog that has one gets a
-              // hairline: without it a long list is clipped mid-row and reads
-              // as a rendering fault rather than as more to scroll.
-              borderTopWidth: children ? 1 : 0,
-              borderTopColor: theme.border,
+              maxHeight: height * MAX_HEIGHT_RATIO - insets.top - insets.bottom,
+              flexShrink: 1,
+              borderRadius: CARD_RADIUS,
+              borderWidth: 1,
+              borderColor: theme.border,
+              backgroundColor: theme.card,
+              overflow: "hidden",
+              boxShadow: "0px 24px 48px rgba(0, 0, 0, 0.28)",
+              opacity: scale.interpolate({
+                inputRange: [0.94, 1],
+                outputRange: [0, 1],
+              }),
+              transform: [{ scale }],
             }}
           >
-            {action ? (
-              <>
-                <DialogButton
-                  label={cancelLabel}
-                  onPress={onClose}
-                  disabled={submitting}
-                  variant="outline"
-                />
-                <DialogButton
-                  label={action.label}
-                  onPress={action.onPress}
-                  disabled={submitting || action.disabled}
-                  busy={submitting}
-                  accent={accent}
-                />
-              </>
-            ) : (
-              <DialogButton label="Done" onPress={onClose} accent={accent} />
-            )}
-          </HStack>
-        </Animated.View>
+            <VStack className="items-center gap-1.5 px-6 pb-1 pt-6">
+              {icon ? (
+                <Center
+                  className="mb-1.5"
+                  style={{
+                    width: ICON_CIRCLE,
+                    height: ICON_CIRCLE,
+                    borderRadius: ICON_CIRCLE / 2,
+                    backgroundColor: withAlpha(accent, 0.12),
+                  }}
+                >
+                  <AppIcon icon={icon} size={24} color={accent} />
+                </Center>
+              ) : null}
+
+              <Text
+                className="text-center text-[19px] font-bold tracking-[-0.3px]"
+                style={{ color: tone === "destructive" ? theme.destructive : theme.text }}
+              >
+                {title}
+              </Text>
+
+              {description ? (
+                <Text className="max-w-[300px] text-center text-[13.5px] leading-[19px] text-muted-foreground">
+                  {description}
+                </Text>
+              ) : null}
+            </VStack>
+
+            {children ? (
+              <ScrollView
+                // The bottom pad clears the footer hairline: without it the last
+                // field sits right on the rule and reads as clipped.
+                contentContainerStyle={{
+                  paddingHorizontal: 20,
+                  paddingTop: 16,
+                  paddingBottom: 20,
+                }}
+                keyboardDismissMode="on-drag"
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                <VStack className="gap-4">{children}</VStack>
+              </ScrollView>
+            ) : null}
+
+            <HStack
+              className="gap-2.5 px-5 pt-4"
+              style={{
+                paddingBottom: 20,
+                // The body scrolls under this, so a dialog that has one gets a
+                // hairline: without it a long list is clipped mid-row and reads
+                // as a rendering fault rather than as more to scroll.
+                borderTopWidth: children ? 1 : 0,
+                borderTopColor: theme.border,
+              }}
+            >
+              {action ? (
+                <>
+                  <DialogButton
+                    label={cancelLabel}
+                    onPress={onClose}
+                    disabled={submitting}
+                    variant="outline"
+                  />
+                  <DialogButton
+                    label={action.label}
+                    onPress={action.onPress}
+                    disabled={submitting || action.disabled}
+                    busy={submitting}
+                    accent={accent}
+                  />
+                </>
+              ) : (
+                <DialogButton label="Done" onPress={onClose} accent={accent} />
+              )}
+            </HStack>
+          </Animated.View>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );

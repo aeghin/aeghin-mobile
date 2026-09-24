@@ -57,7 +57,7 @@ const formatClock = (clock: string) => formatTime(`1970-01-01T${clock}:00Z`);
 /** The refusals worth rewording. Everything else is already a sentence. */
 const REWORDED: [RegExp, string][] = [
   [/service type/i, "This organization has no service types yet — add one in Settings and try again."],
-  [/upgrade/i, "This organization's AI plan has lapsed."],
+  [/upgrade/i, "This organization's plan no longer includes AI event drafting."],
   [/unauthori[sz]ed/i, "Your session has expired. Sign in again."],
   [/not found/i, "Only an owner or admin can draft events here."],
   [/internal server error/i, "Something went wrong. Please try again."],

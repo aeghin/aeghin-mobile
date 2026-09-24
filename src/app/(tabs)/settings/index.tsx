@@ -96,7 +96,7 @@ export default function SettingsScreen() {
               ) : null}
               <InsetRow
                 icon={Sparkles}
-                label={MOBILE_PURCHASES_ENABLED ? "AI plans" : "AI"}
+                label={MOBILE_PURCHASES_ENABLED ? "Plans" : "Plan"}
                 value={billing.data ? plan : undefined}
                 onPress={() => router.push("/settings/billing")}
               />

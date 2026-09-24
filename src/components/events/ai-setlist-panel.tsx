@@ -197,7 +197,7 @@ export function AiSetlistPanel({ organizationId, eventId, colors, onApply }: AiS
         {error ? (
           <Text className="mt-2 text-[13px]" style={{ color: theme.destructive }}>
             {/upgrade/i.test(error.message)
-              ? "This organization's AI plan has lapsed."
+              ? "This organization's plan no longer includes AI setlists."
               : /catalog/i.test(error.message)
                 ? "Add songs to the library first — the agent works from your catalog."
                 : "Something went wrong. Please try again."}

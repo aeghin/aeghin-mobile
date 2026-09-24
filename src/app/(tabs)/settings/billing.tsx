@@ -64,7 +64,7 @@ export default function BillingScreen() {
     if (!checkout || announced.current === checkout) return;
     announced.current = checkout;
     if (checkout === "success") {
-      Alert.alert("You're all set", "Your AI plan is active. It can take a moment to show here.");
+      Alert.alert("You're all set", "Your plan is active. It can take a moment to show here.");
     }
   }, [checkout]);
 
@@ -75,7 +75,7 @@ export default function BillingScreen() {
     <VStack className="flex-1 bg-grouped">
       <Stack.Screen
         options={{
-          title: MOBILE_PURCHASES_ENABLED ? "AI plans" : "AI plan",
+          title: MOBILE_PURCHASES_ENABLED ? "Plans" : "Plan",
           headerBackTitle: "Settings",
         }}
       />
@@ -116,7 +116,7 @@ export default function BillingScreen() {
                 <AppIcon icon={Sparkles} size={26} color={current ? planTint(current, theme) : brand.orange} />
               </Center>
               <Text className="text-[20px] font-bold text-foreground">
-                {current ? `AI ${PLAN_COPY[current].name}` : "Free plan"}
+                {current ? `${PLAN_COPY[current].name} plan` : "Free plan"}
               </Text>
               <Text className="max-w-[300px] text-center text-[13px] text-muted-foreground">
                 {current
@@ -182,7 +182,7 @@ export default function BillingScreen() {
                 {(["premium", "pro"] as AiPlan[]).map((plan) => (
                   <PlanCard
                     key={plan}
-                    name={`AI ${PLAN_COPY[plan].name}`}
+                    name={PLAN_COPY[plan].name}
                     price={PLAN_COPY[plan].price}
                     blurb={PLAN_COPY[plan].blurb}
                     features={[...PLAN_COPY[plan].features, "Billed per organization"]}

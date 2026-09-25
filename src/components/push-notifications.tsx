@@ -6,6 +6,7 @@ import { useEffect, useRef } from "react";
 import { Alert } from "react-native";
 
 import { useCurrentOrganization } from "@/components/organization-provider";
+import { chatKey } from "@/hooks/use-event-chat";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { obtainPushToken, registerPushToken, unregisterPushToken } from "@/lib/push";
 import type { OrganizationSummary } from "@/types/organization";
@@ -25,7 +26,10 @@ function pushDataOf(notification: Notifications.Notification): PushData | null {
 
   if (typeof organizationId !== "string") return null;
 
-  if ((type === "event" || type === "invitation") && typeof eventId === "string") {
+  if (
+    (type === "event" || type === "invitation" || type === "chat") &&
+    typeof eventId === "string"
+  ) {
     return { type, organizationId, eventId };
   }
 
@@ -35,6 +39,14 @@ function pushDataOf(notification: Notifications.Notification): PushData | null {
 
 /** Marks stale whatever a notification is about, so an open screen redraws. */
 function refreshFor(queryClient: QueryClient, userId: string, data: PushData) {
+  // A message changes the chat's preview card and nothing else.
+  if (data.type === "chat") {
+    queryClient.invalidateQueries({
+      queryKey: chatKey(userId, data.organizationId, data.eventId),
+    });
+    return;
+  }
+
   queryClient.invalidateQueries({ queryKey: ["organizations", userId, "notifications"] });
 
   if (data.type === "organization-invite") {
@@ -173,6 +185,8 @@ export function PushNotifications({ ready }: { ready: boolean }) {
       // dismissed back to, so an open event page doesn't stack another.
       if (data.type === "event") {
         router.push(`/events/${data.eventId}`);
+      } else if (data.type === "chat") {
+        router.push(`/events/${data.eventId}/chat`);
       } else if (data.type === "invitation") {
         router.dismissTo({ pathname: "/", params: { tab: "pending" } });
       } else {

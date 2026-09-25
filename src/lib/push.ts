@@ -27,6 +27,13 @@ export async function obtainPushToken(): Promise<string | null> {
       name: "Notifications",
       importance: Notifications.AndroidImportance.MAX,
     });
+    // Its own channel, so chat can be turned off in Android's settings without
+    // losing everything else. The server sends chat pushes to this id.
+    await Notifications.setNotificationChannelAsync("chat", {
+      name: "Event chat",
+      description: "New messages in your events' team chats",
+      importance: Notifications.AndroidImportance.DEFAULT,
+    });
   }
 
   let { status } = await Notifications.getPermissionsAsync();
@@ -51,9 +58,15 @@ export async function obtainPushToken(): Promise<string | null> {
   return data;
 }
 
-/** Points this phone's notifications at the signed-in account. */
+/**
+ * Points this phone's notifications at the signed-in account. The zone times
+ * the day-before reminder, and is re-sent every launch so it follows a move.
+ */
 export function registerPushToken(token: string) {
-  return apiPost<{ success: true }>("/api/mobile/v1/push-tokens", { token });
+  return apiPost<{ success: true }>("/api/mobile/v1/push-tokens", {
+    token,
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  });
 }
 
 /**

@@ -2,6 +2,7 @@ import { useAuth } from "@clerk/expo";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
+import { isPlanLimit } from "@/lib/failure";
 import type { ServiceType, ServiceTypeColor } from "@/types/event";
 
 type ServiceTypesResponse = {
@@ -40,6 +41,7 @@ const serviceTypesPath = (orgId: string) =>
 export type ServiceTypeInput = { name: string; color: ServiceTypeColor };
 
 export function useAddServiceType(orgId: string) {
+  const { userId } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -59,6 +61,13 @@ export function useAddServiceType(orgId: string) {
       }
 
       queryClient.invalidateQueries({ queryKey: serviceTypesKey(orgId) });
+    },
+    // Refused as full: the list or the plan the phone counted against was stale.
+    onError: (error) => {
+      if (isPlanLimit(error, "SERVICE_TYPE_LIMIT")) {
+        queryClient.invalidateQueries({ queryKey: serviceTypesKey(orgId) });
+        queryClient.invalidateQueries({ queryKey: ["organizations", userId] });
+      }
     },
   });
 }

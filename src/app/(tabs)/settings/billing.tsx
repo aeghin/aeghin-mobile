@@ -26,8 +26,9 @@ import { MOBILE_PURCHASES_ENABLED } from "@/lib/config/purchases";
 import { canManageOrg } from "@/lib/config/roles";
 import { formatDayMonth } from "@/lib/events/format";
 import { failureMessage } from "@/lib/failure";
+import { planOf } from "@/lib/config/plans";
 import { formatStorage } from "@/lib/storage";
-import type { AiPlan, PlanLimits, PlanUsage } from "@/types/billing";
+import type { PaidPlan, PlanLimits, PlanUsage } from "@/types/billing";
 
 const TAB_BAR_CLEARANCE = 64;
 
@@ -40,7 +41,9 @@ function freeFeatures(limits?: PlanLimits): string[] {
   return [
     "Create organizations, invite members, schedule events",
     limits?.members ? `Up to ${limits.members} members per organization` : "",
-    "Event templates & service types",
+    limits?.serviceTypes
+      ? `Event templates and ${limits.serviceTypes} service types`
+      : "Event templates & service types",
     "Blockout dates",
     "Song library with charts and audio",
     limits?.songs ? `Up to ${limits.songs} songs in your library` : "",
@@ -52,12 +55,16 @@ function freeFeatures(limits?: PlanLimits): string[] {
 }
 
 /** A paid plan's list, with what the server reports after its first line. */
-function paidFeatures(plan: AiPlan, limits?: PlanLimits): string[] {
+function paidFeatures(plan: PaidPlan, limits?: PlanLimits): string[] {
   const [first, ...rest] = PLAN_COPY[plan].features;
 
   return limits
     ? [
         first,
+        // Starter's caps; they're null on Premium and Pro, so those lines drop out.
+        limits.members ? `Up to ${limits.members} members per organization` : "",
+        limits.songs ? `Up to ${limits.songs} songs in your library` : "",
+        limits.serviceTypes ? `${limits.serviceTypes} service types` : "",
         `${formatStorage(limits.storage)} of storage for charts and audio`,
         limits.bulkEmails ? `${limits.bulkEmails} group emails a month` : "",
         limits.aiRuns ? `${limits.aiRuns} AI requests a month` : "",
@@ -65,6 +72,9 @@ function paidFeatures(plan: AiPlan, limits?: PlanLimits): string[] {
       ].filter(Boolean)
     : PLAN_COPY[plan].features;
 }
+
+/** Plans in order, so the cards only offer a move up. */
+const PLAN_RANK: Record<PaidPlan, number> = { starter: 1, premium: 2, pro: 3 };
 
 /** The dashboard's pricing and billing section: what the organization has, and how to change it. */
 export default function BillingScreen() {
@@ -101,7 +111,8 @@ export default function BillingScreen() {
   }, [checkout]);
 
   const status = billing.data;
-  const current: AiPlan | null = status?.hasPro ? "pro" : status?.hasPremium ? "premium" : null;
+  const orgPlan = planOf(status);
+  const current: PaidPlan | null = orgPlan === "free" ? null : orgPlan;
 
   return (
     <VStack className="flex-1 bg-grouped">
@@ -213,7 +224,7 @@ export default function BillingScreen() {
                   tint={theme.textMuted}
                   current={current === null}
                 />
-                {(["premium", "pro"] as AiPlan[]).map((plan) => (
+                {(["starter", "premium", "pro"] as PaidPlan[]).map((plan) => (
                   <PlanCard
                     key={plan}
                     name={PLAN_COPY[plan].name}
@@ -226,12 +237,12 @@ export default function BillingScreen() {
                     tint={planTint(plan, theme)}
                     current={current === plan}
                     action={
-                      current === plan || (current === "pro" && plan === "premium") ? null : (
+                      current !== null && PLAN_RANK[plan] <= PLAN_RANK[current] ? null : (
                         <PlanButton
                           organizationId={organizationId}
                           plan={plan}
                           canSubscribe={status.canSubscribe}
-                          label={current === "premium" && plan === "pro" ? "Upgrade to Pro" : undefined}
+                          label={current ? `Upgrade to ${PLAN_COPY[plan].name}` : undefined}
                         />
                       )
                     }
@@ -308,7 +319,7 @@ const WARN_AT = 0.8;
 
 /** The dashboard's Plan & usage rows. Pending invites hold seats, so they fill the bar. */
 function UsageSection({ usage }: { usage: PlanUsage }) {
-  const { members, songs, storage, bulkEmails, aiRuns, resetsAt } = usage;
+  const { members, songs, serviceTypes, storage, bulkEmails, aiRuns, resetsAt } = usage;
 
   const seatsUsed = members.used + members.pending;
   const invited = members.pending > 0 ? `${members.pending} invited · ` : "";
@@ -342,6 +353,21 @@ function UsageSection({ usage }: { usage: PlanUsage }) {
           used={songs.used}
           limit={songs.limit}
         />
+        {serviceTypes ? (
+          <UsageRow
+            label="Service types"
+            value={serviceTypes.limit === null ? `${serviceTypes.used}` : `${serviceTypes.used} / ${serviceTypes.limit}`}
+            detail={
+              serviceTypes.limit === null
+                ? "No limit"
+                : serviceTypes.used >= serviceTypes.limit
+                  ? "Limit reached"
+                  : `${serviceTypes.limit - serviceTypes.used} left`
+            }
+            used={serviceTypes.used}
+            limit={serviceTypes.limit}
+          />
+        ) : null}
         <UsageRow
           label="Storage"
           value={`${formatStorage(storage.used)} / ${formatStorage(storage.limit)}`}

@@ -39,6 +39,7 @@ import { useMembersList } from "@/hooks/use-members-list";
 import { useOrganizationDetails } from "@/hooks/use-organizations";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useTheme } from "@/hooks/use-theme";
+import { PLAN_NAMES } from "@/lib/config/plans";
 import { canManageOrg, getRoleConfig } from "@/lib/config/roles";
 import { getVolunteerRoleConfig } from "@/lib/config/volunteer-roles";
 import {
@@ -263,7 +264,7 @@ export default function OrganizationMembersScreen() {
           visible={showingLimit}
           icon={Users}
           title="Member limit reached"
-          description={`${organization.name} has reached the Free plan's ${seats.limit}-member limit. Pending invites count toward it.`}
+          description={`${organization.name} has reached the ${PLAN_NAMES[seats.plan]} plan's ${seats.limit}-member limit. Pending invites count toward it.`}
           hint={
             seats.pendingInvites > 0
               ? "Cancel a pending invite under Invitations to free a spot."
@@ -287,7 +288,8 @@ function SeatsCaption({ seats }: { seats: SeatUsage }) {
   const theme = useTheme();
   const full = seats.left === 0;
   const invited = seats.pendingInvites > 0 ? ` · ${seats.pendingInvites} invited` : "";
-  const left = full ? "Free limit reached" : `${seats.left} left on Free`;
+  const planName = PLAN_NAMES[seats.plan];
+  const left = full ? `${planName} limit reached` : `${seats.left} left on ${planName}`;
 
   return (
     <Text

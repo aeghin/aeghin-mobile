@@ -19,7 +19,7 @@ import { failureMessage } from "@/lib/failure";
  * whose numbers the server only sends for the organization's own plan.
  */
 const PREMIUM_PERKS = [
-  "Unlimited members and songs",
+  "Unlimited members, songs and service types",
   "Smart Scheduling fills declines for you",
   "AI setlist generation from your song library",
   "Billed per organization, cancel anytime",

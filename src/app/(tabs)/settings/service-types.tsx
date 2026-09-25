@@ -10,6 +10,7 @@ import { AppIcon } from "@/components/app-icon";
 import { EventsEmptyState } from "@/components/events/events-empty-state";
 import { InsetCard } from "@/components/inset-list";
 import { useCurrentOrganization } from "@/components/organization-provider";
+import { PlanLimitDialog } from "@/components/plan-limit-dialog";
 import { ServiceTypeDialog } from "@/components/service-type-dialog";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
@@ -19,9 +20,11 @@ import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
+import { useBillingStatus } from "@/hooks/use-billing";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useDeleteServiceType, useServiceTypes } from "@/hooks/use-service-types";
 import { useTheme } from "@/hooks/use-theme";
+import { PLAN_NAMES, planOf } from "@/lib/config/plans";
 import { canManageOrg } from "@/lib/config/roles";
 import { getServiceColors } from "@/lib/config/service-types";
 import { failureMessage } from "@/lib/failure";
@@ -42,11 +45,18 @@ export default function ServiceTypesScreen() {
   const serviceTypes = useServiceTypes(organizationId);
   const pullToRefresh = usePullToRefresh(serviceTypes.refetch);
   const remove = useDeleteServiceType(organizationId);
+  const billing = useBillingStatus(organizationId);
 
   // `undefined` while closed, `null` for a new one, a service type when editing.
   const [editing, setEditing] = useState<ServiceType | null | undefined>(undefined);
+  const [showingLimit, setShowingLimit] = useState(false);
 
   const rows = serviceTypes.data ?? [];
+
+  // Only managers add service types, so only they see the cap. Deleted ones don't count.
+  const limit = canManage ? (billing.data?.limits?.serviceTypes ?? null) : null;
+  const full = limit !== null && rows.length >= limit;
+  const planName = PLAN_NAMES[planOf(billing.data)];
 
   const openActions = (serviceType: ServiceType) =>
     Alert.alert(serviceType.name, undefined, [
@@ -148,10 +158,19 @@ export default function ServiceTypesScreen() {
             </InsetCard>
           )}
 
+          {limit !== null && rows.length > 0 ? (
+            <Text
+              className={`-mt-2 ml-1 text-[12px] ${full ? "font-medium" : "text-muted-foreground"}`}
+              style={full ? { color: theme.warning } : undefined}
+            >
+              {`${rows.length} / ${limit} service types · ${full ? `${planName} limit reached` : `${limit - rows.length} left on ${planName}`}`}
+            </Text>
+          ) : null}
+
           {canManage && !serviceTypes.isPending && !serviceTypes.isError ? (
             <Button
               variant="outline"
-              onPress={() => setEditing(null)}
+              onPress={() => (full ? setShowingLimit(true) : setEditing(null))}
               className="h-auto rounded-2xl border-dashed border-border py-3.5"
             >
               <AppIcon icon={Plus} size={20} color={brand.orange} />
@@ -168,6 +187,20 @@ export default function ServiceTypesScreen() {
         onClose={() => setEditing(undefined)}
         organizationId={organizationId}
       />
+
+      {organization && limit !== null ? (
+        <PlanLimitDialog
+          visible={showingLimit}
+          icon={Tags}
+          title="Service type limit reached"
+          description={`${organization.name} has reached the ${planName} plan's limit of ${limit} service types.`}
+          hint="Delete one you no longer use to free a spot. Past events keep theirs."
+          organizationId={organization.id}
+          organizationName={organization.name}
+          canSubscribe={organization.role === "OWNER"}
+          onClose={() => setShowingLimit(false)}
+        />
+      ) : null}
     </VStack>
   );
 }

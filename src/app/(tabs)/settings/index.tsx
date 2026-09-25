@@ -24,6 +24,7 @@ import { useBillingStatus } from "@/hooks/use-billing";
 import { useTheme } from "@/hooks/use-theme";
 import { MOBILE_PURCHASES_ENABLED } from "@/lib/config/purchases";
 import { legalLinks } from "@/lib/config/links";
+import { PLAN_NAMES, planOf } from "@/lib/config/plans";
 import { canManageOrg, getRoleConfig } from "@/lib/config/roles";
 import { capitalizeName } from "@/lib/names";
 
@@ -49,7 +50,7 @@ export default function SettingsScreen() {
   const role = organization ? getRoleConfig(organization.role, theme) : null;
 
   const billing = useBillingStatus(organizationId);
-  const plan = billing.data?.hasPro ? "Pro" : billing.data?.hasPremium ? "Premium" : "Free";
+  const plan = PLAN_NAMES[planOf(billing.data)];
 
   return (
     <VStack className="flex-1 bg-grouped">

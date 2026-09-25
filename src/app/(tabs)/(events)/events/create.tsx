@@ -954,7 +954,7 @@ function CreateEventForm({
                     <Text className="text-[12px] text-muted-foreground">
                       {autoFillAvailable
                         ? "A decline auto-invites the next available member for that role."
-                        : "Not included in the Free plan."}
+                        : "Not included in this organization's plan."}
                     </Text>
                   </VStack>
                   <Switch

@@ -12,16 +12,22 @@ import { useStartCheckout } from "@/hooks/use-billing";
 import { useTheme } from "@/hooks/use-theme";
 import { MOBILE_PURCHASES_ENABLED } from "@/lib/config/purchases";
 import { failureMessage } from "@/lib/failure";
-import type { AiPlan } from "@/types/billing";
+import type { AiPlan, PaidPlan } from "@/types/billing";
 
 /** The dashboard's plan copy, word for word. */
-export const PLAN_COPY: Record<AiPlan, { name: string; price: string; blurb: string; features: string[] }> = {
+export const PLAN_COPY: Record<PaidPlan, { name: string; price: string; blurb: string; features: string[] }> = {
+  starter: {
+    name: "Starter",
+    price: "$24.99/month",
+    blurb: "Room to grow past the Free limits.",
+    features: ["Everything in Free"],
+  },
   premium: {
     name: "Premium",
     price: "$39.99/month",
-    blurb: "Lifts the Free limits, plus AI setlists.",
+    blurb: "No size limits, plus Smart Scheduling and AI setlists.",
     features: [
-      "Unlimited members and songs",
+      "Unlimited members, songs and service types",
       "Smart Scheduling and last-call staffing alerts",
       "AI setlist generation",
       "Matches themes, keys, and tempo arc",
@@ -31,7 +37,7 @@ export const PLAN_COPY: Record<AiPlan, { name: string; price: string; blurb: str
   },
   pro: {
     name: "Pro",
-    price: "$49.99/month",
+    price: "$59.99/month",
     blurb: "Drafts whole events, and researches beyond your catalog.",
     features: [
       "Everything in Premium",
@@ -43,14 +49,16 @@ export const PLAN_COPY: Record<AiPlan, { name: string; price: string; blurb: str
   },
 };
 
-/** Premium is amber and Pro is violet on the dashboard; the same here. */
-export function planTint(plan: AiPlan, theme: ReturnType<typeof useTheme>): string {
-  return plan === "pro" ? theme.violet : theme.warning;
+/** Starter is sky, Premium amber and Pro violet, as on the dashboard. */
+export function planTint(plan: PaidPlan, theme: ReturnType<typeof useTheme>): string {
+  if (plan === "pro") return theme.violet;
+  if (plan === "starter") return theme.sky;
+  return theme.warning;
 }
 
 type PlanButtonProps = {
   organizationId: string;
-  plan: AiPlan;
+  plan: PaidPlan;
   canSubscribe: boolean;
   label?: string;
 };

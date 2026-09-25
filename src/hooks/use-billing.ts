@@ -5,11 +5,12 @@ import { useCallback } from "react";
 
 import { useOrganizationDetails } from "@/hooks/use-organizations";
 import { apiGet, apiPost } from "@/lib/api";
+import { planOf } from "@/lib/config/plans";
 import { formatDayMonth } from "@/lib/events/format";
 import type {
-  AiPlan,
   BillingStatus,
   EmailAllowance,
+  PaidPlan,
   PlanUsage,
   SeatUsage,
 } from "@/types/billing";
@@ -71,6 +72,7 @@ export function useSeatUsage(orgId: string): SeatUsage | null {
   const { memberCount, pendingInvitationCount } = details.data;
 
   return {
+    plan: planOf(billing.data),
     limit,
     members: memberCount,
     pendingInvites: pendingInvitationCount,
@@ -132,7 +134,7 @@ export function useStartCheckout(orgId: string) {
   const open = useOpenStripe(orgId);
 
   return useMutation({
-    mutationFn: async (plan: AiPlan) => {
+    mutationFn: async (plan: PaidPlan) => {
       const { url } = await apiPost<{ url: string }>(`${billingPath(orgId)}/checkout`, { plan });
       await open(url);
     },

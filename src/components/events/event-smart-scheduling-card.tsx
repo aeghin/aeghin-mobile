@@ -125,7 +125,7 @@ export function EventSmartSchedulingCard({
               Smart Scheduling
             </Text>
             <Text className="text-[12px] text-muted-foreground">
-              {`Auto-fill ${running ? "on" : enabled ? "paused on the Free plan" : "off"}`}
+              {`Auto-fill ${running ? "on" : enabled ? "paused on this plan" : "off"}`}
             </Text>
           </VStack>
 

@@ -229,7 +229,7 @@ export function EventTeamCard({
 
   const toggleSmart = (enabled: boolean) => {
     if (!autoFillAvailable) {
-      Alert.alert("Auto-fill", "Smart Scheduling isn't included in the Free plan.");
+      Alert.alert("Auto-fill", "Smart Scheduling isn't included in this organization's plan.");
       return;
     }
 

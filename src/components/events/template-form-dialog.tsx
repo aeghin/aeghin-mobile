@@ -415,7 +415,7 @@ function TemplateForm({
           <Text className="text-[12px] text-muted-foreground">
             {autoFillAvailable
               ? "Events from this template start with it on."
-              : "Not included in the Free plan."}
+              : "Not included in this organization's plan."}
           </Text>
         </VStack>
         <Switch

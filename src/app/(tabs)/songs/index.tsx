@@ -43,6 +43,7 @@ import {
   useUpdateSong,
 } from "@/hooks/use-songs";
 import { ApiError } from "@/lib/api";
+import { PLAN_NAMES, planOf } from "@/lib/config/plans";
 import { canManageOrg } from "@/lib/config/roles";
 import { isVocalist } from "@/lib/config/volunteer-roles";
 import {
@@ -130,6 +131,7 @@ export default function SongsScreen() {
   // Only managers add songs, so only they see the cap.
   const songLimit = canManage ? (billing.data?.limits?.songs ?? null) : null;
   const songLimitReached = songLimit !== null && library.length >= songLimit;
+  const planName = PLAN_NAMES[planOf(billing.data)];
 
   // The library's charts and audio against the plan's storage. Null until the plan loads.
   const storageLimit = billing.data?.limits?.storage ?? null;
@@ -231,7 +233,7 @@ export default function SongsScreen() {
   const countLabel = narrowed
     ? `${visible.length} result${visible.length === 1 ? "" : "s"}`
     : songLimit !== null
-      ? `${library.length} / ${songLimit} songs${songLimitReached ? " · Free limit reached" : ""}`
+      ? `${library.length} / ${songLimit} songs${songLimitReached ? ` · ${planName} limit reached` : ""}`
       : `${library.length} song${library.length === 1 ? "" : "s"}`;
   const countWarning = songLimitReached && !narrowed;
 
@@ -455,7 +457,7 @@ export default function SongsScreen() {
           visible={limitOpen}
           icon={Music}
           title="Song limit reached"
-          description={`${organization.name} has reached the Free plan's ${songLimit}-song limit.`}
+          description={`${organization.name} has reached the ${planName} plan's ${songLimit}-song limit.`}
           hint="Remove a song you no longer use to free a spot."
           organizationId={organization.id}
           organizationName={organization.name}

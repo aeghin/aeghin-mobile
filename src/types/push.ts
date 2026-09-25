@@ -11,4 +11,6 @@ export type PushData =
   /** The organization's events, when there is no page left to open. */
   | { type: "organization"; organizationId: string }
   /** An invitation to join an organization. */
-  | { type: "organization-invite"; token: string };
+  | { type: "organization-invite"; token: string }
+  /** A new message in the event's chat. Only sent to people on its team. */
+  | { type: "chat"; organizationId: string; eventId: string };

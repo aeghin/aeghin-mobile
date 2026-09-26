@@ -163,26 +163,31 @@ type StaffingMeterProps = {
  * Only the All Events tab shows it: it answers a question owners and admins
  * have and volunteers do not.
  *
- * Every role invited and nobody answered yet is not the same as nobody
- * invited: there is nothing for a manager to do but wait, so it isn't red.
+ * Once every role still open has an invitation out, there is nothing for a
+ * manager to do but wait, and the label says so — "8 of 9 filled" is kept
+ * for a roster that still has somebody to invite.
  */
 export function StaffingMeter({ filled, awaiting, needed }: StaffingMeterProps) {
   const theme = useTheme();
 
   const full = filled >= needed;
-  const waiting = filled === 0 && awaiting >= needed;
+  const waiting = !full && filled + awaiting >= needed;
   const empty = filled === 0 && !waiting;
   const color = full ? theme.success : empty ? theme.destructive : theme.warning;
   const label = full
     ? "Fully staffed"
     : waiting
-      ? "Waiting on answers"
+      ? filled === 0
+        ? "Waiting on answers"
+        : `${filled} of ${needed} · waiting on answers`
       : empty
         ? "Needs volunteers"
         : `${filled} of ${needed} filled`;
 
+  // Wraps rather than running off the card: the label drops under the bar
+  // when a long roster and "waiting on answers" don't fit on one line.
   return (
-    <HStack className="items-center gap-2">
+    <HStack className="flex-wrap items-center gap-x-2 gap-y-1">
       <HStack className="gap-[3px]">
         {Array.from({ length: needed }, (_, index) => (
           <Box

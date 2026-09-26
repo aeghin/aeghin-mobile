@@ -12,6 +12,7 @@ import {
   ServiceRail,
   StaffingMeter,
 } from "@/components/events/chips";
+import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -106,13 +107,13 @@ export function EventCard({
           <MetaLine icon={MapPin}>{event.location}</MetaLine>
 
           {staffing ? (
-            <HStack className="pt-0.5">
+            <Box className="pt-0.5">
               <StaffingMeter
                 filled={staffing.filled}
                 awaiting={staffing.awaiting}
                 needed={staffing.needed}
               />
-            </HStack>
+            </Box>
           ) : null}
         </VStack>
 

@@ -157,8 +157,11 @@ type StaffingMeterProps = {
   needed: number;
 };
 
-/** Eight roles' worth of bar. A longer roster gets thinner segments instead. */
-const METER_MAX_WIDTH = 93;
+/**
+ * Seven roles' worth of bar. A longer roster gets thinner segments instead, so
+ * "Needs volunteers" still fits beside it on a 360pt-wide phone.
+ */
+const METER_MAX_WIDTH = 81;
 
 /**
  * How close an event is to being fully staffed.
@@ -195,7 +198,11 @@ export function StaffingMeter({ filled, awaiting, needed }: StaffingMeterProps) 
       </HStack>
 
       <Text className="text-[11px] font-semibold" style={{ color }}>
-        {full ? "Fully staffed" : `${filled} of ${needed} filled`}
+        {full
+          ? "Fully staffed"
+          : filled === 0 && awaiting === 0
+            ? "Needs volunteers"
+            : `${filled} of ${needed} filled`}
       </Text>
     </HStack>
   );

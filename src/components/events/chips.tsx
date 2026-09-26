@@ -152,6 +152,8 @@ export function ServiceRail({ service }: { service: ServiceType | undefined }) {
 
 type StaffingMeterProps = {
   filled: number;
+  /** Roles with an invitation still out. */
+  awaiting: number;
   needed: number;
 };
 
@@ -160,18 +162,24 @@ type StaffingMeterProps = {
  *
  * Only the All Events tab shows it: it answers a question owners and admins
  * have and volunteers do not.
+ *
+ * Every role invited and nobody answered yet is not the same as nobody
+ * invited: there is nothing for a manager to do but wait, so it isn't red.
  */
-export function StaffingMeter({ filled, needed }: StaffingMeterProps) {
+export function StaffingMeter({ filled, awaiting, needed }: StaffingMeterProps) {
   const theme = useTheme();
 
   const full = filled >= needed;
-  const empty = filled === 0;
+  const waiting = filled === 0 && awaiting >= needed;
+  const empty = filled === 0 && !waiting;
   const color = full ? theme.success : empty ? theme.destructive : theme.warning;
   const label = full
     ? "Fully staffed"
-    : empty
-      ? "Needs volunteers"
-      : `${filled} of ${needed} filled`;
+    : waiting
+      ? "Waiting on answers"
+      : empty
+        ? "Needs volunteers"
+        : `${filled} of ${needed} filled`;
 
   return (
     <HStack className="items-center gap-2">

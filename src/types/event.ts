@@ -107,6 +107,8 @@ export type OrganizationEvent = {
    * doesn't count assignments still renders.
    */
   filledRoleCount?: number;
+  /** Roles in `rolesNeeded` with an invitation still waiting on an answer. */
+  awaitingRoleCount?: number;
 };
 
 /**

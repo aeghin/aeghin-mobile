@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1090511011300",
+    "project_id": "aeghin",
+    "storage_bucket": "aeghin.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1090511011300:android:de744ee7197ae4ea475bf1",
+        "android_client_info": {
+          "package_name": "com.aeghinsteam.aeghin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBO3-ZcTA9ksNN5mu393WI0eVUOeeSTiKU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

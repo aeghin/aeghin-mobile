@@ -152,43 +152,65 @@ export function ServiceRail({ service }: { service: ServiceType | undefined }) {
 
 type StaffingMeterProps = {
   filled: number;
+  /** Roles with an invitation still out. */
+  awaiting: number;
   needed: number;
 };
+
+/**
+ * Seven roles' worth of bar. A longer roster gets thinner segments instead, so
+ * "Needs volunteers" still fits beside it on a 360pt-wide phone.
+ */
+const METER_MAX_WIDTH = 81;
 
 /**
  * How close an event is to being fully staffed.
  *
  * Only the All Events tab shows it: it answers a question owners and admins
  * have and volunteers do not.
+ *
+ * A glance, not the roster: the count says how far along it is and the colour
+ * says whether anybody has to act. Amber is every unfilled role waiting on an
+ * answer; red is a role with nobody on it.
+ *
+ * The bar says the same without the colour: solid for a filled role, pale for
+ * one waiting on an answer, grey for one with nobody on it.
  */
-export function StaffingMeter({ filled, needed }: StaffingMeterProps) {
+export function StaffingMeter({ filled, awaiting, needed }: StaffingMeterProps) {
   const theme = useTheme();
 
   const full = filled >= needed;
-  const empty = filled === 0;
-  const color = full ? theme.success : empty ? theme.destructive : theme.warning;
-  const label = full
-    ? "Fully staffed"
-    : empty
-      ? "Needs volunteers"
-      : `${filled} of ${needed} filled`;
+  const waiting = filled + awaiting >= needed;
+  const color = full ? theme.success : waiting ? theme.warning : theme.destructive;
 
   return (
     <HStack className="items-center gap-2">
-      <HStack className="gap-[3px]">
+      <HStack
+        className="gap-[3px]"
+        style={{ width: Math.min(needed * 12 - 3, METER_MAX_WIDTH) }}
+      >
         {Array.from({ length: needed }, (_, index) => (
           <Box
             key={index}
-            className="h-[5px] w-[9px] rounded-full"
+            className="h-[5px] flex-1 rounded-full"
             style={{
-              backgroundColor: index < filled ? color : theme.border,
+              backgroundColor:
+                index < filled
+                  ? color
+                  : index < filled + awaiting
+                    ? withAlpha(color, 0.35)
+                    : theme.border,
             }}
           />
         ))}
       </HStack>
 
       <Text className="text-[11px] font-semibold" style={{ color }}>
-        {label}
+        {full
+          ? "Fully staffed"
+          : filled === 0 && !waiting
+            ? "Needs volunteers"
+            : `${filled} of ${needed} filled`}
       </Text>
     </HStack>
   );

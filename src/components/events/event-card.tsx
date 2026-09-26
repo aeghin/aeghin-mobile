@@ -107,7 +107,11 @@ export function EventCard({
 
           {staffing ? (
             <HStack className="pt-0.5">
-              <StaffingMeter filled={staffing.filled} needed={staffing.needed} />
+              <StaffingMeter
+                filled={staffing.filled}
+                awaiting={staffing.awaiting}
+                needed={staffing.needed}
+              />
             </HStack>
           ) : null}
         </VStack>

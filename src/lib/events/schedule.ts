@@ -203,11 +203,19 @@ export function findUpNext(
   return best;
 }
 
-/** How many of an event's needed roles are filled, when the payload says. */
+/**
+ * How many of an event's needed roles are filled, and how many are waiting on
+ * an answer, when the payload says. A server without the awaiting count reads
+ * as nobody waiting.
+ */
 export function staffingFor(
   event: OrganizationEvent,
-): { filled: number; needed: number } | null {
+): { filled: number; awaiting: number; needed: number } | null {
   const needed = event.rolesNeeded.length;
   if (needed === 0 || event.filledRoleCount === undefined) return null;
-  return { filled: Math.min(event.filledRoleCount, needed), needed };
+  return {
+    filled: Math.min(event.filledRoleCount, needed),
+    awaiting: event.awaitingRoleCount ?? 0,
+    needed,
+  };
 }

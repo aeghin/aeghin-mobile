@@ -79,9 +79,8 @@ type Category = {
   key: RoleCategory;
   label: string;
   groups: RoleGroup[];
-  /** Places to fill, not people invited — see {@link slotsOf}. */
-  slots: number;
-  accepted: number;
+  /** Roles here that are filled — see {@link isFilled}. */
+  filled: number;
   /** At least one role here has stalled — see {@link hasStalled}. */
   stalled: boolean;
 };
@@ -106,33 +105,15 @@ const hasStalled = (groups: RoleGroup[], now: number) =>
   );
 
 /**
- * How many places a set of roles asks for — the number the confirmed count is
- * measured against.
+ * Somebody accepted and nobody on the role is still deciding.
  *
- * A role nobody is on yet still counts as one: it is a hole in the event, and
- * counting only the invitations sent reports an eight-role event with one
- * player on it as `1/1` — fully staffed, which is the opposite of the truth.
- * A role carrying several people counts each of them, so a pair of BGVs asks
- * for two.
- *
- * Only people who **accepted** widen a role past one. An invitation in flight
- * must not move the target, or inviting two players for one open spot reports
- * a four-piece band as `0/5` — and a decline would then shrink the denominator
- * back, so the number a manager is watching moves for reasons that have
- * nothing to do with the event being any more or less staffed. A second
- * *accepted* player is different: there really are two people on that role
- * now, and the count says so.
+ * The same test as the staffing meter on the events list and the "fully
+ * staffed" notification, so the count here agrees with the card that led
+ * here: one BGV in and three yet to answer is not a filled role.
  */
-const slotsOf = (groups: RoleGroup[]) =>
-  groups.reduce(
-    (count, group) =>
-      count +
-      Math.max(
-        1,
-        group.items.filter((item) => item.status === "ACCEPTED").length,
-      ),
-    0,
-  );
+const isFilled = (group: RoleGroup, now: number) =>
+  group.items.some((item) => item.status === "ACCEPTED") &&
+  !group.items.some((item) => item.status === "PENDING" && isLive(item, now));
 
 type EventTeamCardProps = {
   organizationId: string;
@@ -206,19 +187,17 @@ export function EventTeamCard({
         items: assignments.filter((assignment) => assignment.role === role),
       }));
 
-    const items = groups.flatMap((group) => group.items);
-
     return {
       key,
       label: roleCategoryConfig[key].label,
       groups,
-      slots: slotsOf(groups),
-      accepted: items.filter((item) => item.status === "ACCEPTED").length,
+      filled: groups.filter((group) => isFilled(group, now)).length,
       stalled: hasStalled(groups, now),
     };
   }).filter((category) => category.groups.length > 0);
 
-  const totalSlots = categories.reduce((count, category) => count + category.slots, 0);
+  const roleCount = categories.reduce((count, category) => count + category.groups.length, 0);
+  const filledCount = categories.reduce((count, category) => count + category.filled, 0);
 
   const toggle = (key: RoleCategory) =>
     setOpen((current) =>
@@ -266,7 +245,7 @@ export function EventTeamCard({
         <DetailCardHeader
           icon={Users}
           title="Team"
-          trailing={<DetailCount>{`${acceptedCount}/${totalSlots} confirmed`}</DetailCount>}
+          trailing={<DetailCount>{`${filledCount} of ${roleCount} filled`}</DetailCount>}
         />
 
         {/* The dashboard's three roster-wide actions, on their own line under
@@ -310,7 +289,7 @@ export function EventTeamCard({
                   onPress={() => toggle(category.key)}
                   accessibilityRole="button"
                   accessibilityState={{ expanded: open.includes(category.key) }}
-                  accessibilityLabel={`${category.label}, ${category.accepted} of ${category.slots} confirmed${
+                  accessibilityLabel={`${category.label}, ${category.filled} of ${category.groups.length} filled${
                     category.stalled ? ", needs attention" : ""
                   }`}
                   className="data-[active=true]:bg-border/40"
@@ -325,7 +304,7 @@ export function EventTeamCard({
                     ) : null}
 
                     <DetailCount>
-                      {`${category.accepted}/${category.slots}`}
+                      {`${category.filled}/${category.groups.length}`}
                     </DetailCount>
 
                     <Chevron expanded={open.includes(category.key)} />

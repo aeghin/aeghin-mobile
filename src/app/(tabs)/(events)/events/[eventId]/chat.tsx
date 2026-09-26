@@ -174,7 +174,7 @@ export default function EventChatScreen() {
               ) : null
             }
             ListEmptyComponent={
-              <VStack className="items-center gap-2 px-8 py-16" style={{ transform: [{ scaleY: -1 }] }}>
+              <VStack className="items-center gap-2 px-8 py-16">
                 <AppIcon icon={MessagesSquare} size={30} color={theme.textMuted} />
                 <Text className="text-[15px] font-semibold text-foreground">No messages yet</Text>
                 <Text className="text-center text-[13px] text-muted-foreground">

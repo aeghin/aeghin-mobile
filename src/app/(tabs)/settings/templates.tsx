@@ -115,7 +115,7 @@ export default function TemplatesScreen() {
       { text: "Edit", onPress: () => setEditing(template) },
       { text: "Delete", style: "destructive", onPress: () => confirmDelete(template) },
       { text: "Cancel", style: "cancel" },
-    ]);
+    ], { cancelable: true });
 
   if (!canManage) {
     return (

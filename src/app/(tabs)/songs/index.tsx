@@ -224,7 +224,7 @@ export default function SongsScreen() {
         onPress: () => confirmDelete(song),
       },
       { text: "Cancel", style: "cancel" },
-    ]);
+    ], { cancelable: true });
   };
 
   const sortLabel =

@@ -95,7 +95,9 @@ export default function MemberScreen() {
         : []),
       { text: "Cancel", style: "cancel" as const },
     ];
-    Alert.alert("Change role", `${fullName} is currently ${role?.label.toLowerCase()}.`, options);
+    Alert.alert("Change role", `${fullName} is currently ${role?.label.toLowerCase()}.`, options, {
+      cancelable: true,
+    });
   };
 
   const confirmOwner = () =>

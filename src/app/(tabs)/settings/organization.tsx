@@ -156,7 +156,7 @@ export default function OrganizationSettingsScreen() {
       { text: "Choose a new one", onPress: pickLogo },
       { text: "Remove logo", style: "destructive", onPress: confirmRemoveLogo },
       { text: "Cancel", style: "cancel" },
-    ]);
+    ], { cancelable: true });
   };
 
   const logoBusy = updateLogo.isPending || removeLogo.isPending;

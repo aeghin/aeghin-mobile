@@ -37,9 +37,10 @@ const HEIGHT = 46;
  */
 export const SEARCH_DOCK_CLEARANCE = TAB_BAR_MARGIN + HEIGHT + 16;
 
-type KeyboardState = { height: number; duration: number };
+/** `top` is the keyboard's upper edge in window coordinates. */
+type KeyboardState = { height: number; top: number; duration: number };
 
-const KEYBOARD_DOWN: KeyboardState = { height: 0, duration: 250 };
+const KEYBOARD_DOWN: KeyboardState = { height: 0, top: 0, duration: 250 };
 
 type Props = {
   query: string;
@@ -76,6 +77,10 @@ export function MembersSearchDock({
   // error under this project's lint.
   const [lift] = useState(() => new Animated.Value(0));
   const [keyboard, setKeyboard] = useState(KEYBOARD_DOWN);
+  // Android's tab bar is not translucent, so the screen ends at its top edge
+  // rather than the bottom of the display, and `resting` alone can't place the
+  // capsule against the keyboard. Where the screen ends, in window coordinates.
+  const [screenBottom, setScreenBottom] = useState<number | null>(null);
 
   useEffect(() => {
     // `will` on iOS so the capsule rides the keyboard up rather than chasing
@@ -85,13 +90,14 @@ export function MembersSearchDock({
     const show = Keyboard.addListener(ios ? "keyboardWillShow" : "keyboardDidShow", (event) =>
       setKeyboard({
         height: event.endCoordinates.height,
+        top: event.endCoordinates.screenY,
         duration: event.duration || KEYBOARD_DOWN.duration,
       }),
     );
 
     const hide = Keyboard.addListener(ios ? "keyboardWillHide" : "keyboardDidHide", (event) =>
       setKeyboard({
-        height: 0,
+        ...KEYBOARD_DOWN,
         duration: event.duration || KEYBOARD_DOWN.duration,
       }),
     );
@@ -108,14 +114,17 @@ export function MembersSearchDock({
   // opens — and the lift would then disagree with the `bottom` it is measured
   // from. Deriving it here means a late inset simply re-runs the sum.
   useEffect(() => {
+    const overlap =
+      screenBottom === null
+        ? keyboard.height + GAP - resting
+        : screenBottom - resting - (keyboard.top - GAP);
+
     Animated.timing(lift, {
-      toValue: keyboard.height
-        ? -Math.max(keyboard.height + GAP - resting, 0)
-        : 0,
+      toValue: keyboard.height ? -Math.max(overlap, 0) : 0,
       duration: keyboard.duration,
       useNativeDriver: true,
     }).start();
-  }, [keyboard, lift, resting]);
+  }, [keyboard, lift, resting, screenBottom]);
 
   const field = (
     <HStack className="items-center gap-2 px-4" style={{ height: HEIGHT }}>
@@ -177,42 +186,54 @@ export function MembersSearchDock({
   );
 
   return (
-    <Animated.View
-      style={{
-        position: "absolute",
-        left: 16,
-        right: 16,
-        bottom: resting,
-        transform: [{ translateY: lift }],
-      }}
-    >
-      {/* Behind the field rather than around it. `GlassView` mounts children
-          into a `UIVisualEffectView`'s content view, and nothing about the
-          field needs to be in there — this way no glass of any kind sits
-          between a finger and the input. */}
-      {isLiquidGlassAvailable() ? (
-        <GlassView
-          glassEffectStyle="regular"
-          pointerEvents="none"
-          style={[StyleSheet.absoluteFill, { borderRadius: HEIGHT / 2 }]}
-        />
-      ) : (
-        // Pre-26 there is no glass to sit in, so the capsule draws itself.
+    <>
+      {Platform.OS === "android" ? (
         <View
           pointerEvents="none"
-          style={[
-            StyleSheet.absoluteFill,
-            {
-              borderRadius: HEIGHT / 2,
-              backgroundColor: theme.card,
-              borderWidth: 1,
-              borderColor: theme.border,
-            },
-          ]}
+          style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 0 }}
+          onLayout={(event) =>
+            event.currentTarget.measureInWindow((_x, y) => setScreenBottom(y))
+          }
         />
-      )}
+      ) : null}
 
-      {field}
-    </Animated.View>
+      <Animated.View
+        style={{
+          position: "absolute",
+          left: 16,
+          right: 16,
+          bottom: resting,
+          transform: [{ translateY: lift }],
+        }}
+      >
+        {/* Behind the field rather than around it. `GlassView` mounts children
+            into a `UIVisualEffectView`'s content view, and nothing about the
+            field needs to be in there — this way no glass of any kind sits
+            between a finger and the input. */}
+        {isLiquidGlassAvailable() ? (
+          <GlassView
+            glassEffectStyle="regular"
+            pointerEvents="none"
+            style={[StyleSheet.absoluteFill, { borderRadius: HEIGHT / 2 }]}
+          />
+        ) : (
+          // Pre-26 there is no glass to sit in, so the capsule draws itself.
+          <View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                borderRadius: HEIGHT / 2,
+                backgroundColor: theme.card,
+                borderWidth: 1,
+                borderColor: theme.border,
+              },
+            ]}
+          />
+        )}
+
+        {field}
+      </Animated.View>
+    </>
   );
 }

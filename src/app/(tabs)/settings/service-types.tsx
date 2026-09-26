@@ -82,7 +82,7 @@ export default function ServiceTypesScreen() {
           ),
       },
       { text: "Cancel", style: "cancel" },
-    ]);
+    ], { cancelable: true });
 
   return (
     <VStack className="flex-1 bg-grouped">

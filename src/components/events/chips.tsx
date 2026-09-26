@@ -195,7 +195,7 @@ export function StaffingMeter({ filled, awaiting, needed }: StaffingMeterProps) 
       </HStack>
 
       <Text className="text-[11px] font-semibold" style={{ color }}>
-        {`${filled} of ${needed} filled`}
+        {full ? "Fully staffed" : `${filled} of ${needed} filled`}
       </Text>
     </HStack>
   );

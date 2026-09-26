@@ -172,6 +172,9 @@ const METER_MAX_WIDTH = 81;
  * A glance, not the roster: the count says how far along it is and the colour
  * says whether anybody has to act. Amber is every unfilled role waiting on an
  * answer; red is a role with nobody on it.
+ *
+ * The bar says the same without the colour: solid for a filled role, pale for
+ * one waiting on an answer, grey for one with nobody on it.
  */
 export function StaffingMeter({ filled, awaiting, needed }: StaffingMeterProps) {
   const theme = useTheme();
@@ -191,7 +194,12 @@ export function StaffingMeter({ filled, awaiting, needed }: StaffingMeterProps) 
             key={index}
             className="h-[5px] flex-1 rounded-full"
             style={{
-              backgroundColor: index < filled ? color : theme.border,
+              backgroundColor:
+                index < filled
+                  ? color
+                  : index < filled + awaiting
+                    ? withAlpha(color, 0.35)
+                    : theme.border,
             }}
           />
         ))}

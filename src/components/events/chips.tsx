@@ -157,42 +157,36 @@ type StaffingMeterProps = {
   needed: number;
 };
 
+/** Eight roles' worth of bar. A longer roster gets thinner segments instead. */
+const METER_MAX_WIDTH = 93;
+
 /**
  * How close an event is to being fully staffed.
  *
  * Only the All Events tab shows it: it answers a question owners and admins
  * have and volunteers do not.
  *
- * Once every role still open has an invitation out, there is nothing for a
- * manager to do but wait, and the label says so — "8 of 9 filled" is kept
- * for a roster that still has somebody to invite.
+ * A glance, not the roster: the count says how far along it is and the colour
+ * says whether anybody has to act. Amber is every unfilled role waiting on an
+ * answer; red is a role with nobody on it.
  */
 export function StaffingMeter({ filled, awaiting, needed }: StaffingMeterProps) {
   const theme = useTheme();
 
   const full = filled >= needed;
-  const waiting = !full && filled + awaiting >= needed;
-  const empty = filled === 0 && !waiting;
-  const color = full ? theme.success : empty ? theme.destructive : theme.warning;
-  const label = full
-    ? "Fully staffed"
-    : waiting
-      ? filled === 0
-        ? "Waiting on answers"
-        : `${filled} of ${needed} · waiting on answers`
-      : empty
-        ? "Needs volunteers"
-        : `${filled} of ${needed} filled`;
+  const waiting = filled + awaiting >= needed;
+  const color = full ? theme.success : waiting ? theme.warning : theme.destructive;
 
-  // Wraps rather than running off the card: the label drops under the bar
-  // when a long roster and "waiting on answers" don't fit on one line.
   return (
-    <HStack className="flex-wrap items-center gap-x-2 gap-y-1">
-      <HStack className="gap-[3px]">
+    <HStack className="items-center gap-2">
+      <HStack
+        className="gap-[3px]"
+        style={{ width: Math.min(needed * 12 - 3, METER_MAX_WIDTH) }}
+      >
         {Array.from({ length: needed }, (_, index) => (
           <Box
             key={index}
-            className="h-[5px] w-[9px] rounded-full"
+            className="h-[5px] flex-1 rounded-full"
             style={{
               backgroundColor: index < filled ? color : theme.border,
             }}
@@ -201,7 +195,7 @@ export function StaffingMeter({ filled, awaiting, needed }: StaffingMeterProps) 
       </HStack>
 
       <Text className="text-[11px] font-semibold" style={{ color }}>
-        {label}
+        {`${filled} of ${needed} filled`}
       </Text>
     </HStack>
   );

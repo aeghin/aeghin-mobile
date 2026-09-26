@@ -200,7 +200,7 @@ export function StaffingMeter({ filled, awaiting, needed }: StaffingMeterProps) 
       <Text className="text-[11px] font-semibold" style={{ color }}>
         {full
           ? "Fully staffed"
-          : filled === 0 && awaiting === 0
+          : filled === 0 && !waiting
             ? "Needs volunteers"
             : `${filled} of ${needed} filled`}
       </Text>

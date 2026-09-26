@@ -101,9 +101,10 @@ export type OrganizationEvent = {
   /** Declining auto-invites the next best available member for that role. */
   smartSchedulingEnabled: boolean;
   /**
-   * How many of `rolesNeeded` are filled, for the staffing meter on the All
-   * tab. Optional: the row falls back to hiding the meter without it, so a
-   * payload that doesn't count assignments still renders.
+   * How many of `rolesNeeded` are filled — somebody accepted and nobody on the
+   * role is still deciding — for the staffing meter on the All tab. Optional:
+   * the row falls back to hiding the meter without it, so a payload that
+   * doesn't count assignments still renders.
    */
   filledRoleCount?: number;
 };

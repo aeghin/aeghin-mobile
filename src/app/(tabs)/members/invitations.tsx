@@ -13,6 +13,7 @@ import { Pill, type PillTone } from "@/components/events/chips";
 import { EventsEmptyState } from "@/components/events/events-empty-state";
 import { InsetCard } from "@/components/inset-list";
 import { useCurrentOrganization } from "@/components/organization-provider";
+import { useNowPlayingInset } from "@/components/track-player-provider";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -56,6 +57,7 @@ const STATUS_TONE: Record<
 export default function InvitationsScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const nowPlayingInset = useNowPlayingInset();
 
   const { organization } = useCurrentOrganization();
   const organizationId = organization?.id ?? "";
@@ -110,7 +112,7 @@ export default function InvitationsScreen() {
         contentContainerStyle={{
           paddingHorizontal: 16,
           paddingTop: 18,
-          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE,
+          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE + nowPlayingInset,
           flexGrow: 1,
         }}
         contentInsetAdjustmentBehavior="never"

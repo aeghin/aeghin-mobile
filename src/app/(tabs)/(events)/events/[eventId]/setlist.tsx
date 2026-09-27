@@ -14,6 +14,7 @@ import { CatalogPicker } from "@/components/events/catalog-picker";
 import { SegmentedControl, type Segment } from "@/components/events/segmented-control";
 import { SetlistDraftList } from "@/components/events/setlist-draft-list";
 import { useCurrentOrganization } from "@/components/organization-provider";
+import { useNowPlayingInset } from "@/components/track-player-provider";
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Spinner } from "@/components/ui/spinner";
@@ -120,6 +121,7 @@ function Editor({
 }) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const nowPlayingInset = useNowPlayingInset();
   const router = useRouter();
   const colors = getServiceColors(serviceColor, theme);
 
@@ -186,7 +188,7 @@ function Editor({
         </Box>
 
         {pane === "ai" ? (
-          <Box className="flex-1 px-4 pt-3" style={{ paddingBottom: insets.bottom + TAB_BAR_CLEARANCE }}>
+          <Box className="flex-1 px-4 pt-3" style={{ paddingBottom: insets.bottom + TAB_BAR_CLEARANCE + nowPlayingInset }}>
             {billing.isPending ? (
               <Box className="items-center py-10">
                 <Spinner color={theme.textMuted} />
@@ -223,7 +225,7 @@ function Editor({
             contentContainerStyle={{
               paddingHorizontal: 16,
               paddingTop: 12,
-              paddingBottom: insets.bottom + TAB_BAR_CLEARANCE,
+              paddingBottom: insets.bottom + TAB_BAR_CLEARANCE + nowPlayingInset,
             }}
             keyboardDismissMode="on-drag"
             keyboardShouldPersistTaps="handled"

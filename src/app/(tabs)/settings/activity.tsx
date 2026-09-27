@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ActivityRow } from "@/components/activity-row";
 import { EventsEmptyState } from "@/components/events/events-empty-state";
 import { useCurrentOrganization } from "@/components/organization-provider";
+import { useNowPlayingInset } from "@/components/track-player-provider";
 import { Box } from "@/components/ui/box";
 import { Divider } from "@/components/ui/divider";
 import { Spinner } from "@/components/ui/spinner";
@@ -24,6 +25,7 @@ const TAB_BAR_CLEARANCE = 64;
 export default function ActivityScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const nowPlayingInset = useNowPlayingInset();
 
   const { organization } = useCurrentOrganization();
   const organizationId = organization?.id ?? "";
@@ -47,7 +49,7 @@ export default function ActivityScreen() {
         contentContainerStyle={{
           paddingHorizontal: 16,
           paddingTop: 18,
-          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE,
+          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE + nowPlayingInset,
           flexGrow: 1,
         }}
         contentInsetAdjustmentBehavior="never"

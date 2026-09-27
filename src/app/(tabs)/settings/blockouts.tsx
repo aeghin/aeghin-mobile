@@ -14,6 +14,7 @@ import { Dialog } from "@/components/dialog";
 import { ErrorBanner, Field } from "@/components/form-fields";
 import { InsetCard, InsetRow } from "@/components/inset-list";
 import { useCurrentOrganization } from "@/components/organization-provider";
+import { useNowPlayingInset } from "@/components/track-player-provider";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
@@ -47,6 +48,7 @@ function describe(blockout: Blockout): { label: string; value: string } {
 export default function BlockoutsScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const nowPlayingInset = useNowPlayingInset();
 
   const { organization } = useCurrentOrganization();
   const organizationId = organization?.id ?? "";
@@ -79,7 +81,7 @@ export default function BlockoutsScreen() {
         contentContainerStyle={{
           paddingHorizontal: 16,
           paddingTop: 18,
-          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE,
+          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE + nowPlayingInset,
           flexGrow: 1,
         }}
         contentInsetAdjustmentBehavior="never"

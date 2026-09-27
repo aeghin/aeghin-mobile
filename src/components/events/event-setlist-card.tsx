@@ -15,7 +15,7 @@ import {
 import { SongKeySaveButton } from "@/components/events/song-key-save-button";
 import { SpotifyIcon, YoutubeIcon } from "@/components/icons/brand-icons";
 import { OpenButton } from "@/components/open-button";
-import type { Track } from "@/components/track-player-dialog";
+import type { Track } from "@/components/track-player-provider";
 import { Box } from "@/components/ui/box";
 import { Center } from "@/components/ui/center";
 import { Divider } from "@/components/ui/divider";

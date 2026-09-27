@@ -7,6 +7,7 @@ import { Animated, Keyboard, Platform, StyleSheet, TextInput, View } from "react
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppIcon } from "@/components/app-icon";
+import { useNowPlayingInset } from "@/components/track-player-provider";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
@@ -67,11 +68,13 @@ export function MembersSearchDock({
 }: Props) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const nowPlayingInset = useNowPlayingInset();
 
   // Inside a `NativeTabs` screen the bottom inset already covers the floating
   // tab bar — 83pt on an iPhone 17, not the home indicator's 34 — so this plus
-  // a margin parks the capsule clear of it.
-  const resting = insets.bottom + TAB_BAR_MARGIN;
+  // a margin parks the capsule clear of it, and above the mini player when a
+  // track is loaded.
+  const resting = insets.bottom + TAB_BAR_MARGIN + nowPlayingInset;
 
   // Lazily, not `useRef(...).current` — reading a ref during render is an
   // error under this project's lint.

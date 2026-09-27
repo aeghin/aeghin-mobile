@@ -12,6 +12,7 @@ import { PLAN_COPY, PlanButton, planTint } from "@/components/events/ai-plan-car
 import { EventsEmptyState } from "@/components/events/events-empty-state";
 import { InsetCard, InsetRow, SectionLabel } from "@/components/inset-list";
 import { useCurrentOrganization } from "@/components/organization-provider";
+import { useNowPlayingInset } from "@/components/track-player-provider";
 import { Box } from "@/components/ui/box";
 import { Center } from "@/components/ui/center";
 import { HStack } from "@/components/ui/hstack";
@@ -80,6 +81,7 @@ const PLAN_RANK: Record<PaidPlan, number> = { starter: 1, premium: 2, pro: 3 };
 export default function BillingScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const nowPlayingInset = useNowPlayingInset();
 
   const { organization } = useCurrentOrganization();
   const organizationId = organization?.id ?? "";
@@ -127,7 +129,7 @@ export default function BillingScreen() {
         contentContainerStyle={{
           paddingHorizontal: 16,
           paddingTop: 18,
-          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE,
+          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE + nowPlayingInset,
         }}
         contentInsetAdjustmentBehavior="never"
         refreshControl={

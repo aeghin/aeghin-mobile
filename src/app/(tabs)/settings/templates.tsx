@@ -13,6 +13,7 @@ import { EventsEmptyState } from "@/components/events/events-empty-state";
 import { TemplateFormDialog } from "@/components/events/template-form-dialog";
 import { InsetCard } from "@/components/inset-list";
 import { useCurrentOrganization } from "@/components/organization-provider";
+import { useNowPlayingInset } from "@/components/track-player-provider";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
 import { HStack } from "@/components/ui/hstack";
@@ -52,6 +53,7 @@ const TAB_BAR_CLEARANCE = 64;
 export default function TemplatesScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const nowPlayingInset = useNowPlayingInset();
   const router = useRouter();
 
   const { organization } = useCurrentOrganization();
@@ -138,7 +140,7 @@ export default function TemplatesScreen() {
         contentContainerStyle={{
           paddingHorizontal: 16,
           paddingTop: 18,
-          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE,
+          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE + nowPlayingInset,
           flexGrow: 1,
         }}
         contentInsetAdjustmentBehavior="never"

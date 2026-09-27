@@ -25,6 +25,7 @@ import {
   FormTextArea,
 } from "@/components/form-fields";
 import { useCurrentOrganization } from "@/components/organization-provider";
+import { useNowPlayingInset } from "@/components/track-player-provider";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
@@ -184,6 +185,7 @@ function EditForm({
 }) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const nowPlayingInset = useNowPlayingInset();
   const router = useRouter();
 
   const seed = useMemo(() => seedFrom(event.dates), [event.dates]);
@@ -372,7 +374,7 @@ function EditForm({
         contentContainerStyle={{
           paddingHorizontal: 16,
           paddingTop: 16,
-          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE,
+          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE + nowPlayingInset,
         }}
         contentInsetAdjustmentBehavior="never"
         keyboardDismissMode="on-drag"

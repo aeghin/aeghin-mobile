@@ -39,6 +39,7 @@ import {
 import { OrgAvatar } from "@/components/org-avatar";
 import { useCurrentOrganization } from "@/components/organization-provider";
 import { ServiceTypeDialog } from "@/components/service-type-dialog";
+import { useNowPlayingInset } from "@/components/track-player-provider";
 import { Box } from "@/components/ui/box";
 import { Divider } from "@/components/ui/divider";
 import { HStack } from "@/components/ui/hstack";
@@ -246,6 +247,7 @@ function seedFromDraft(draft: EventDraft): CreateSeed {
 export default function CreateEventScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const nowPlayingInset = useNowPlayingInset();
   const router = useRouter();
 
   const { templateId: initialTemplateId } = useLocalSearchParams<{ templateId?: string }>();
@@ -374,7 +376,7 @@ export default function CreateEventScreen() {
         >
           <Box
             className="flex-1 px-4 pt-3"
-            style={{ paddingBottom: insets.bottom + TAB_BAR_CLEARANCE }}
+            style={{ paddingBottom: insets.bottom + TAB_BAR_CLEARANCE + nowPlayingInset }}
           >
             {billing.isPending ? (
               <Box className="items-center py-10">
@@ -452,6 +454,7 @@ function CreateEventForm({
 }) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const nowPlayingInset = useNowPlayingInset();
   const router = useRouter();
 
   const serviceTypes = useServiceTypes(organizationId);
@@ -653,7 +656,7 @@ function CreateEventForm({
         contentContainerStyle={{
           paddingHorizontal: 16,
           paddingTop: 16,
-          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE,
+          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE + nowPlayingInset,
         }}
         contentInsetAdjustmentBehavior="never"
         keyboardDismissMode="on-drag"

@@ -27,6 +27,7 @@ import {
   SEARCH_DOCK_CLEARANCE,
 } from "@/components/members-search-dock";
 import { useCurrentOrganization } from "@/components/organization-provider";
+import { useNowPlayingInset } from "@/components/track-player-provider";
 import { PlanLimitDialog } from "@/components/plan-limit-dialog";
 import { Button, ButtonText } from "@/components/ui/button";
 import { HStack } from "@/components/ui/hstack";
@@ -58,6 +59,7 @@ const NO_MEMBERS: OrganizationMember[] = [];
 export default function OrganizationMembersScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const nowPlayingInset = useNowPlayingInset();
   const router = useRouter();
   const { user } = useUser();
 
@@ -126,7 +128,7 @@ export default function OrganizationMembersScreen() {
           paddingTop: 18,
           // The dock floats over the list, so nothing but this padding
           // keeps the last row out from under it.
-          paddingBottom: insets.bottom + SEARCH_DOCK_CLEARANCE,
+          paddingBottom: insets.bottom + SEARCH_DOCK_CLEARANCE + nowPlayingInset,
           // Lets the spinner and the empty states stretch to the full viewport,
           // so a short state centres itself instead of hugging the header.
           flexGrow: 1,

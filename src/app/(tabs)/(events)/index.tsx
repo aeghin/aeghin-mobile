@@ -33,6 +33,7 @@ import {
 } from "@/components/events/segmented-control";
 import { UpNextCard } from "@/components/events/up-next-card";
 import { useCurrentOrganization } from "@/components/organization-provider";
+import { useNowPlayingInset } from "@/components/track-player-provider";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -86,6 +87,7 @@ const NO_SERVICES: ServiceType[] = [];
 export default function EventsScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const nowPlayingInset = useNowPlayingInset();
   const router = useRouter();
 
   // The organization comes from the provider, not from a route param: the tabs
@@ -447,7 +449,7 @@ export default function EventsScreen() {
         className="flex-1"
         contentContainerStyle={{
           paddingTop: 14,
-          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE,
+          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE + nowPlayingInset,
           // Lets a short state centre itself instead of hugging the controls.
           flexGrow: 1,
         }}

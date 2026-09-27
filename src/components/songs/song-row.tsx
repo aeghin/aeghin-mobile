@@ -5,7 +5,7 @@ import FileText from "lucide-react-native/icons/file-text";
 import { AppIcon } from "@/components/app-icon";
 import { SpotifyIcon, YoutubeIcon } from "@/components/icons/brand-icons";
 import { OPEN_BUTTON_TAP, OpenButton } from "@/components/open-button";
-import type { Track } from "@/components/track-player-dialog";
+import type { Track } from "@/components/track-player-provider";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";

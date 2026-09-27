@@ -15,6 +15,7 @@ import { ErrorBanner, Field, FormInput } from "@/components/form-fields";
 import { InsetCard, InsetRow, SectionLabel } from "@/components/inset-list";
 import { OrgAvatar } from "@/components/org-avatar";
 import { useCurrentOrganization } from "@/components/organization-provider";
+import { useNowPlayingInset } from "@/components/track-player-provider";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Spinner } from "@/components/ui/spinner";
@@ -51,6 +52,7 @@ const megabytes = (bytes: number) => `${Math.round(bytes / (1024 * 1024))}MB`;
  */
 export default function OrganizationSettingsScreen() {
   const insets = useSafeAreaInsets();
+  const nowPlayingInset = useNowPlayingInset();
   const router = useRouter();
 
   const { organization, organizations, select } = useCurrentOrganization();
@@ -187,7 +189,7 @@ export default function OrganizationSettingsScreen() {
         contentContainerStyle={{
           paddingHorizontal: 16,
           paddingTop: 18,
-          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE,
+          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE + nowPlayingInset,
         }}
         contentInsetAdjustmentBehavior="never"
       >

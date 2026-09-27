@@ -33,7 +33,7 @@ export type KeyQuality = "MAJOR" | "MINOR";
  * A chart or a track pinned to a song.
  *
  * `url` is an UploadThing address. A PDF chart is handed to a browser rather
- * than rendered; a track streams from it into `TrackPlayerDialog`.
+ * than rendered; a track streams from it into `TrackPlayerProvider`'s player.
  */
 export type SongAttachment = {
   id: string;

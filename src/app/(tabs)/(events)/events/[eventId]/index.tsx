@@ -24,7 +24,7 @@ import { EventsEmptyState } from "@/components/events/events-empty-state";
 import { VocalistDialog } from "@/components/events/vocalist-dialog";
 import { ErrorBanner } from "@/components/form-fields";
 import { useCurrentOrganization } from "@/components/organization-provider";
-import { TrackPlayerDialog, type Track } from "@/components/track-player-dialog";
+import { useNowPlayingInset, useTrackPlayer } from "@/components/track-player-provider";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
 import { useSmartSchedulingAvailable } from "@/hooks/use-billing";
@@ -165,14 +165,8 @@ export default function EventDetailScreen() {
 
   const [vocalistsFor, setVocalistsFor] = useState<EventSetlistSong | null>(null);
 
-  // The same split as `confirm` below, for the same reason.
-  const [track, setTrack] = useState<Track | null>(null);
-  const [trackOpen, setTrackOpen] = useState(false);
-
-  const playTrack = (next: Track) => {
-    setTrack(next);
-    setTrackOpen(true);
-  };
+  const { play: playTrack } = useTrackPlayer();
+  const nowPlayingInset = useNowPlayingInset();
 
   // `confirm` is what the dialog *says*; `confirmOpen` is whether it is up.
   // Two pieces rather than one nullable, so closing does not blank the card
@@ -256,7 +250,7 @@ export default function EventDetailScreen() {
         className="flex-1"
         contentContainerStyle={{
           paddingTop: 14,
-          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE,
+          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE + nowPlayingInset,
           flexGrow: 1,
         }}
         contentInsetAdjustmentBehavior="never"
@@ -391,12 +385,6 @@ export default function EventDetailScreen() {
           colors={getServiceColors(event.serviceType.color, theme)}
         />
       ) : null}
-
-      <TrackPlayerDialog
-        visible={trackOpen}
-        track={track}
-        onClose={() => setTrackOpen(false)}
-      />
     </VStack>
   );
 }

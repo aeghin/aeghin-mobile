@@ -1,19 +1,20 @@
-import {
-  setAudioModeAsync,
-  useAudioPlayer,
-  useAudioPlayerStatus,
-} from "expo-audio";
+import type { AudioPlayer } from "expo-audio";
 import AudioLines from "lucide-react-native/icons/audio-lines";
 import Pause from "lucide-react-native/icons/pause";
 import Play from "lucide-react-native/icons/play";
 import RotateCcw from "lucide-react-native/icons/rotate-ccw";
 import RotateCw from "lucide-react-native/icons/rotate-cw";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { StyleSheet, View, type GestureResponderEvent } from "react-native";
 
 import { AppIcon, type AppIconName } from "@/components/app-icon";
 import { Dialog } from "@/components/dialog";
 import { ErrorBanner } from "@/components/form-fields";
+import {
+  SKIP_SECONDS,
+  usePlayerControls,
+  useTrackPlayer,
+} from "@/components/track-player-provider";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Spinner } from "@/components/ui/spinner";
@@ -21,10 +22,9 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
 import { useTheme } from "@/hooks/use-theme";
-import type { SongAttachment } from "@/types/song";
 
 /**
- * A song's audio attachment, played in the app.
+ * The full player for a song's audio attachment.
  *
  * Tracks used to go to Safari the way charts still do, which left their
  * controls to Safari's media page — and that page drops its skip buttons
@@ -32,144 +32,49 @@ import type { SongAttachment } from "@/types/song";
  * coming back can make it do. Play and pause were all that survived. Drawn
  * here, the ten-second skips are always on screen, and the lock screen shows
  * the same two because they are asked for rather than inferred from the file.
+ *
+ * Closing it leaves the track playing in `NowPlayingBar`.
  */
 
-/** What each skip moves. expo-audio's lock screen buttons use the same ten. */
-const SKIP_SECONDS = 10;
-
-/** Often enough for the bar to glide rather than tick. */
-const UPDATE_INTERVAL_MS = 250;
-
 const PLAY_BUTTON = 64;
-const SKIP_BUTTON = 52;
 const BAR_HEIGHT = 4;
 const THUMB = 14;
 /** The bar is thin; the strip that takes the touch is not. */
 const SCRUB_HEIGHT = 28;
 
-/** An audio attachment and the title of the song it belongs to. */
-export type Track = { attachment: SongAttachment; songTitle: string };
+export function TrackPlayerDialog() {
+  const { player, track, expanded, collapse } = useTrackPlayer();
 
-type TrackPlayerDialogProps = {
-  visible: boolean;
-  /** Kept by the caller after closing, so the card has something to fade out. */
-  track: Track | null;
-  onClose: () => void;
-};
-
-export function TrackPlayerDialog({ visible, track, onClose }: TrackPlayerDialogProps) {
   if (!track) return null;
 
   return (
     <Dialog
-      visible={visible}
+      visible={expanded}
       icon={AudioLines}
       title={track.songTitle}
       description={track.attachment.name}
-      onClose={onClose}
+      onClose={collapse}
     >
-      {/* The Modal unmounts this once it has faded out, and that is what
-          releases the player. Keyed so another track gets a player of its own. */}
-      <TrackPlayer key={track.attachment.id} track={track} active={visible} />
+      {/* Keyed so a new track starts with none of the last one's seeking. */}
+      <TrackControls key={track.attachment.id} player={player} />
     </Dialog>
   );
 }
 
-function TrackPlayer({ track, active }: { track: Track; active: boolean }) {
-  const player = useAudioPlayer(track.attachment.url, {
-    updateInterval: UPDATE_INTERVAL_MS,
-  });
-  const status = useAudioPlayerStatus(player);
-
-  // Where a drag or a pending seek has put the playhead, shown instead of the
-  // player's own position until the player gets there. Skips build on it, so
-  // two quick taps go back twenty seconds, not ten.
-  const [pinned, setPinned] = useState<number | null>(null);
-
-  useEffect(() => {
-    // Stops the moment the dialog is dismissed rather than when its fade ends.
-    if (!active) {
-      player.pause();
-      player.clearLockScreenControls();
-      return;
-    }
-
-    let cancelled = false;
-
-    // Safari played through the silent switch and kept going in the
-    // background, so this does too. `doNotMix` is what gets it a lock screen.
-    setAudioModeAsync({
-      playsInSilentMode: true,
-      shouldPlayInBackground: true,
-      interruptionMode: "doNotMix",
-    })
-      .catch(() => {})
-      .then(() => {
-        if (cancelled) return;
-
-        player.setActiveForLockScreen(
-          true,
-          { title: track.songTitle, artist: track.attachment.name },
-          { showSeekBackward: true, showSeekForward: true },
-        );
-        player.play();
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [active, player, track.songTitle, track.attachment.name]);
-
-  const duration =
-    Number.isFinite(status.duration) && status.duration > 0 ? status.duration : 0;
-  const position =
-    pinned ?? (Number.isFinite(status.currentTime) ? status.currentTime : 0);
-
-  // iOS reports a play that is waiting on the network as not playing yet.
-  const wantsToPlay =
-    status.playing || status.timeControlStatus === "waitingToPlayAtSpecifiedRate";
-  const loading = wantsToPlay && status.isBuffering;
-
-  const seek = (seconds: number) => {
-    const to = Math.max(0, duration > 0 ? Math.min(seconds, duration) : seconds);
-    setPinned(to);
-
-    const settle = () => setPinned((current) => (current === to ? null : current));
-
-    // Zero tolerance: left to itself the player lands wherever is cheapest,
-    // which can be seconds off — no use for finding the top of a chorus.
-    player.seekTo(to, 0, 0).then(settle, settle);
-  };
-
-  const skip = (by: number) => seek((pinned ?? player.currentTime) + by);
-
-  const toggle = () => {
-    if (wantsToPlay) {
-      player.pause();
-      return;
-    }
-
-    // A finished track sits on its last frame, where play does nothing.
-    if (duration > 0 && player.currentTime >= duration - 0.25) seek(0);
-
-    player.play();
-  };
-
-  const error = status.error
-    ? "This track couldn't be played. Check your connection and try again."
-    : null;
+function TrackControls({ player }: { player: AudioPlayer }) {
+  const { error, duration, position, wantsToPlay, loading, scrub, seek, skip, toggle } =
+    usePlayerControls(player);
 
   return (
     <>
-      <ErrorBanner message={error} />
+      <ErrorBanner
+        message={
+          error ? "This track couldn't be played. Check your connection and try again." : null
+        }
+      />
 
       <VStack className="gap-1">
-        <Scrubber
-          position={position}
-          duration={duration}
-          onScrub={setPinned}
-          onSeek={seek}
-        />
+        <Scrubber position={position} duration={duration} onScrub={scrub} onSeek={seek} />
 
         <HStack className="justify-between">
           <Text
@@ -311,17 +216,26 @@ function Scrubber({ position, duration, onScrub, onSeek }: ScrubberProps) {
   );
 }
 
+/** Button, arrow and number sizes for the full player and for the bar. */
+const SKIP_SIZES = {
+  regular: { button: 52, icon: 34, text: "text-[10px]" },
+  small: { button: 38, icon: 26, text: "text-[8px]" },
+} as const;
+
 /** A circular arrow with the seconds inside it, the way iOS draws its own. */
-function SkipButton({
+export function SkipButton({
   icon,
   label,
   onPress,
+  size = "regular",
 }: {
   icon: AppIconName;
   label: string;
   onPress: () => void;
+  size?: keyof typeof SKIP_SIZES;
 }) {
   const theme = useTheme();
+  const dimensions = SKIP_SIZES[size];
 
   return (
     <Pressable
@@ -329,16 +243,16 @@ function SkipButton({
       accessibilityRole="button"
       accessibilityLabel={label}
       className="items-center justify-center rounded-full data-[active=true]:bg-border/60"
-      style={{ width: SKIP_BUTTON, height: SKIP_BUTTON }}
+      style={{ width: dimensions.button, height: dimensions.button }}
     >
-      <AppIcon icon={icon} size={34} color={theme.text} />
+      <AppIcon icon={icon} size={dimensions.icon} color={theme.text} />
       <View
         pointerEvents="none"
         style={StyleSheet.absoluteFill}
         className="items-center justify-center"
       >
         <Text
-          className="text-[10px] font-bold text-foreground"
+          className={`${dimensions.text} font-bold text-foreground`}
           style={{ fontVariant: ["tabular-nums"] }}
         >
           {SKIP_SECONDS}

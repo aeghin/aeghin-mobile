@@ -5,6 +5,7 @@ import FileText from "lucide-react-native/icons/file-text";
 import { AppIcon } from "@/components/app-icon";
 import { SpotifyIcon, YoutubeIcon } from "@/components/icons/brand-icons";
 import { OPEN_BUTTON_TAP, OpenButton } from "@/components/open-button";
+import type { Track } from "@/components/track-player-dialog";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
@@ -30,6 +31,8 @@ type SongRowProps = {
   canManage: boolean;
   /** Opens the edit/delete menu. The row itself decides nothing. */
   onActions: () => void;
+  /** Opens the player on one of the song's tracks. */
+  onPlayTrack: (track: Track) => void;
 };
 
 /**
@@ -39,7 +42,7 @@ type SongRowProps = {
  * the stack, with the same facts in the same order — what it is, who wrote it,
  * how it is played, what it is about, and what you can open.
  */
-export function SongRow({ song, canManage, onActions }: SongRowProps) {
+export function SongRow({ song, canManage, onActions, onPlayTrack }: SongRowProps) {
   const theme = useTheme();
 
   const minor = song.defaultKeyQuality === "MINOR";
@@ -120,7 +123,11 @@ export function SongRow({ song, canManage, onActions }: SongRowProps) {
           ) : null}
 
           {song.attachments.map((attachment) => (
-            <AttachmentButton key={attachment.id} attachment={attachment} />
+            <AttachmentButton
+              key={attachment.id}
+              attachment={attachment}
+              onPlay={() => onPlayTrack({ attachment, songTitle: song.title })}
+            />
           ))}
         </HStack>
       </HStack>
@@ -146,13 +153,23 @@ export function SongRow({ song, canManage, onActions }: SongRowProps) {
   );
 }
 
-/** A chart or a track, opened in whatever app the device uses for its type. */
-function AttachmentButton({ attachment }: { attachment: SongAttachment }) {
+/** A chart, opened in whatever app reads PDFs, or a track, played in the app. */
+function AttachmentButton({
+  attachment,
+  onPlay,
+}: {
+  attachment: SongAttachment;
+  onPlay: () => void;
+}) {
   const theme = useTheme();
   const isPdf = attachment.type === "application/pdf";
 
   return (
-    <OpenButton url={attachment.url} label={`Open ${attachment.name}`}>
+    <OpenButton
+      url={attachment.url}
+      label={`${isPdf ? "Open" : "Play"} ${attachment.name}`}
+      onPress={isPdf ? undefined : onPlay}
+    >
       <AppIcon
         icon={isPdf ? FileText : AudioLines}
         size={15}

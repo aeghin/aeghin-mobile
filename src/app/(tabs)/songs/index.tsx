@@ -25,6 +25,7 @@ import { SongKeysPane } from "@/components/songs/song-keys-pane";
 import { SongAttachmentsDialog } from "@/components/songs/song-attachments-dialog";
 import { SongFormDialog } from "@/components/songs/song-form-dialog";
 import { FilterDialog, SortDialog } from "@/components/songs/song-dialogs";
+import { TrackPlayerDialog, type Track } from "@/components/track-player-dialog";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
 import { HStack } from "@/components/ui/hstack";
@@ -125,6 +126,16 @@ export default function SongsScreen() {
   // to redraw from the new row, not the one that was passed in.
   const [attachingId, setAttachingId] = useState<string | null>(null);
   const [limitOpen, setLimitOpen] = useState(false);
+
+  // What the player has loaded, and whether it is up — two pieces, so closing
+  // does not blank the card it is still fading out.
+  const [track, setTrack] = useState<Track | null>(null);
+  const [trackOpen, setTrackOpen] = useState(false);
+
+  const playTrack = (next: Track) => {
+    setTrack(next);
+    setTrackOpen(true);
+  };
 
   const library = songs.data ?? NO_SONGS;
 
@@ -398,6 +409,7 @@ export default function SongsScreen() {
                     song={song}
                     canManage={canManage}
                     onActions={() => openActions(song)}
+                    onPlayTrack={playTrack}
                   />
                 ))}
               </InsetCard>
@@ -450,6 +462,12 @@ export default function SongsScreen() {
         organizationId={organizationId}
         storage={storage}
         onClose={() => setAttachingId(null)}
+      />
+
+      <TrackPlayerDialog
+        visible={trackOpen}
+        track={track}
+        onClose={() => setTrackOpen(false)}
       />
 
       {organization && songLimit !== null ? (

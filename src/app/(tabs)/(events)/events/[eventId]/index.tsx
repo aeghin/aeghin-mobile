@@ -24,6 +24,7 @@ import { EventsEmptyState } from "@/components/events/events-empty-state";
 import { VocalistDialog } from "@/components/events/vocalist-dialog";
 import { ErrorBanner } from "@/components/form-fields";
 import { useCurrentOrganization } from "@/components/organization-provider";
+import { TrackPlayerDialog, type Track } from "@/components/track-player-dialog";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
 import { useSmartSchedulingAvailable } from "@/hooks/use-billing";
@@ -163,6 +164,15 @@ export default function EventDetailScreen() {
   const songKeys = useSongKeys(organizationId, { enabled: canSaveKeys });
 
   const [vocalistsFor, setVocalistsFor] = useState<EventSetlistSong | null>(null);
+
+  // The same split as `confirm` below, for the same reason.
+  const [track, setTrack] = useState<Track | null>(null);
+  const [trackOpen, setTrackOpen] = useState(false);
+
+  const playTrack = (next: Track) => {
+    setTrack(next);
+    setTrackOpen(true);
+  };
 
   // `confirm` is what the dialog *says*; `confirmOpen` is whether it is up.
   // Two pieces rather than one nullable, so closing does not blank the card
@@ -311,6 +321,7 @@ export default function EventDetailScreen() {
                   ? () => router.push(`/events/${event.id}/setlist`)
                   : undefined
               }
+              onPlayTrack={playTrack}
               organizationId={organizationId}
               canSaveKeys={canSaveKeys}
               myKeys={songKeys.data}
@@ -380,6 +391,12 @@ export default function EventDetailScreen() {
           colors={getServiceColors(event.serviceType.color, theme)}
         />
       ) : null}
+
+      <TrackPlayerDialog
+        visible={trackOpen}
+        track={track}
+        onClose={() => setTrackOpen(false)}
+      />
     </VStack>
   );
 }

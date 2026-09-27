@@ -32,8 +32,8 @@ export type KeyQuality = "MAJOR" | "MINOR";
 /**
  * A chart or a track pinned to a song.
  *
- * `url` is an UploadThing address the phone opens in a browser rather than
- * rendering: a PDF chart and an MP3 both belong to apps the device already has.
+ * `url` is an UploadThing address. A PDF chart is handed to a browser rather
+ * than rendered; a track streams from it into `TrackPlayerDialog`.
  */
 export type SongAttachment = {
   id: string;

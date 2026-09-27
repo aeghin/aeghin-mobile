@@ -15,6 +15,7 @@ import {
 import { SongKeySaveButton } from "@/components/events/song-key-save-button";
 import { SpotifyIcon, YoutubeIcon } from "@/components/icons/brand-icons";
 import { OpenButton } from "@/components/open-button";
+import type { Track } from "@/components/track-player-dialog";
 import { Box } from "@/components/ui/box";
 import { Center } from "@/components/ui/center";
 import { Divider } from "@/components/ui/divider";
@@ -48,6 +49,8 @@ type EventSetlistCardProps = {
   onSongPress?: (song: EventSetlistSong) => void;
   /** Managers only: opens the editor. */
   onEdit?: () => void;
+  /** Opens the player on one of a song's tracks. */
+  onPlayTrack: (track: Track) => void;
   organizationId: string;
   /** The caller sings on this event, so each row offers a one-tap save. */
   canSaveKeys?: boolean;
@@ -73,6 +76,7 @@ export function EventSetlistCard({
   service,
   onSongPress,
   onEdit,
+  onPlayTrack,
   organizationId,
   canSaveKeys = false,
   myKeys = NO_KEYS,
@@ -142,6 +146,7 @@ export function EventSetlistCard({
                 song={song}
                 position={index + 1}
                 onPress={onSongPress ? () => onSongPress(song) : undefined}
+                onPlayTrack={onPlayTrack}
                 organizationId={organizationId}
                 canSaveKey={canSaveKeys}
                 savedEntry={myKeyBySongId.get(song.songId) ?? null}
@@ -158,6 +163,7 @@ function SetlistRow({
   song,
   position,
   onPress,
+  onPlayTrack,
   organizationId,
   canSaveKey,
   savedEntry,
@@ -165,6 +171,7 @@ function SetlistRow({
   song: EventSetlistSong;
   position: number;
   onPress?: () => void;
+  onPlayTrack: (track: Track) => void;
   organizationId: string;
   canSaveKey: boolean;
   savedEntry: SongKey | null;
@@ -267,7 +274,11 @@ function SetlistRow({
               ) : null}
 
               {song.attachments.map((attachment) => (
-                <AttachmentButton key={attachment.id} attachment={attachment} />
+                <AttachmentButton
+                  key={attachment.id}
+                  attachment={attachment}
+                  onPlay={() => onPlayTrack({ attachment, songTitle: song.title })}
+                />
               ))}
             </HStack>
 
@@ -313,12 +324,22 @@ function SetlistRow({
   );
 }
 
-/** A chart or a track, opened in whatever app the device uses for its type. */
-function AttachmentButton({ attachment }: { attachment: SongAttachment }) {
+/** A chart, opened in whatever app reads PDFs, or a track, played in the app. */
+function AttachmentButton({
+  attachment,
+  onPlay,
+}: {
+  attachment: SongAttachment;
+  onPlay: () => void;
+}) {
   const isPdf = attachment.type === "application/pdf";
 
   return (
-    <OpenButton url={attachment.url} label={`Open ${attachment.name}`}>
+    <OpenButton
+      url={attachment.url}
+      label={`${isPdf ? "Open" : "Play"} ${attachment.name}`}
+      onPress={isPdf ? undefined : onPlay}
+    >
       <AppIcon
         icon={isPdf ? FileText : AudioLines}
         size={17}

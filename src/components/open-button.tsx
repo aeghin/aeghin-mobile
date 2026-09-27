@@ -7,7 +7,9 @@ import { Pressable } from "@/components/ui/pressable";
  * Hands a URL to the system.
  *
  * Nothing is rendered in-app: a Spotify link belongs to Spotify, and a PDF
- * chart to whatever the player already reads charts in.
+ * chart to whatever the player already reads charts in. Tracks are the one
+ * exception — they pass `onPress` to open `TrackPlayerDialog` instead, because
+ * Safari's media page loses its skip buttons.
  *
  * Shared by the song library, the event's setlist card and the setlist editor
  * — the same square target beside the same kinds of link in all three, so a
@@ -31,13 +33,15 @@ type OpenButtonProps = {
   url: string;
   label: string;
   children: ReactNode;
+  /** Runs in place of handing `url` to the system. */
+  onPress?: () => void;
 };
 
-export function OpenButton({ url, label, children }: OpenButtonProps) {
+export function OpenButton({ url, label, children, onPress }: OpenButtonProps) {
   return (
     <Pressable
-      onPress={() => Linking.openURL(url)}
-      accessibilityRole="link"
+      onPress={onPress ?? (() => Linking.openURL(url))}
+      accessibilityRole={onPress ? "button" : "link"}
       accessibilityLabel={label}
       hitSlop={SLOP}
       className="items-center justify-center rounded-md data-[active=true]:bg-border/60"

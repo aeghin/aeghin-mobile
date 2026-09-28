@@ -14,6 +14,7 @@ import {
   SKIP_SECONDS,
   usePlayerControls,
   useTrackPlayer,
+  type Track,
 } from "@/components/track-player-provider";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
@@ -33,7 +34,8 @@ import { useTheme } from "@/hooks/use-theme";
  * here, the ten-second skips are always on screen, and the lock screen shows
  * the same two because they are asked for rather than inferred from the file.
  *
- * Closing it leaves the track playing in `NowPlayingBar`.
+ * Done leaves the track playing in `NowPlayingBar`; ✕ stops it, the same as
+ * the bar's own ✕.
  */
 
 const PLAY_BUTTON = 64;
@@ -43,20 +45,27 @@ const THUMB = 14;
 const SCRUB_HEIGHT = 28;
 
 export function TrackPlayerDialog() {
-  const { player, track, expanded, collapse } = useTrackPlayer();
+  const { player, track, expanded, collapse, stop } = useTrackPlayer();
 
-  if (!track) return null;
+  // ✕ clears the track while the card is still fading out, so it keeps
+  // drawing the last one rather than unmounting mid-fade.
+  const [last, setLast] = useState<Track | null>(track);
+  if (track && track !== last) setLast(track);
+
+  const shown = track ?? last;
+  if (!shown) return null;
 
   return (
     <Dialog
       visible={expanded}
       icon={AudioLines}
-      title={track.songTitle}
-      description={track.attachment.name}
+      title={shown.songTitle}
+      description={shown.attachment.name}
+      closeButton={{ label: "Stop and close the player", onPress: stop }}
       onClose={collapse}
     >
       {/* Keyed so a new track starts with none of the last one's seeking. */}
-      <TrackControls key={track.attachment.id} player={player} />
+      <TrackControls key={shown.attachment.id} player={player} />
     </Dialog>
   );
 }

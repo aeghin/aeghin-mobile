@@ -1,3 +1,4 @@
+import X from "lucide-react-native/icons/x";
 import { useEffect, useState, type ReactNode, type Ref } from "react";
 import {
   Animated,
@@ -41,6 +42,7 @@ const EDGE_GAP = 12;
 const CARD_RADIUS = 26;
 const ICON_CIRCLE = 52;
 const BUTTON_HEIGHT = 46;
+const CLOSE_BUTTON = 34;
 
 export type DialogTone = "default" | "destructive";
 
@@ -65,6 +67,8 @@ type DialogProps = {
   /** What the dismissing button says when there is an action beside it. */
   cancelLabel?: string;
   onClose: () => void;
+  /** A ✕ in the card's corner, for a dialog where leaving is not the same as Done. */
+  closeButton?: { label: string; onPress: () => void };
   children?: ReactNode;
   /**
    * The body's scroll view, for a dialog whose message field grows as someone
@@ -91,6 +95,7 @@ export function Dialog({
   submitting = false,
   cancelLabel = "Cancel",
   onClose,
+  closeButton,
   children,
   bodyRef,
   compactWhileTyping = false,
@@ -233,6 +238,19 @@ export function Dialog({
                 </Text>
               ) : null}
             </VStack>
+
+            {closeButton ? (
+              <Pressable
+                onPress={closeButton.onPress}
+                accessibilityRole="button"
+                accessibilityLabel={closeButton.label}
+                hitSlop={8}
+                className="absolute right-3 top-3 items-center justify-center rounded-full data-[active=true]:bg-border/60"
+                style={{ width: CLOSE_BUTTON, height: CLOSE_BUTTON }}
+              >
+                <AppIcon icon={X} size={18} color={theme.textMuted} />
+              </Pressable>
+            ) : null}
 
             {children ? (
               <ScrollView

@@ -1,4 +1,5 @@
 import type { AudioPlayer } from "expo-audio";
+import { useSegments } from "expo-router";
 import AudioLines from "lucide-react-native/icons/audio-lines";
 import Pause from "lucide-react-native/icons/pause";
 import Play from "lucide-react-native/icons/play";
@@ -147,13 +148,20 @@ const TAB_BAR_HEIGHT = Platform.OS === "android" ? 80 : 49;
 /** Between the card and the tab bar. The rest of `NOW_PLAYING_HEIGHT` is the card. */
 const GAP = 8;
 
-/** The bar where there is no accessory slot: a card floating just above the tab bar. */
+/**
+ * The bar where there is no accessory slot: a card floating just above the tab bar.
+ *
+ * Not over the event chat, where it would sit on the composer. iOS presents
+ * the chat as a modal over the whole tab bar controller, bar included; Android
+ * pushes it inside the tab, so the bar has to step aside itself.
+ */
 export function FloatingNowPlayingBar() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { track } = useTrackPlayer();
+  const segments = useSegments();
 
-  if (!track) return null;
+  if (!track || segments.at(-1) === "chat") return null;
 
   return (
     <View

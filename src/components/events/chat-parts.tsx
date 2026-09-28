@@ -1,5 +1,6 @@
+import * as Clipboard from "expo-clipboard";
 import SendHorizontal from "lucide-react-native/icons/send-horizontal";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { TextInput } from "react-native";
 
 import { AppIcon } from "@/components/app-icon";
@@ -15,88 +16,215 @@ import { personName } from "@/lib/names";
 import type { ChatMessage } from "@/types/chat";
 
 const AVATAR = 28;
-/** Avatar to bubble; the time under the bubble indents by `AVATAR + GAP`. */
 const GAP = 8;
+/** Lines the name and the tapped time up with the bubble's text. */
+const TEXT_INDENT = AVATAR + GAP + 12;
 
-/** `"3:42 PM"`, in device time — a message is a real instant, unlike an event date. */
-function formatMessageTime(value: string): string {
-  return new Date(value).toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
+const RADIUS = 16;
+/** The sender's side, where bubbles in a run meet. */
+const JOIN_RADIUS = 6;
+
+/** One person's messages this close together read as a single run. */
+const RUN_MINUTES = 5;
+/** A pause this long, or a new day, earns a time divider. */
+const DIVIDER_MINUTES = 15;
+
+/** How long "Copied" stays under a bubble after a long press. */
+const COPIED_MS = 1500;
+
+const TIME: Intl.DateTimeFormatOptions = { hour: "numeric", minute: "2-digit" };
+
+function minutesApart(a: string, b: string): number {
+  return Math.abs(Date.parse(b) - Date.parse(a)) / 60_000;
+}
+
+function startOfDay(date: Date): number {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+}
+
+/**
+ * `"Today 3:42 PM"`, `"Yesterday 9:10 AM"`, `"Saturday 3:42 PM"` within the
+ * week, then `"Sat, Sep 20 · 3:42 PM"`. Device time, like every message time.
+ */
+function formatDivider(value: string, now = new Date()): string {
+  const date = new Date(value);
+  const time = date.toLocaleTimeString("en-US", TIME);
+  const days = Math.round((startOfDay(now) - startOfDay(date)) / 86_400_000);
+
+  if (days === 0) return `Today ${time}`;
+  if (days === 1) return `Yesterday ${time}`;
+  if (days > 1 && days < 7) {
+    return `${date.toLocaleDateString("en-US", { weekday: "long" })} ${time}`;
+  }
+
+  const day = date.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    ...(date.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }),
   });
+
+  return `${day} · ${time}`;
+}
+
+function needsDivider(before: ChatMessage | undefined, message: ChatMessage): boolean {
+  return (
+    !before ||
+    minutesApart(before.createdAt, message.createdAt) >= DIVIDER_MINUTES ||
+    startOfDay(new Date(before.createdAt)) !== startOfDay(new Date(message.createdAt))
+  );
+}
+
+function startsRun(before: ChatMessage | undefined, message: ChatMessage): boolean {
+  return (
+    !before ||
+    needsDivider(before, message) ||
+    before.author.id !== message.author.id ||
+    minutesApart(before.createdAt, message.createdAt) >= RUN_MINUTES
+  );
+}
+
+/** Where a message sits among its neighbours, oldest first. */
+export type MessagePlace = {
+  /** Heads a run of one person's messages, so it carries their name. */
+  first: boolean;
+  /** Ends the run, so it carries their avatar. */
+  last: boolean;
+  /** The time divider above it, when a pause or a new day earns one. */
+  divider: string | null;
+};
+
+export function placeMessage(
+  before: ChatMessage | undefined,
+  message: ChatMessage,
+  after: ChatMessage | undefined,
+): MessagePlace {
+  return {
+    first: startsRun(before, message),
+    last: !after || startsRun(message, after),
+    divider: needsDivider(before, message) ? formatDivider(message.createdAt) : null,
+  };
 }
 
 type MessageRowProps = {
   message: ChatMessage;
   isMe: boolean;
   colors: ServiceColors;
-  /** Hides the name and avatar when the message above is the same person's. */
-  continued: boolean;
+  place: MessagePlace;
 };
 
 /**
- * One bubble. The caller's own sit right in the service colour, the way the
- * dashboard paints them; everyone else's sit left on the surface.
+ * One bubble, laid out the way messaging apps group them: a run of one
+ * person's messages carries their name above the first bubble and their avatar
+ * beside the last, and times live in dividers between pauses rather than under
+ * every message. A tap shows a bubble's own time and a long press copies it —
+ * the text isn't selectable, because on Android a selectable text swallows
+ * the tap.
+ *
+ * The caller's own sit right in the service colour, the way the dashboard
+ * paints them, with no name or avatar — the side and the colour already say
+ * whose they are. Everyone else's sit left on the surface.
  */
-export function MessageRow({ message, isMe, colors, continued }: MessageRowProps) {
+export function MessageRow({ message, isMe, colors, place }: MessageRowProps) {
   const theme = useTheme();
+  const [showTime, setShowTime] = useState(false);
+  const [copied, setCopied] = useState(false);
   const pending = message.id.startsWith("temp-");
-  const fullName = personName(message.author);
+
+  useEffect(() => {
+    if (!copied) return;
+
+    const timer = setTimeout(() => setCopied(false), COPIED_MS);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
+  const copy = () => {
+    void Clipboard.setStringAsync(message.body).then((done) => setCopied(done));
+  };
+
+  const footnote = copied
+    ? "Copied"
+    : pending
+      ? place.last
+        ? "Sending…"
+        : null
+      : showTime
+        ? new Date(message.createdAt).toLocaleTimeString("en-US", TIME)
+        : null;
+
+  // Square where bubbles in a run meet on the sender's side; the foot stays
+  // squared as the tail.
+  const senderTop = place.first ? RADIUS : JOIN_RADIUS;
 
   return (
-    <VStack className={`px-4 ${continued ? "mt-1" : "mt-3"}`}>
-      {/* The time sits outside this row so `items-end` pins the avatar to the
-          bubble's foot rather than to the line underneath it. */}
-      <HStack
-        className={`items-end ${isMe ? "flex-row-reverse" : ""}`}
-        style={{ gap: GAP }}
-      >
-        <Box style={{ width: AVATAR }}>
-          {continued ? null : (
-            <OrgAvatar
-              name={fullName || "?"}
-              logoUrl={message.author.userImageUrl}
-              size={AVATAR}
-              shape="circle"
-            />
-          )}
-        </Box>
+    <VStack className={`px-4 ${place.first ? "mt-3" : "mt-0.5"}`}>
+      {place.divider ? (
+        <Text className="mb-3 mt-2 text-center text-[11px] font-medium text-muted-foreground">
+          {place.divider}
+        </Text>
+      ) : null}
 
-        <VStack className={`max-w-[76%] ${isMe ? "items-end" : "items-start"}`}>
-          {continued ? null : (
-            <Text className="mb-0.5 px-1 text-[11px] text-muted-foreground">
-              {isMe ? "You" : fullName}
-            </Text>
-          )}
+      {!isMe && place.first ? (
+        <Text
+          className="mb-1 text-[12px] font-medium text-muted-foreground"
+          style={{ marginLeft: TEXT_INDENT }}
+          numberOfLines={1}
+        >
+          {personName(message.author)}
+        </Text>
+      ) : null}
 
+      <HStack className={`items-end ${isMe ? "justify-end" : ""}`} style={{ gap: GAP }}>
+        {isMe ? null : (
+          <Box style={{ width: AVATAR }}>
+            {place.last ? (
+              <OrgAvatar
+                name={personName(message.author) || "?"}
+                logoUrl={message.author.userImageUrl}
+                size={AVATAR}
+                shape="circle"
+              />
+            ) : null}
+          </Box>
+        )}
+
+        <Pressable
+          onPress={pending ? undefined : () => setShowTime((shown) => !shown)}
+          onLongPress={copy}
+          accessibilityHint={
+            pending ? "Hold to copy" : "Shows when it was sent. Hold to copy."
+          }
+          className="max-w-[78%] data-[active=true]:opacity-80"
+        >
           <Box
-            className="rounded-2xl px-3 py-2"
+            className="px-3 py-2"
             style={{
-              backgroundColor: isMe ? colors.base : theme.surface,
+              backgroundColor: isMe ? colors.base : theme.border,
               opacity: pending ? 0.6 : 1,
-              borderBottomRightRadius: isMe ? 6 : 16,
-              borderBottomLeftRadius: isMe ? 16 : 6,
+              borderRadius: RADIUS,
+              ...(isMe
+                ? { borderTopRightRadius: senderTop, borderBottomRightRadius: JOIN_RADIUS }
+                : { borderTopLeftRadius: senderTop, borderBottomLeftRadius: JOIN_RADIUS }),
             }}
           >
             <Text
               className="text-[15px] leading-[20px]"
               style={{ color: isMe ? "#FFFFFF" : theme.text }}
-              selectable
             >
               {message.body}
             </Text>
           </Box>
-        </VStack>
+        </Pressable>
       </HStack>
 
-      <Text
-        className={`mt-0.5 px-1 text-[10px] text-muted-foreground ${
-          isMe ? "self-end" : "self-start"
-        }`}
-        style={isMe ? { marginRight: AVATAR + GAP } : { marginLeft: AVATAR + GAP }}
-      >
-        {pending ? "Sending…" : formatMessageTime(message.createdAt)}
-      </Text>
+      {footnote ? (
+        <Text
+          className={`mt-1 text-[11px] text-muted-foreground ${isMe ? "self-end" : ""}`}
+          style={isMe ? { marginRight: 4 } : { marginLeft: TEXT_INDENT }}
+        >
+          {footnote}
+        </Text>
+      ) : null}
     </VStack>
   );
 }

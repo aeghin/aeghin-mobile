@@ -11,7 +11,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppIcon } from "@/components/app-icon";
-import { Composer, MessageRow } from "@/components/events/chat-parts";
+import { Composer, MessageRow, placeMessage } from "@/components/events/chat-parts";
 import { EventsEmptyState } from "@/components/events/events-empty-state";
 import { useCurrentOrganization } from "@/components/organization-provider";
 import { Box } from "@/components/ui/box";
@@ -150,22 +150,15 @@ export default function EventChatScreen() {
             keyboardDismissMode="interactive"
             onEndReached={chat.hasMore ? () => void chat.loadOlder() : undefined}
             onEndReachedThreshold={0.4}
-            renderItem={({ item, index }) => {
-              // The list is inverted, so the message "above" is the next index.
-              const above = rows[index + 1];
-              return (
-                <MessageRow
-                  message={item}
-                  isMe={item.author.id === myId}
-                  colors={colors}
-                  continued={
-                    above !== undefined &&
-                    above.author.id === item.author.id &&
-                    minutesApart(above.createdAt, item.createdAt) < 5
-                  }
-                />
-              );
-            }}
+            // The list is inverted, so the older neighbour is the next index.
+            renderItem={({ item, index }) => (
+              <MessageRow
+                message={item}
+                isMe={item.author.id === myId}
+                colors={colors}
+                place={placeMessage(rows[index + 1], item, rows[index - 1])}
+              />
+            )}
             ListFooterComponent={
               chat.loadingOlder ? (
                 <Box className="items-center py-3">
@@ -204,8 +197,4 @@ export default function EventChatScreen() {
       </KeyboardAvoidingView>
     </VStack>
   );
-}
-
-function minutesApart(a: string, b: string): number {
-  return Math.abs(new Date(b).getTime() - new Date(a).getTime()) / 60_000;
 }

@@ -70,11 +70,14 @@ export function MembersSearchDock({
   const insets = useSafeAreaInsets();
   const nowPlayingInset = useNowPlayingInset();
 
-  // Inside a `NativeTabs` screen the bottom inset already covers the floating
-  // tab bar — 83pt on an iPhone 17, not the home indicator's 34 — so this plus
-  // a margin parks the capsule clear of it, and above the mini player when a
-  // track is loaded.
-  const resting = insets.bottom + TAB_BAR_MARGIN + nowPlayingInset;
+  // Inside an iOS `NativeTabs` screen the bottom inset already covers the
+  // floating tab bar — 83pt on an iPhone 17, not the home indicator's 34 — so
+  // this plus a margin parks the capsule clear of it, and above the mini player
+  // when a track is loaded. Android's screen ends at its solid tab bar, which
+  // already sits above the system navigation, so the inset there is only that
+  // navigation counted twice: 48dp with three buttons.
+  const resting =
+    (Platform.OS === "android" ? 0 : insets.bottom) + TAB_BAR_MARGIN + nowPlayingInset;
 
   // Lazily, not `useRef(...).current` — reading a ref during render is an
   // error under this project's lint.

@@ -41,7 +41,11 @@ function Tabs() {
 
   return (
     <View style={{ flex: 1 }}>
-      <NativeTabs tintColor={brand.orange} minimizeBehavior="onScrollDown">
+      <NativeTabs
+        tintColor={brand.orange}
+        minimizeBehavior="onScrollDown"
+        disableTransparentOnScrollEdge
+      >
         {track && HAS_TAB_ACCESSORY ? (
           <NativeTabs.BottomAccessory>
             <TabAccessory />

@@ -2,6 +2,7 @@ import { useUser } from "@clerk/expo";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import Activity from "lucide-react-native/icons/activity";
+import BellRing from "lucide-react-native/icons/bell-ring";
 import Building2 from "lucide-react-native/icons/building-2";
 import CalendarOff from "lucide-react-native/icons/calendar-off";
 import ExternalLink from "lucide-react-native/icons/external-link";
@@ -88,6 +89,13 @@ export default function SettingsScreen() {
                   icon={LayoutTemplate}
                   label="Templates"
                   onPress={() => router.push("/settings/templates")}
+                />
+              ) : null}
+              {canManage ? (
+                <InsetRow
+                  icon={BellRing}
+                  label="Staffing alerts"
+                  onPress={() => router.push("/settings/notifications")}
                 />
               ) : null}
               {canManage ? (

@@ -1,4 +1,5 @@
 import type { VolunteerRole } from "@/types/event";
+import type { Team } from "@/types/team-notifications";
 
 export type VolunteerRoleConfig = {
   label: string;
@@ -110,3 +111,33 @@ export const ROLE_ORDER: VolunteerRole[] = [
 export const ROLE_CATEGORIES: RoleCategory[] = (
   Object.keys(roleCategoryConfig) as RoleCategory[]
 ).sort((a, b) => roleCategoryConfig[a].order - roleCategoryConfig[b].order);
+
+/**
+ * The same four groups under the names the API keeps team leads and watchers
+ * against. `roleToCategory` stays the one place a role is put in a team.
+ */
+export const TEAMS: Team[] = ["BAND", "VOCALS", "PRODUCTION", "HOSPITALITY"];
+
+const teamOfCategory: Record<RoleCategory, Team> = {
+  band: "BAND",
+  vocals: "VOCALS",
+  production: "PRODUCTION",
+  hospitality: "HOSPITALITY",
+};
+
+const categoryOfTeam: Record<Team, RoleCategory> = {
+  BAND: "band",
+  VOCALS: "vocals",
+  PRODUCTION: "production",
+  HOSPITALITY: "hospitality",
+};
+
+export const teamOfRole = (role: VolunteerRole): Team =>
+  teamOfCategory[roleToCategory[role]];
+
+export const teamLabel = (team: Team): string =>
+  roleCategoryConfig[categoryOfTeam[team]].label;
+
+/** A team's roles, in roster order. */
+export const teamRoles = (team: Team): VolunteerRole[] =>
+  ROLE_ORDER.filter((role) => teamOfRole(role) === team);

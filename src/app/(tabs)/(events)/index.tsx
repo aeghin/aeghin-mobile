@@ -110,18 +110,21 @@ export default function EventsScreen() {
   // not flip between renders, and Date.now() during render is impure.
   const [now] = useState(() => Date.now());
   const [tab, setTab] = useState<EventsTab | null>(null);
-  // A "waiting on your answer" notification lands here asking for Pending. The
+  // A notification can land here asking for a tab: Pending for "waiting on
+  // your answer", All for a manager told about several events at once. The
   // ask stands until the viewer picks a tab, which clears it.
   const { tab: requestedTab } = useLocalSearchParams<{ tab?: string }>();
   const [scope, setScope] = useState<TimeScope>("upcoming");
   const [month, setMonth] = useState(currentMonthKey);
   const [serviceId, setServiceId] = useState<string | null>(null);
-  // An ask for Pending clears the filter too: the invitation it names can be
-  // for any service. Adjusted during render so the first frame is unfiltered.
+  // An ask clears the filter too: what it points at can be for any service.
+  // All also goes back to what's coming up, which is where those events are.
+  // Adjusted during render so the first frame is unfiltered.
   const [prevAsk, setPrevAsk] = useState(requestedTab);
   if (prevAsk !== requestedTab) {
     setPrevAsk(requestedTab);
-    if (requestedTab === "pending") setServiceId(null);
+    if (requestedTab === "pending" || requestedTab === "all") setServiceId(null);
+    if (requestedTab === "all") setScope("upcoming");
   }
 
   // ── Answering an invitation ───────────────────────────────────────────
@@ -240,7 +243,7 @@ export default function EventsScreen() {
   // later. Answering pins the tab, so this can read the live list without
   // moving anyone off the invitation they just answered.
   const chosenTab =
-    (requestedTab === "pending" ? "pending" : tab) ??
+    (requestedTab === "pending" || requestedTab === "all" ? requestedTab : tab) ??
     (invitations.length > 0 ? "pending" : "schedule");
 
   // A tab can vanish under you when the role changes; derive rather than

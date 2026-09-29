@@ -2,6 +2,7 @@ import { useAuth } from "@clerk/expo";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
+import { teamNotificationsKey } from "@/hooks/use-team-notifications";
 import { apiDelete, apiGet, apiPatch } from "@/lib/api";
 import type { VolunteerRole } from "@/types/event";
 import type { MemberStats, OrgRole, OrganizationMember } from "@/types/organization";
@@ -58,10 +59,14 @@ export function useUpdateMember(orgId: string) {
         `/api/mobile/v1/organizations/${orgId}/members/${memberId}`,
         change,
       ),
-    onSuccess: () => {
+    onSuccess: (_data, { change }) => {
       queryClient.invalidateQueries({ queryKey: membersKey(orgId) });
       // A role change can be the caller's own standing seen from another device.
       queryClient.invalidateQueries({ queryKey: ["organizations", userId] });
+      // And moves somebody on or off the list a team lead is picked from.
+      if ("role" in change) {
+        queryClient.invalidateQueries({ queryKey: teamNotificationsKey(orgId) });
+      }
     },
   });
 }
@@ -78,6 +83,8 @@ export function useRemoveMember(orgId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: membersKey(orgId) });
       queryClient.invalidateQueries({ queryKey: ["organizations", userId] });
+      // A removed admin was somebody a team lead could be picked from.
+      queryClient.invalidateQueries({ queryKey: teamNotificationsKey(orgId) });
     },
   });
 }

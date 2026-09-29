@@ -12,21 +12,31 @@ import type {
 /**
  * The organization's, not the caller's, so keyed without `userId` — like the
  * members roster, every account on the device can share one entry.
+ *
+ * Exported because more than its own mutation changes it: a role change or a
+ * removal changes who can be picked, and a service type's add, rename or
+ * delete changes the list — the same writes the web's cache tags cover.
  */
-const settingsKey = (orgId: string) => ["organizations", orgId, "team-notifications"];
+export const teamNotificationsKey = (orgId: string) => [
+  "organizations",
+  orgId,
+  "team-notifications",
+];
 
 const path = (orgId: string) => `/api/mobile/v1/organizations/${orgId}/team-notifications`;
 
 /**
  * Who leads each team on each service type and who else gets a heads-up.
- * Owners and admins only — the route answers 403 to a member, so `enabled`
- * gates the request rather than letting it fire and fail.
+ * Owners change it on the Staffing alerts screen; admins see that screen
+ * read-only, and read it for the create and edit screens' "Who handles open
+ * spots". The route answers 403 to a member, so `enabled` gates the request
+ * rather than letting it fire and fail.
  */
 export function useTeamNotifications(orgId: string, enabled: boolean) {
   const { userId } = useAuth();
 
   return useQuery({
-    queryKey: settingsKey(orgId),
+    queryKey: teamNotificationsKey(orgId),
     enabled: Boolean(userId && orgId && enabled),
     queryFn: () => apiGet<TeamNotificationSettings>(path(orgId)),
   });
@@ -80,13 +90,14 @@ function apply(settings: TeamNotificationSettings, change: Change): TeamNotifica
 
 /**
  * One change to one team on one service type: its lead, or one person on or
- * off its "Also notify". Admins and owners alike. Answered optimistically,
- * and put back exactly as it was if the server refuses.
+ * off its "Also notify". Owners only; the server refuses anybody else.
+ * Answered optimistically, and put back exactly as it was if the server
+ * refuses.
  */
 export function useChangeTeamNotifications(orgId: string) {
   const { userId } = useAuth();
   const queryClient = useQueryClient();
-  const key = settingsKey(orgId);
+  const key = teamNotificationsKey(orgId);
 
   return useMutation({
     mutationFn: (change: Change) => apiPatch<{ success: true }>(path(orgId), change),
@@ -108,7 +119,7 @@ export function useChangeTeamNotifications(orgId: string) {
       queryClient.invalidateQueries({ queryKey: key });
 
       // A new lead moves who owns every open role in the team: the bell, and
-      // the lead named on each event's team card and invite screen.
+      // the lead named on each event's invite screen.
       if ("lead" in change) {
         queryClient.invalidateQueries({ queryKey: ["organizations", userId, "notifications"] });
         queryClient.invalidateQueries({ queryKey: ["organizations", userId, "event-details", orgId] });

@@ -8,8 +8,12 @@ export type PushData =
   | { type: "event"; organizationId: string; eventId: string }
   /** An event invitation, answered from the Pending list. */
   | { type: "invitation"; organizationId: string; eventId: string }
-  /** The organization's events, when there is no page left to open. */
-  | { type: "organization"; organizationId: string }
+  /**
+   * The organization's events, when there is no page left to open. `tab: "all"`
+   * asks for every event rather than the viewer's own — for a manager told
+   * about several at once.
+   */
+  | { type: "organization"; organizationId: string; tab?: "all" }
   /** An invitation to join an organization. */
   | { type: "organization-invite"; token: string }
   /** A new message in the event's chat. Only sent to people on its team. */

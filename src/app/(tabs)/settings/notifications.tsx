@@ -58,10 +58,11 @@ type Picking = { team: Team; kind: "lead" | "watchers" };
 /**
  * The dashboard's Staffing Alerts: for each service type, who is asked to act
  * when one of a team's roles opens up, and who else gets a heads-up that it's
- * theirs. Admins and owners alike — the server holds the same line.
+ * theirs. Owners change it — the server holds the same line — and admins see
+ * it read-only.
  *
  * The other half lives on each event: a team can be handed to somebody else
- * for that event only, from the create and edit screens.
+ * for that event only, from the create and edit screens. Admins can do that.
  */
 export default function StaffingAlertsScreen() {
   const theme = useTheme();
@@ -71,6 +72,7 @@ export default function StaffingAlertsScreen() {
   const { organization } = useCurrentOrganization();
   const organizationId = organization?.id ?? "";
   const canManage = canManageOrg(organization?.role);
+  const isOwner = organization?.role === "OWNER";
 
   const settings = useTeamNotifications(organizationId, canManage);
   const change = useChangeTeamNotifications(organizationId);
@@ -141,6 +143,8 @@ export default function StaffingAlertsScreen() {
               title="No service types yet"
               body="Add a service type to choose who handles its teams."
             />
+          ) : !isOwner ? (
+            <TeamsOverview serviceTypes={serviceTypes} viewerId={settings.data.viewer.userId} />
           ) : (
             <>
               {serviceTypes.length > 1 ? (
@@ -165,7 +169,7 @@ export default function StaffingAlertsScreen() {
         </VStack>
       </ScrollView>
 
-      {settings.data && selected ? (
+      {isOwner && settings.data && selected ? (
         <PeoplePicker
           picking={picking}
           settings={settings.data}
@@ -181,6 +185,69 @@ export default function StaffingAlertsScreen() {
         />
       ) : null}
     </VStack>
+  );
+}
+
+/**
+ * Staffing alerts as admins see them: every service type at once, each team's
+ * lead and Also notify, with nothing to tap. Only owners change them; an
+ * admin's lever is the create and edit screens, which can hand a team to
+ * somebody else for that event only.
+ */
+function TeamsOverview({
+  serviceTypes,
+  viewerId,
+}: {
+  serviceTypes: ServiceTypeTeams[];
+  viewerId: string;
+}) {
+  const theme = useTheme();
+
+  const nameOf = (person: TeamPerson) => (person.userId === viewerId ? "You" : fullName(person));
+
+  return (
+    <>
+      {serviceTypes.map((serviceType) => (
+        <VStack key={serviceType.serviceTypeId}>
+          <HStack className="mb-2 ml-1 items-center gap-1.5">
+            <Box
+              className="h-2 w-2 rounded-full"
+              style={{ backgroundColor: getServiceColors(serviceType.color, theme).base }}
+            />
+            <Text className="text-xs font-bold uppercase tracking-[0.7px] text-muted-foreground">
+              {serviceType.name}
+            </Text>
+          </HStack>
+
+          {/* Rows lead with text, so the hairlines start where it does. */}
+          <InsetCard elevated separatorInset={14}>
+            {serviceType.teams.map((entry) => (
+              <VStack key={entry.team} className="min-h-[52px] justify-center px-3.5 py-2.5">
+                <HStack className="items-center gap-3">
+                  <Text className="text-base text-foreground">{teamLabel(entry.team)}</Text>
+                  <Text
+                    className="flex-1 text-right text-[15px] text-muted-foreground"
+                    numberOfLines={1}
+                  >
+                    {entry.lead ? nameOf(entry.lead) : "No lead · the event's creator"}
+                  </Text>
+                </HStack>
+                {entry.watchers.length > 0 ? (
+                  <Text className="mt-0.5 text-[13px] text-muted-foreground">
+                    Also notify: {entry.watchers.map(nameOf).join(", ")}
+                  </Text>
+                ) : null}
+              </VStack>
+            ))}
+          </InsetCard>
+        </VStack>
+      ))}
+
+      <Text className="ml-1 text-[12px] text-muted-foreground">
+        Only owners can change these. You can hand a team to someone else for one event when you
+        create or edit it.
+      </Text>
+    </>
   );
 }
 

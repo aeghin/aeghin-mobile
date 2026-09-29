@@ -91,6 +91,7 @@ export default function SettingsScreen() {
                   onPress={() => router.push("/settings/templates")}
                 />
               ) : null}
+              {/* Owners change it; admins see it read-only. */}
               {canManage ? (
                 <InsetRow
                   icon={BellRing}

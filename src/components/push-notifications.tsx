@@ -18,7 +18,7 @@ function pushDataOf(notification: Notifications.Notification): PushData | null {
 
   if (!data) return null;
 
-  const { type, organizationId, eventId, token } = data;
+  const { type, organizationId, eventId, token, tab } = data;
 
   if (type === "organization-invite") {
     return typeof token === "string" ? { type, token } : null;
@@ -31,6 +31,10 @@ function pushDataOf(notification: Notifications.Notification): PushData | null {
     typeof eventId === "string"
   ) {
     return { type, organizationId, eventId };
+  }
+
+  if (type === "organization" && tab === "all") {
+    return { type, organizationId, tab };
   }
 
   // A type this build predates still belongs to an organization.
@@ -189,6 +193,8 @@ export function PushNotifications({ ready }: { ready: boolean }) {
         router.push(`/events/${data.eventId}/chat`);
       } else if (data.type === "invitation") {
         router.dismissTo({ pathname: "/", params: { tab: "pending" } });
+      } else if (data.tab) {
+        router.dismissTo({ pathname: "/", params: { tab: data.tab } });
       } else {
         router.dismissTo("/");
       }

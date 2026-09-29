@@ -242,8 +242,8 @@ export type EventDetails = {
   };
   /**
    * Who handles each team on this event — whoever covers it here, else the
-   * service type's lead. Shown on each team, and named when a second invite
-   * is about to go into one of its roles. Managers only; absent from an older
+   * service type's lead. Named in the invite dialog when a second invite is
+   * about to go into one of its roles. Managers only; absent from an older
    * server.
    */
   teamLeads?: Partial<Record<Team, EventTeamLead>>;

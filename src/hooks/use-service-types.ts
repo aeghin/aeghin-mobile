@@ -1,6 +1,7 @@
 import { useAuth } from "@clerk/expo";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { teamNotificationsKey } from "@/hooks/use-team-notifications";
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
 import { isPlanLimit } from "@/lib/failure";
 import type { ServiceType, ServiceTypeColor } from "@/types/event";
@@ -61,6 +62,8 @@ export function useAddServiceType(orgId: string) {
       }
 
       queryClient.invalidateQueries({ queryKey: serviceTypesKey(orgId) });
+      // Staffing alerts list every service type, each with its own teams.
+      queryClient.invalidateQueries({ queryKey: teamNotificationsKey(orgId) });
     },
     // Refused as full: the list or the plan the phone counted against was stale.
     onError: (error) => {
@@ -80,11 +83,14 @@ export function useUpdateServiceType(orgId: string) {
       apiPatch<{ success: true }>(`${serviceTypesPath(orgId)}/${id}`, input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: serviceTypesKey(orgId) });
+      // Staffing alerts show each service type by name and colour.
+      queryClient.invalidateQueries({ queryKey: teamNotificationsKey(orgId) });
     },
   });
 }
 
 export function useDeleteServiceType(orgId: string) {
+  const { userId } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -92,6 +98,10 @@ export function useDeleteServiceType(orgId: string) {
       apiDelete<{ success: true }>(`${serviceTypesPath(orgId)}/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: serviceTypesKey(orgId) });
+      // Its teams leave Staffing alerts, and its leads stop counting — so the
+      // server hands their open spots on, and the bell moves with them.
+      queryClient.invalidateQueries({ queryKey: teamNotificationsKey(orgId) });
+      queryClient.invalidateQueries({ queryKey: ["organizations", userId, "notifications"] });
     },
   });
 }

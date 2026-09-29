@@ -345,6 +345,18 @@ export function useDeleteExpiredAssignment(orgId: string, eventId: string) {
   );
 }
 
+/**
+ * Watches the event, or stops: a heads-up about every staffing alert on it,
+ * whoever is asked to act. Owners and admins, for themselves.
+ */
+export function useWatchEvent(orgId: string, eventId: string) {
+  return useEventWrite(orgId, eventId, (watching: boolean) =>
+    watching
+      ? apiPost<{ watching: boolean }>(`${eventPath(orgId, eventId)}/watch`)
+      : apiDelete<{ watching: boolean }>(`${eventPath(orgId, eventId)}/watch`),
+  );
+}
+
 export function useEmailTeam(orgId: string, eventId: string) {
   return useMutation({
     mutationFn: (input: { subject: string; body: string }) =>

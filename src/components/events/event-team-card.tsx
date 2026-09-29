@@ -347,6 +347,8 @@ export function EventTeamCard({
             rosterRoles={rosterRoles}
             assignments={assignments}
             dates={event.dates}
+            viewerId={viewer.userId}
+            teamLeads={event.teamLeads ?? {}}
           />
           <AddRolesDialog
             visible={dialog === "roles"}

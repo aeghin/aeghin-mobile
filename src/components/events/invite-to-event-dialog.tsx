@@ -22,7 +22,12 @@ import { brand, withAlpha } from "@/constants/branding";
 import { useEventAvailability, useInviteToEvent } from "@/hooks/use-events";
 import { useMembersList } from "@/hooks/use-members-list";
 import { useTheme } from "@/hooks/use-theme";
-import { getVolunteerRoleConfig, ROLE_ORDER } from "@/lib/config/volunteer-roles";
+import {
+  getVolunteerRoleConfig,
+  ROLE_ORDER,
+  teamLabel,
+  teamOfRole,
+} from "@/lib/config/volunteer-roles";
 import { dayKey, formatDayMonth, formatTime } from "@/lib/events/format";
 import { failureMessage } from "@/lib/failure";
 import { personName } from "@/lib/names";
@@ -33,11 +38,21 @@ import type {
   VolunteerRole,
 } from "@/types/event";
 import type { OrganizationMember } from "@/types/organization";
+import type { Team, TeamPerson } from "@/types/team-notifications";
 
 const EXPIRY_OPTIONS = [3, 5, 7] as const;
 
 /** Past this many holders the web grows a search box; below it the list reads fine. */
 const SEARCH_THRESHOLD = 5;
+
+/**
+ * "Ana", "Ana and Ben", "Ana, Ben and Cy". By hand rather than through
+ * `Intl.ListFormat`, which Hermes doesn't ship.
+ */
+const listNames = (names: string[]) =>
+  names.length <= 1
+    ? (names[0] ?? "")
+    : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 
 /** `"09:00"` — the clock face of an instant, read in UTC like every other date here. */
 const clockOf = (iso: string) => new Date(iso).toISOString().slice(11, 16);
@@ -52,6 +67,10 @@ type InviteToEventDialogProps = {
   assignments: EventDetailsAssignment[];
   /** The hours the event runs, which is what availability is judged against. */
   dates: EventDate[];
+  /** The signed-in manager, who isn't told that they lead their own team. */
+  viewerId: string;
+  /** Each team's lead, named when a second invite is about to go into their role. */
+  teamLeads: Partial<Record<Team, TeamPerson>>;
 };
 
 /**
@@ -83,6 +102,8 @@ function InviteToEventBody({
   rosterRoles,
   assignments,
   dates,
+  viewerId,
+  teamLeads,
 }: InviteToEventDialogProps) {
   const theme = useTheme();
   const members = useMembersList(organizationId);
@@ -146,6 +167,34 @@ function InviteToEventBody({
 
   const invitableCount = holders.filter((member) => !live.has(member.id)).length;
 
+  // Who is already live on the chosen role. A second invite is sometimes
+  // right — three BGVs — and sometimes two admins filling one hole, so the
+  // dialog says who is there and asks before sending another.
+  const onRole = role
+    ? assignments.filter(
+        (assignment) =>
+          assignment.role === role &&
+          (assignment.status === "ACCEPTED" ||
+            (assignment.status === "PENDING" && new Date(assignment.expiresAt).getTime() > now)),
+      )
+    : [];
+
+  const lead = role ? teamLeads[teamOfRole(role)] : undefined;
+  const leadLine =
+    role && lead && lead.userId !== viewerId
+      ? `${lead.firstName} ${lead.lastName} leads ${teamLabel(teamOfRole(role))} and is asked to fill its roles.`
+      : null;
+
+  const holderLine = (assignment: EventDetailsAssignment) => {
+    const name = assignment.userId === viewerId ? "You" : personName(assignment.user);
+
+    if (assignment.status === "ACCEPTED") return `${name} — confirmed`;
+
+    return assignment.invitedBy
+      ? `${name} — invited by ${personName(assignment.invitedBy)}, waiting for an answer`
+      : `${name} — waiting for an answer`;
+  };
+
   const query = search.trim().toLowerCase();
 
   const filtered = query
@@ -188,6 +237,34 @@ function InviteToEventBody({
   };
 
   const submit = () => {
+    if (!role) return;
+
+    if (onRole.length === 0) {
+      send();
+      return;
+    }
+
+    const names = listNames(
+      onRole.map((assignment) =>
+        assignment.userId === viewerId ? "You" : personName(assignment.user),
+      ),
+    );
+
+    const waiting = onRole.some((assignment) => assignment.status !== "ACCEPTED");
+
+    Alert.alert(
+      `Invite another ${getVolunteerRoleConfig(role).label}?`,
+      `${names} ${onRole.length === 1 ? "is" : "are"} already on this role${
+        waiting ? ", and not everyone has answered yet" : ""
+      }. Send this only if the role needs more than one person.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Invite Anyway", onPress: send },
+      ],
+    );
+  };
+
+  const send = () => {
     if (!role) return;
     setError(null);
     invite.mutate(
@@ -257,6 +334,28 @@ function InviteToEventBody({
           }}
         />
       </Field>
+
+      {onRole.length > 0 ? (
+        <Box
+          className="gap-1 rounded-xl px-3 py-2.5"
+          style={{ backgroundColor: withAlpha(theme.warning, 0.12) }}
+        >
+          <HStack className="items-center gap-2">
+            <AppIcon icon={TriangleAlert} size={15} color={theme.warning} />
+            <Text className="flex-1 text-[13px] font-semibold" style={{ color: theme.warning }}>
+              Already on this role
+            </Text>
+          </HStack>
+          {onRole.map((assignment) => (
+            <Text key={assignment.id} className="text-[13px] text-foreground">
+              {holderLine(assignment)}
+            </Text>
+          ))}
+          {leadLine ? (
+            <Text className="text-[12px] text-muted-foreground">{leadLine}</Text>
+          ) : null}
+        </Box>
+      ) : null}
 
       <Field label={role ? `Members who can play ${getVolunteerRoleConfig(role).label}` : "Members"}>
         <VStack className="gap-2">

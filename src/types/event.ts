@@ -8,6 +8,7 @@
  */
 
 import type { KeyQuality, Pitch, SongAttachment } from "@/types/song";
+import type { Team, TeamPerson } from "@/types/team-notifications";
 
 export type VolunteerRole =
   | "GUITARIST"
@@ -146,6 +147,11 @@ export type EventDetailsAssignment = {
     lastName: string;
     userImageUrl: string | null;
   };
+  /**
+   * Who sent it. Null once they have left the organization; absent from a
+   * server older than the invite screen's "already waiting" warning.
+   */
+  invitedBy?: { firstName: string; lastName: string } | null;
 };
 
 /**
@@ -224,7 +230,14 @@ export type EventDetails = {
     canManage: boolean;
     /** Accepted, not merely invited — the same right that opens the screen. */
     isAssigned: boolean;
+    /** Getting a heads-up about this event's staffing alerts. Managers only. */
+    watching?: boolean;
   };
+  /**
+   * Each team's lead, named when a second invite is about to go into one of
+   * their roles. Managers only; absent from an older server.
+   */
+  teamLeads?: Partial<Record<Team, TeamPerson>>;
   /** Managers only; empty for everybody else. */
   smartSchedulingActivity: SmartSchedulingActivityItem[];
   /** Managers only; 0 for everybody else. */

@@ -141,3 +141,7 @@ export const teamLabel = (team: Team): string =>
 /** A team's roles, in roster order. */
 export const teamRoles = (team: Team): VolunteerRole[] =>
   ROLE_ORDER.filter((role) => teamOfRole(role) === team);
+
+/** The teams a set of roles falls into, in `TEAMS` order. */
+export const teamsOfRoles = (roles: VolunteerRole[]): Team[] =>
+  TEAMS.filter((team) => roles.some((role) => teamOfRole(role) === team));

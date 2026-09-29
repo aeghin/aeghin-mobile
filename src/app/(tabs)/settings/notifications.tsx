@@ -1,12 +1,12 @@
 import { Stack } from "expo-router";
-import Bell from "lucide-react-native/icons/bell";
 import BellRing from "lucide-react-native/icons/bell-ring";
+import CalendarRange from "lucide-react-native/icons/calendar-range";
 import Check from "lucide-react-native/icons/check";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
 import ShieldCheck from "lucide-react-native/icons/shield-check";
 import UserCheck from "lucide-react-native/icons/user-check";
 import { useState } from "react";
-import { Alert, RefreshControl, ScrollView, Switch } from "react-native";
+import { Alert, RefreshControl, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppIcon } from "@/components/app-icon";
@@ -30,9 +30,11 @@ import {
 } from "@/hooks/use-team-notifications";
 import { useTheme } from "@/hooks/use-theme";
 import { canManageOrg } from "@/lib/config/roles";
+import { getServiceColors } from "@/lib/config/service-types";
 import { getVolunteerRoleConfig, teamLabel, teamRoles } from "@/lib/config/volunteer-roles";
 import { failureMessage } from "@/lib/failure";
 import type {
+  ServiceTypeTeams,
   Team,
   TeamNotificationSettings,
   TeamPerson,
@@ -54,12 +56,12 @@ const summarize = (people: TeamPerson[]) =>
 type Picking = { team: Team; kind: "lead" | "watchers" };
 
 /**
- * The dashboard's Staffing Alerts: who is asked to act when one of a team's
- * roles opens up, and who else gets a heads-up that it's theirs.
+ * The dashboard's Staffing Alerts: for each service type, who is asked to act
+ * when one of a team's roles opens up, and who else gets a heads-up that it's
+ * theirs. Admins and owners alike — the server holds the same line.
  *
- * Owners set it for everybody. An admin reads it and switches only their own
- * heads-up — the server holds the same line, so this screen hiding the other
- * controls is courtesy, not the gate.
+ * The other half lives on each event: a team can be handed to somebody else
+ * for that event only, from the create and edit screens.
  */
 export default function StaffingAlertsScreen() {
   const theme = useTheme();
@@ -74,15 +76,23 @@ export default function StaffingAlertsScreen() {
   const change = useChangeTeamNotifications(organizationId);
   const pullToRefresh = usePullToRefresh(settings.refetch);
 
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [picking, setPicking] = useState<Picking | null>(null);
+
+  const serviceTypes = settings.data?.serviceTypes ?? [];
+
+  // The first until one is picked, and the first again if the picked one goes.
+  const selected =
+    serviceTypes.find((serviceType) => serviceType.serviceTypeId === selectedId) ??
+    serviceTypes[0];
 
   const refused = (error: unknown) => Alert.alert("Couldn't update", failureMessage(error));
 
-  const setLead = (team: Team, userId: string | null) =>
-    change.mutate({ team, lead: userId }, { onError: refused });
+  const setLead = (serviceTypeId: string, team: Team, userId: string | null) =>
+    change.mutate({ serviceTypeId, team, lead: userId }, { onError: refused });
 
-  const setWatching = (team: Team, userId: string, watching: boolean) =>
-    change.mutate({ team, userId, watching }, { onError: refused });
+  const setWatching = (serviceTypeId: string, team: Team, userId: string, watching: boolean) =>
+    change.mutate({ serviceTypeId, team, userId, watching }, { onError: refused });
 
   return (
     <VStack className="flex-1 bg-grouped">
@@ -102,10 +112,10 @@ export default function StaffingAlertsScreen() {
       >
         <VStack className="gap-5">
           <Text className="ml-1 text-[13px] text-muted-foreground">
-            When a role opens up — somebody declines, an invitation expires, or a member leaves —
-            the team&apos;s lead is asked to fill it, and everyone on Also notify gets a heads-up
-            that the lead has it. With no lead, whoever sent the invitation is asked, then the
-            event&apos;s creator.
+            When a spot opens up — somebody declines, an invitation expires, or a member leaves —
+            that team&apos;s lead for the service is asked to fill it, and everyone on Also notify
+            gets a heads-up. With no lead, the event&apos;s creator is asked. Any event can hand a
+            team to someone else for that event only.
           </Text>
 
           {!canManage ? (
@@ -125,26 +135,29 @@ export default function StaffingAlertsScreen() {
             <VStack className="items-center py-10">
               <Spinner color={theme.textMuted} />
             </VStack>
+          ) : !selected ? (
+            <EventsEmptyState
+              icon={CalendarRange}
+              title="No service types yet"
+              body="Add a service type to choose who handles its teams."
+            />
           ) : (
             <>
-              {settings.data.viewer.isOwner ? null : (
-                <Text className="-mt-2 ml-1 text-[12px] text-muted-foreground">
-                  Only an owner can change leads or add other people. Your own heads-up is yours to
-                  switch.
-                </Text>
-              )}
+              {serviceTypes.length > 1 ? (
+                <ServiceTypePicker
+                  serviceTypes={serviceTypes}
+                  selectedId={selected.serviceTypeId}
+                  onSelect={setSelectedId}
+                />
+              ) : null}
 
-              {settings.data.teams.map((entry) => (
+              {selected.teams.map((entry) => (
                 <TeamSection
-                  key={entry.team}
+                  key={`${selected.serviceTypeId}:${entry.team}`}
                   entry={entry}
                   viewerId={settings.data.viewer.userId}
-                  isOwner={settings.data.viewer.isOwner}
                   onPickLead={() => setPicking({ team: entry.team, kind: "lead" })}
                   onPickWatchers={() => setPicking({ team: entry.team, kind: "watchers" })}
-                  onSetMine={(watching) =>
-                    setWatching(entry.team, settings.data.viewer.userId, watching)
-                  }
                 />
               ))}
             </>
@@ -152,41 +165,84 @@ export default function StaffingAlertsScreen() {
         </VStack>
       </ScrollView>
 
-      {settings.data ? (
+      {settings.data && selected ? (
         <PeoplePicker
           picking={picking}
           settings={settings.data}
+          serviceType={selected}
           onClose={() => setPicking(null)}
           onSetLead={(team, userId) => {
-            setLead(team, userId);
+            setLead(selected.serviceTypeId, team, userId);
             setPicking(null);
           }}
-          onSetWatching={setWatching}
+          onSetWatching={(team, userId, watching) =>
+            setWatching(selected.serviceTypeId, team, userId, watching)
+          }
         />
       ) : null}
     </VStack>
   );
 }
 
+/** One pill per service type, tinted like its events. */
+function ServiceTypePicker({
+  serviceTypes,
+  selectedId,
+  onSelect,
+}: {
+  serviceTypes: ServiceTypeTeams[];
+  selectedId: string;
+  onSelect: (serviceTypeId: string) => void;
+}) {
+  const theme = useTheme();
+
+  return (
+    <HStack className="flex-wrap gap-2" accessibilityRole="tablist">
+      {serviceTypes.map((serviceType) => {
+        const active = serviceType.serviceTypeId === selectedId;
+        const colors = getServiceColors(serviceType.color, theme);
+
+        return (
+          <Pressable
+            key={serviceType.serviceTypeId}
+            onPress={() => onSelect(serviceType.serviceTypeId)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
+            className="rounded-full border px-3 py-1.5"
+            style={{
+              borderColor: active ? colors.base : theme.border,
+              backgroundColor: active ? theme.card : "transparent",
+            }}
+          >
+            <HStack className="items-center gap-1.5">
+              <Box className="h-2 w-2 rounded-full" style={{ backgroundColor: colors.base }} />
+              <Text
+                className="text-[13px] font-medium"
+                style={{ color: active ? theme.text : theme.textMuted }}
+              >
+                {serviceType.name}
+              </Text>
+            </HStack>
+          </Pressable>
+        );
+      })}
+    </HStack>
+  );
+}
+
 function TeamSection({
   entry,
   viewerId,
-  isOwner,
   onPickLead,
   onPickWatchers,
-  onSetMine,
 }: {
   entry: TeamSettings;
   viewerId: string;
-  isOwner: boolean;
   onPickLead: () => void;
   onPickWatchers: () => void;
-  onSetMine: (watching: boolean) => void;
 }) {
-  const theme = useTheme();
   const label = teamLabel(entry.team);
   const youLead = entry.lead?.userId === viewerId;
-  const youWatch = entry.watchers.some((watcher) => watcher.userId === viewerId);
 
   return (
     <VStack>
@@ -196,31 +252,14 @@ function TeamSection({
           icon={UserCheck}
           label="Lead"
           value={entry.lead ? (youLead ? "You" : fullName(entry.lead)) : "No lead"}
-          onPress={isOwner ? onPickLead : undefined}
+          onPress={onPickLead}
         />
         <InsetRow
           icon={BellRing}
           label="Also notify"
           value={summarize(entry.watchers)}
-          onPress={isOwner ? onPickWatchers : undefined}
+          onPress={onPickWatchers}
         />
-        {/* Laid out as an `InsetRow`, with a switch where the chevron goes. */}
-        <HStack space="sm" className="min-h-[52px] items-center" style={{ paddingHorizontal: 14 }}>
-          <VStack className="items-center justify-center" style={{ width: 18 }}>
-            <AppIcon icon={Bell} size={20} color={theme.textMuted} />
-          </VStack>
-          <Text className="flex-1 text-base text-foreground" numberOfLines={2}>
-            {youLead ? `You lead ${label}` : `Notify me about ${label}`}
-          </Text>
-          {youLead ? null : (
-            <Switch
-              value={youWatch}
-              onValueChange={onSetMine}
-              trackColor={{ true: brand.orange }}
-              accessibilityLabel={`Notify me about ${label}`}
-            />
-          )}
-        </HStack>
       </InsetCard>
       <Text className="ml-1 mt-2 text-[12px] text-muted-foreground">
         {teamRoles(entry.team)
@@ -232,23 +271,27 @@ function TeamSection({
 }
 
 /**
- * Picks a team's lead (one person, or nobody) or its Also notify (anybody).
- * Owners only; each tap is sent as it's made, so Done just closes.
+ * Picks a team's lead (one person, or nobody) or its Also notify (anybody),
+ * for one service type. Each tap is sent as it's made, so Done just closes.
  */
 function PeoplePicker({
   picking,
   settings,
+  serviceType,
   onClose,
   onSetLead,
   onSetWatching,
 }: {
   picking: Picking | null;
   settings: TeamNotificationSettings;
+  serviceType: ServiceTypeTeams;
   onClose: () => void;
   onSetLead: (team: Team, userId: string | null) => void;
   onSetWatching: (team: Team, userId: string, watching: boolean) => void;
 }) {
-  const entry = picking ? settings.teams.find((team) => team.team === picking.team) : undefined;
+  const entry = picking
+    ? serviceType.teams.find((team) => team.team === picking.team)
+    : undefined;
   const label = picking ? teamLabel(picking.team) : "";
   const lead = picking?.kind === "lead";
 
@@ -264,8 +307,8 @@ function PeoplePicker({
       title={lead ? `${label} lead` : `Also notify about ${label}`}
       description={
         lead
-          ? `Asked to fill ${label}'s roles when one opens up.`
-          : `A heads-up whenever one of ${label}'s roles opens up, saying who has it.`
+          ? `Asked to fill ${label}'s roles on ${serviceType.name} events when one opens up.`
+          : `A heads-up whenever one of ${label}'s roles opens up on ${serviceType.name} events, saying who has it.`
       }
       onClose={onClose}
     >

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { apiGet, apiPatch } from "@/lib/api";
 import type {
+  ServiceTypeTeams,
   Team,
   TeamNotificationSettings,
   TeamSettings,
@@ -17,9 +18,9 @@ const settingsKey = (orgId: string) => ["organizations", orgId, "team-notificati
 const path = (orgId: string) => `/api/mobile/v1/organizations/${orgId}/team-notifications`;
 
 /**
- * Who leads each team and who else gets a heads-up. Owners and admins only —
- * the route answers 403 to a member, so `enabled` gates the request rather
- * than letting it fire and fail.
+ * Who leads each team on each service type and who else gets a heads-up.
+ * Owners and admins only — the route answers 403 to a member, so `enabled`
+ * gates the request rather than letting it fire and fail.
  */
 export function useTeamNotifications(orgId: string, enabled: boolean) {
   const { userId } = useAuth();
@@ -32,8 +33,8 @@ export function useTeamNotifications(orgId: string, enabled: boolean) {
 }
 
 type Change =
-  | { team: Team; lead: string | null }
-  | { team: Team; userId: string; watching: boolean };
+  | { serviceTypeId: string; team: Team; lead: string | null }
+  | { serviceTypeId: string; team: Team; userId: string; watching: boolean };
 
 /** The settings as they will read once the server agrees. */
 function apply(settings: TeamNotificationSettings, change: Change): TeamNotificationSettings {
@@ -44,7 +45,7 @@ function apply(settings: TeamNotificationSettings, change: Change): TeamNotifica
       : null;
   };
 
-  const teams = settings.teams.map((entry): TeamSettings => {
+  const changeTeam = (entry: TeamSettings): TeamSettings => {
     if (entry.team !== change.team) return entry;
 
     if ("lead" in change) {
@@ -65,15 +66,22 @@ function apply(settings: TeamNotificationSettings, change: Change): TeamNotifica
           : entry.watchers
         : entry.watchers.filter((watcher) => watcher.userId !== change.userId),
     };
-  });
+  };
 
-  return { ...settings, teams };
+  const serviceTypes = settings.serviceTypes.map(
+    (serviceType): ServiceTypeTeams =>
+      serviceType.serviceTypeId === change.serviceTypeId
+        ? { ...serviceType, teams: serviceType.teams.map(changeTeam) }
+        : serviceType,
+  );
+
+  return { ...settings, serviceTypes };
 }
 
 /**
- * One change: a team's lead (owners only), or one person on or off its
- * "Also notify" (owners for anybody, an admin for themselves). Answered
- * optimistically, and put back exactly as it was if the server refuses.
+ * One change to one team on one service type: its lead, or one person on or
+ * off its "Also notify". Admins and owners alike. Answered optimistically,
+ * and put back exactly as it was if the server refuses.
  */
 export function useChangeTeamNotifications(orgId: string) {
   const { userId } = useAuth();
@@ -100,7 +108,7 @@ export function useChangeTeamNotifications(orgId: string) {
       queryClient.invalidateQueries({ queryKey: key });
 
       // A new lead moves who owns every open role in the team: the bell, and
-      // the lead named on each event's invite screen.
+      // the lead named on each event's team card and invite screen.
       if ("lead" in change) {
         queryClient.invalidateQueries({ queryKey: ["organizations", userId, "notifications"] });
         queryClient.invalidateQueries({ queryKey: ["organizations", userId, "event-details", orgId] });

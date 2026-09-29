@@ -45,6 +45,7 @@ import {
   roleToCategory,
   ROLE_CATEGORIES,
   ROLE_ORDER,
+  teamOfRole,
   type RoleCategory,
 } from "@/lib/config/volunteer-roles";
 import { failureMessage } from "@/lib/failure";
@@ -206,6 +207,20 @@ export function EventTeamCard({
         : [...current, key],
     );
 
+  // Who handles each team's open spots on this event, for managers: "James",
+  // or "Kevin · this event only" when somebody covers it here.
+  const handlerLabel = (category: Category) => {
+    if (!canManage) return null;
+
+    const handler = event.teamLeads?.[teamOfRole(category.groups[0].role)];
+
+    if (!handler) return null;
+
+    const name = handler.userId === viewer.userId ? "You" : personName(handler);
+
+    return handler.cover ? `${name} · this event only` : name;
+  };
+
   const toggleSmart = (enabled: boolean) => {
     if (!autoFillAvailable) {
       Alert.alert("Auto-fill", "Smart Scheduling isn't included in this organization's plan.");
@@ -295,9 +310,19 @@ export function EventTeamCard({
                   className="data-[active=true]:bg-border/40"
                 >
                   <HStack className="items-center gap-2 px-3.5 py-3">
-                    <Text className="flex-1 text-[13.5px] font-semibold text-foreground">
-                      {category.label}
-                    </Text>
+                    <HStack className="flex-1 items-baseline gap-2">
+                      <Text className="text-[13.5px] font-semibold text-foreground">
+                        {category.label}
+                      </Text>
+                      {handlerLabel(category) ? (
+                        <Text
+                          className="flex-1 text-[12px] text-muted-foreground"
+                          numberOfLines={1}
+                        >
+                          {handlerLabel(category)}
+                        </Text>
+                      ) : null}
+                    </HStack>
 
                     {category.stalled ? (
                       <AppIcon icon={CircleAlert} size={13} color={theme.warning} />

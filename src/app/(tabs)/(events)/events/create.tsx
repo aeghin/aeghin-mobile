@@ -25,6 +25,11 @@ import { AppIcon } from "@/components/app-icon";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { AiEventPanel } from "@/components/events/ai-event-panel";
 import { AiEventUpgradeCard } from "@/components/events/ai-plan-cards";
+import {
+  EventTeamLeadsGroup,
+  teamLeadPicksInput,
+  type TeamLeadPicks,
+} from "@/components/events/event-team-leads-group";
 import { SegmentedControl, type Segment } from "@/components/events/segmented-control";
 import { TimeField } from "@/components/events/time-field";
 import {
@@ -53,11 +58,12 @@ import { useBillingStatus, useSmartSchedulingAvailable } from "@/hooks/use-billi
 import { useCheckAvailability, useCreateEvent } from "@/hooks/use-events";
 import { useMembersList } from "@/hooks/use-members-list";
 import { useServiceTypes } from "@/hooks/use-service-types";
+import { useTeamNotifications } from "@/hooks/use-team-notifications";
 import { useTemplates } from "@/hooks/use-templates";
 import { useTheme } from "@/hooks/use-theme";
 import { canManageOrg } from "@/lib/config/roles";
 import { getServiceColors } from "@/lib/config/service-types";
-import { getVolunteerRoleConfig, ROLE_ORDER } from "@/lib/config/volunteer-roles";
+import { getVolunteerRoleConfig, ROLE_ORDER, teamsOfRoles } from "@/lib/config/volunteer-roles";
 import {
   addDays,
   daysInRange,
@@ -463,6 +469,9 @@ function CreateEventForm({
   const create = useCreateEvent(organizationId);
   // Off and locked on Free, even when a template was saved with it on.
   const autoFillAvailable = useSmartSchedulingAvailable(organizationId);
+  // Each service type's team leads, for "Who handles open spots". Only
+  // managers reach this screen.
+  const teamSettings = useTeamNotifications(organizationId, true);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -480,6 +489,24 @@ function CreateEventForm({
   const [smartScheduling, setSmartScheduling] = useState(seed.smartScheduling);
   const [busy, setBusy] = useState<MemberAvailability | null>(null);
   const [addingService, setAddingService] = useState(false);
+
+  // Teams handed to somebody other than the lead, for this event only. Kept
+  // with the service type they were picked against: switching types starts
+  // over from that type's own leads.
+  const [teamLeadPicks, setTeamLeadPicks] = useState<{
+    serviceTypeId: string | null;
+    picks: TeamLeadPicks;
+  }>({ serviceTypeId: null, picks: {} });
+
+  const currentTeamLeadPicks =
+    teamLeadPicks.serviceTypeId === serviceTypeId ? teamLeadPicks.picks : {};
+
+  const teamLeadDefaults = Object.fromEntries(
+    (
+      teamSettings.data?.serviceTypes.find((entry) => entry.serviceTypeId === serviceTypeId)
+        ?.teams ?? []
+    ).flatMap(({ team, lead }) => (lead ? [[team, lead]] : [])),
+  );
 
   // Derived rather than synced: a range change would otherwise have to write
   // `times` from an effect, and every day already falls back to a default.
@@ -609,6 +636,7 @@ function CreateEventForm({
         roleAssignments: Object.fromEntries(
           rolesNeeded.map((role) => [role, assignments[role] ?? []]),
         ),
+        teamLeads: teamLeadPicksInput(currentTeamLeadPicks),
       },
       {
         onSuccess: () => router.back(),
@@ -968,6 +996,21 @@ function CreateEventForm({
                   />
                 </HStack>
               </FormGroup>
+
+              {teamSettings.data ? (
+                <EventTeamLeadsGroup
+                  teams={teamsOfRoles(rolesNeeded)}
+                  defaults={teamLeadDefaults}
+                  managers={teamSettings.data.managers}
+                  viewerId={teamSettings.data.viewer.userId}
+                  // With no lead, a team falls to whoever creates the event.
+                  fallback={{ userId: teamSettings.data.viewer.userId, name: "You" }}
+                  serviceTypeName={chosenService?.name ?? null}
+                  value={currentTeamLeadPicks}
+                  onChange={(picks) => setTeamLeadPicks({ serviceTypeId, picks })}
+                  tint={accent}
+                />
+              ) : null}
 
               <Pressable
                 onPress={() => onStep(1)}

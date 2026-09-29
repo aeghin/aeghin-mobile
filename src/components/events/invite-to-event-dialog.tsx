@@ -34,11 +34,12 @@ import { personName } from "@/lib/names";
 import type {
   EventDate,
   EventDetailsAssignment,
+  EventTeamLead,
   NewEventDay,
   VolunteerRole,
 } from "@/types/event";
 import type { OrganizationMember } from "@/types/organization";
-import type { Team, TeamPerson } from "@/types/team-notifications";
+import type { Team } from "@/types/team-notifications";
 
 const EXPIRY_OPTIONS = [3, 5, 7] as const;
 
@@ -69,8 +70,11 @@ type InviteToEventDialogProps = {
   dates: EventDate[];
   /** The signed-in manager, who isn't told that they lead their own team. */
   viewerId: string;
-  /** Each team's lead, named when a second invite is about to go into their role. */
-  teamLeads: Partial<Record<Team, TeamPerson>>;
+  /**
+   * Who handles each team on this event — its lead, or whoever covers it for
+   * this event only — named when a second invite is about to go into its role.
+   */
+  teamLeads: Partial<Record<Team, EventTeamLead>>;
 };
 
 /**
@@ -182,7 +186,9 @@ function InviteToEventBody({
   const lead = role ? teamLeads[teamOfRole(role)] : undefined;
   const leadLine =
     role && lead && lead.userId !== viewerId
-      ? `${lead.firstName} ${lead.lastName} leads ${teamLabel(teamOfRole(role))} and is asked to fill its roles.`
+      ? lead.cover
+        ? `${lead.firstName} ${lead.lastName} is covering ${teamLabel(teamOfRole(role))} for this event and is asked to fill its roles.`
+        : `${lead.firstName} ${lead.lastName} leads ${teamLabel(teamOfRole(role))} and is asked to fill its roles.`
       : null;
 
   const holderLine = (assignment: EventDetailsAssignment) => {

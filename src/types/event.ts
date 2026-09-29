@@ -8,7 +8,7 @@
  */
 
 import type { KeyQuality, Pitch, SongAttachment } from "@/types/song";
-import type { Team, TeamPerson } from "@/types/team-notifications";
+import type { Team, TeamLeadPick } from "@/types/team-notifications";
 
 export type VolunteerRole =
   | "GUITARIST"
@@ -205,6 +205,15 @@ export type SmartSchedulingActivityItem = {
   createdAt: string;
 };
 
+/** Who handles one team on one event. */
+export type EventTeamLead = {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  /** Handling it for this event only, in place of the service type's lead. */
+  cover: boolean;
+};
+
 export type EventDetails = {
   id: string;
   name: string;
@@ -230,14 +239,25 @@ export type EventDetails = {
     canManage: boolean;
     /** Accepted, not merely invited — the same right that opens the screen. */
     isAssigned: boolean;
-    /** Getting a heads-up about this event's staffing alerts. Managers only. */
-    watching?: boolean;
   };
   /**
-   * Each team's lead, named when a second invite is about to go into one of
-   * their roles. Managers only; absent from an older server.
+   * Who handles each team on this event — whoever covers it here, else the
+   * service type's lead. Shown on each team, and named when a second invite
+   * is about to go into one of its roles. Managers only; absent from an older
+   * server.
    */
-  teamLeads?: Partial<Record<Team, TeamPerson>>;
+  teamLeads?: Partial<Record<Team, EventTeamLead>>;
+  /**
+   * The teams handed to somebody else for this event only, for the edit
+   * screen. Managers only; absent from an older server.
+   */
+  teamLeadPicks?: TeamLeadPick[];
+  /**
+   * Who a team with no lead falls to, for the edit screen's defaults: the
+   * event's creator while they can still act on it. Null means the owners;
+   * absent from an older server.
+   */
+  createdBy?: { userId: string; firstName: string; lastName: string } | null;
   /** Managers only; empty for everybody else. */
   smartSchedulingActivity: SmartSchedulingActivityItem[];
   /** Managers only; 0 for everybody else. */
@@ -281,6 +301,8 @@ export type NewEvent = {
   rehearsal?: NewEventDay | null;
   /** Who to invite, per role. Every role optional. */
   roleAssignments: Record<string, string[]>;
+  /** Teams handed to somebody other than the service type's lead, for this event only. */
+  teamLeads?: TeamLeadPick[];
 };
 
 /**
@@ -358,6 +380,11 @@ export type EventEdit = {
   days: NewEventDay[];
   /** Null clears the rehearsal. Omitted leaves the stored one alone. */
   rehearsal?: NewEventDay | null;
+  /**
+   * The teams handed to somebody else for this event only — the whole set.
+   * Empty hands every team back to the service type; omitted leaves them alone.
+   */
+  teamLeads?: TeamLeadPick[];
 };
 
 /** An event somebody is already booked on over the hours being planned. */

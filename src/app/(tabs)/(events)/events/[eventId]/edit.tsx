@@ -15,6 +15,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppIcon } from "@/components/app-icon";
 import { DateRangePicker } from "@/components/date-range-picker";
+import {
+  EventTeamLeadsGroup,
+  teamLeadPicksFrom,
+  teamLeadPicksInput,
+  type TeamLeadFallback,
+  type TeamLeadPicks,
+} from "@/components/events/event-team-leads-group";
 import { TimeField } from "@/components/events/time-field";
 import {
   ErrorBanner,
@@ -34,6 +41,7 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand, withAlpha } from "@/constants/branding";
 import { useCheckAvailability, useEditEvent, useEventDetails } from "@/hooks/use-events";
+import { useTeamNotifications } from "@/hooks/use-team-notifications";
 import { useTheme } from "@/hooks/use-theme";
 import { ApiError } from "@/lib/api";
 import {
@@ -46,6 +54,7 @@ import {
   todayKey,
 } from "@/lib/events/format";
 import { getServiceColors } from "@/lib/config/service-types";
+import { TEAMS, teamsOfRoles } from "@/lib/config/volunteer-roles";
 import { failureMessage } from "@/lib/failure";
 import { personName } from "@/lib/names";
 import type { EventDate, EventDetails, EventDetailsAssignment, NewEventDay } from "@/types/event";
@@ -220,6 +229,51 @@ function EditForm({
   const [error, setError] = useState<string | null>(null);
   const [clashes, setClashes] = useState<Clash[]>([]);
 
+  // "Who handles open spots": the service type's leads from Settings, and the
+  // teams this event hands to somebody else. Only managers reach this form.
+  const teamSettings = useTeamNotifications(organizationId, true);
+
+  const [teamLeadPicks, setTeamLeadPicks] = useState<TeamLeadPicks>(
+    teamLeadPicksFrom(event.teamLeadPicks ?? []),
+  );
+
+  // Absent from an older server: the section stays out, and a save leaves
+  // the event's picks as they are rather than clearing them.
+  const showTeamLeads = event.teamLeadPicks !== undefined && teamSettings.data !== undefined;
+
+  const teamLeadDefaults = Object.fromEntries(
+    (
+      teamSettings.data?.serviceTypes.find(
+        (entry) => entry.serviceTypeId === event.serviceType.id,
+      )?.teams ?? []
+    ).flatMap(({ team, lead }) => (lead ? [[team, lead]] : [])),
+  );
+
+  const rosterTeams = teamsOfRoles([
+    ...event.rolesNeeded,
+    ...event.assignments.map((assignment) => assignment.role),
+  ]);
+
+  const teamLeadTeams = TEAMS.filter(
+    (team) => rosterTeams.includes(team) || teamLeadPicks[team] !== undefined,
+  );
+
+  // With no lead, a team falls to the event's creator while they can still
+  // act on it, else to the owners. Absent from an older server, which only
+  // knows it's the creator.
+  const teamLeadFallback: TeamLeadFallback =
+    event.createdBy === undefined
+      ? { userId: null, name: "The event's creator" }
+      : event.createdBy === null
+        ? { userId: null, name: "The owners" }
+        : {
+            userId: event.createdBy.userId,
+            name:
+              event.createdBy.userId === teamSettings.data?.viewer.userId
+                ? "You"
+                : personName(event.createdBy),
+          };
+
   // The hours a day keeps when the range grows past what the event stored.
   const fallback = seed.times[seed.range.start ?? ""] ?? { startTime: "10:00", endTime: "12:00" };
 
@@ -283,6 +337,9 @@ function EditForm({
         location: location.trim(),
         days: payloadDays,
         rehearsal,
+        // The whole set, only when the section showed — an empty list hands
+        // every team back to the service type.
+        ...(showTeamLeads ? { teamLeads: teamLeadPicksInput(teamLeadPicks) } : {}),
       },
       {
         onSuccess: () => router.back(),
@@ -527,6 +584,20 @@ function EditForm({
               ) : null}
             </FormBlock>
           </FormGroup>
+
+          {showTeamLeads && teamSettings.data ? (
+            <EventTeamLeadsGroup
+              teams={teamLeadTeams}
+              defaults={teamLeadDefaults}
+              managers={teamSettings.data.managers}
+              viewerId={teamSettings.data.viewer.userId}
+              fallback={teamLeadFallback}
+              serviceTypeName={event.serviceType.name}
+              value={teamLeadPicks}
+              onChange={setTeamLeadPicks}
+              tint={accent}
+            />
+          ) : null}
         </VStack>
       </ScrollView>
     </VStack>

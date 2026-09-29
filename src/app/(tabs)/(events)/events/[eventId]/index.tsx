@@ -1,8 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
 import CircleSlash from "lucide-react-native/icons/circle-slash";
-import Eye from "lucide-react-native/icons/eye";
-import EyeOff from "lucide-react-native/icons/eye-off";
 import Pencil from "lucide-react-native/icons/pencil";
 import Trash2 from "lucide-react-native/icons/trash-2";
 import { useState } from "react";
@@ -37,7 +35,6 @@ import {
   useEventDetails,
   useRemoveEventRole,
   useResendAssignment,
-  useWatchEvent,
 } from "@/hooks/use-events";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useSongKeys } from "@/hooks/use-song-keys";
@@ -135,10 +132,6 @@ export default function EventDetailScreen() {
   const details = useEventDetails(organizationId, eventId ?? "");
   const pullToRefresh = usePullToRefresh(details.refetch);
   const event = details.data;
-
-  const watch = useWatchEvent(organizationId, eventId ?? "");
-  // Absent from a server older than watching, which reads as not watching.
-  const watching = event?.viewer.watching ?? false;
 
   // A 404 is authoritative: the event is gone, so a cached copy must stop
   // being shown. Every other failure leaves the cache alone — `isError` goes
@@ -284,24 +277,6 @@ export default function EventDetailScreen() {
                         icon: Pencil,
                         label: "Edit details",
                         onPress: () => router.push(`/events/${event.id}/edit`),
-                      },
-                      // A heads-up about every staffing alert on this event,
-                      // whoever is asked to act on it.
-                      {
-                        icon: watching ? EyeOff : Eye,
-                        label: watching ? "Stop watching" : "Watch staffing",
-                        onPress: () =>
-                          watch.mutate(!watching, {
-                            onSuccess: () =>
-                              Alert.alert(
-                                watching ? "Stopped watching" : "Watching",
-                                watching
-                                  ? "You'll only hear about this event's staffing when you're asked to act."
-                                  : "You'll get a heads-up whenever a role on this event opens up, and who has it.",
-                              ),
-                            onError: (error) =>
-                              Alert.alert("Couldn't update", failureMessage(error)),
-                          }),
                       },
                       {
                         icon: Trash2,

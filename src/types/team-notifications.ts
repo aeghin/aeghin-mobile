@@ -1,6 +1,6 @@
 /**
  * Who hears about staffing alerts, as `GET .../team-notifications` carries it.
- * Mirrors the NHC route's wire types — additive-only.
+ * Mirrors the NHC route's wire types.
  */
 
 import type { OrgRole } from "@/types/organization";
@@ -22,10 +22,25 @@ export type TeamSettings = {
   watchers: TeamPerson[];
 };
 
-export type TeamNotificationSettings = {
+/** One service type's four teams. */
+export type ServiceTypeTeams = {
+  serviceTypeId: string;
+  name: string;
+  color: string;
   teams: TeamSettings[];
+};
+
+export type TeamNotificationSettings = {
+  /** Live service types, oldest first. */
+  serviceTypes: ServiceTypeTeams[];
   /** Admins and owners: everybody who can lead a team or be copied in. */
   managers: (TeamPerson & { role: OrgRole })[];
-  /** Whose own switch this is, and whether they may change anybody else's. */
-  viewer: { userId: string; isOwner: boolean };
+  /** Who is asking, so the screens can say "you". */
+  viewer: { userId: string };
+};
+
+/** Somebody picked to handle one team on one event only, in place of its lead. */
+export type TeamLeadPick = {
+  team: Team;
+  userId: string;
 };

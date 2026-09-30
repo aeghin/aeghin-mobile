@@ -1,13 +1,15 @@
 import ChevronLeft from "lucide-react-native/icons/chevron-left";
 import ChevronRight from "lucide-react-native/icons/chevron-right";
-import { ScrollView } from "react-native";
+import { ScrollView, type BoxShadowValue } from "react-native";
+import Animated, { useAnimatedRef, useAnimatedStyle } from "react-native-reanimated";
+import Sortable, { useItemContext } from "react-native-sortables";
 
 import { AppIcon, type AppIconName } from "@/components/app-icon";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import { brand, withAlpha } from "@/constants/branding";
+import { blendOver, brand, withAlpha } from "@/constants/branding";
 import { useTheme } from "@/hooks/use-theme";
 import { getServiceColors } from "@/lib/config/service-types";
 import { formatMonth } from "@/lib/events/format";
@@ -131,27 +133,52 @@ function StepperButton({
 }
 
 type ServiceFilterProps = {
+  /** Already in the viewer's own order. */
   services: ServiceType[];
   /** Null means "All". */
   value: string | null;
   onChange: (serviceTypeId: string | null) => void;
+  /** A pill was dropped somewhere new: every id, first to last. */
+  onReorder: (serviceTypeIds: string[]) => void;
 };
 
 /**
- * Narrows the list to one kind of service.
+ * Narrows the list to one kind of service — and holds each person's own order
+ * of them: hold a pill, drag it along the row, and it stays where it lands.
  *
  * A selected chip wears the service's own colour rather than a shared accent —
  * it is the same colour as the rail on every card the filter leaves behind, so
  * the connection is visible without reading either label.
+ *
+ * "All" sits outside the sortable run, so it always comes first. The pills tap
+ * through `Sortable.Touchable` rather than `Pressable`, which can fire its
+ * press as a dragged pill is dropped.
  */
-export function ServiceFilter({ services, value, onChange }: ServiceFilterProps) {
+export function ServiceFilter({
+  services,
+  value,
+  onChange,
+  onReorder,
+}: ServiceFilterProps) {
   const theme = useTheme();
+  const scrollRef = useAnimatedRef<Animated.ScrollView>();
 
   return (
-    <ScrollView
+    <Animated.ScrollView
+      ref={scrollRef}
       horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ paddingHorizontal: GUTTER, gap: 8 }}
+      // A scroll view clips to its bounds, and a row only as tall as its pills
+      // cut the lifted pill's shadow off entirely. The padding makes room for
+      // it; the negative margins give that room back to the page's 12pt gaps,
+      // so nothing around the row moves.
+      style={{ marginTop: -2, marginBottom: -10 }}
+      contentContainerStyle={{
+        paddingHorizontal: GUTTER,
+        paddingTop: 2,
+        paddingBottom: 10,
+        gap: 8,
+      }}
     >
       <Pressable
         onPress={() => onChange(null)}
@@ -171,39 +198,122 @@ export function ServiceFilter({ services, value, onChange }: ServiceFilterProps)
         </Text>
       </Pressable>
 
-      {services.map((service) => {
-        const active = service.id === value;
-        const colors = getServiceColors(service.color, theme);
+      <Sortable.Flex
+        flexDirection="row"
+        flexWrap="nowrap"
+        gap={8}
+        scrollableRef={scrollRef}
+        autoScrollDirection="horizontal"
+        overDrag="horizontal"
+        dragActivationDelay={250}
+        activeItemScale={1.06}
+        activeItemShadowOpacity={0}
+        inactiveItemOpacity={1}
+        onDragEnd={({ fromIndex, toIndex, order }) => {
+          if (fromIndex !== toIndex) {
+            onReorder(order(services).map((service) => service.id));
+          }
+        }}
+      >
+        {services.map((service) => {
+          const active = service.id === value;
 
-        return (
-          <Pressable
-            key={service.id}
-            onPress={() => onChange(active ? null : service.id)}
-            accessibilityRole="button"
-            accessibilityState={{ selected: active }}
-            className="rounded-full border data-[active=true]:opacity-60"
-            style={{
-              paddingHorizontal: 12,
-              paddingVertical: 6,
-              borderColor: active ? colors.hairline : theme.border,
-              backgroundColor: active ? colors.surface : "transparent",
-            }}
+          return (
+            <ServicePill
+              key={service.id}
+              service={service}
+              active={active}
+              onSelect={() => onChange(active ? null : service.id)}
+            />
+          );
+        })}
+      </Sortable.Flex>
+    </Animated.ScrollView>
+  );
+}
+
+/**
+ * The web's `shadow-md` under a pill being dragged — below it, not around it.
+ * Constants rather than built per frame: iOS rebuilds a view's shadow layers
+ * whenever `boxShadow` changes, so a value that tracked the lift animation cost
+ * a rebuild on every frame of the pickup and every frame of the drop.
+ */
+const LIFTED: BoxShadowValue[] = [
+  { offsetX: 0, offsetY: 4, blurRadius: 6, spreadDistance: -1, color: "rgba(0, 0, 0, 0.1)" },
+  { offsetX: 0, offsetY: 2, blurRadius: 4, spreadDistance: -2, color: "rgba(0, 0, 0, 0.1)" },
+];
+const FLAT: BoxShadowValue[] = [];
+
+function ServicePill({
+  service,
+  active,
+  onSelect,
+}: {
+  service: ServiceType;
+  active: boolean;
+  onSelect: () => void;
+}) {
+  const theme = useTheme();
+  const colors = getServiceColors(service.color, theme);
+  const { activationAnimationProgress } = useItemContext();
+
+  // On from the first frame of the lift until the pill has settled again, so
+  // its layers are built once per drag. The library's own shadow is centred,
+  // so it is turned off above. None at all at rest: iOS draws each shadow as a
+  // masked layer, which costs every frame the list scrolls even when clear.
+  const lift = useAnimatedStyle(() => ({
+    boxShadow: activationAnimationProgress.value > 0 ? LIFTED : FLAT,
+  }));
+
+  // Held long enough to lift, then let go where it was: a drag that went
+  // nowhere, not a tap. The tap gesture allows half a second and the lift
+  // comes at 250ms, so both fire; a pill still lifted or settling skips it.
+  const tap = () => {
+    if (activationAnimationProgress.value > 0) return;
+    onSelect();
+  };
+
+  return (
+    <Sortable.Touchable
+      onTap={tap}
+      onAccessibilityTap={onSelect}
+      accessible
+      accessibilityRole="button"
+      accessibilityLabel={service.name}
+      accessibilityHint="Hold and drag to reorder"
+      accessibilityState={{ selected: active }}
+    >
+      <Animated.View
+        style={[
+          {
+            borderRadius: 999,
+            borderWidth: 1,
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+            borderColor: active ? colors.hairline : theme.border,
+            // The page's own colour, and the tint already mixed into it: the
+            // same look as a transparent pill, but a dragged one hides the
+            // pills it passes over instead of showing them through.
+            backgroundColor: active
+              ? blendOver(theme.groupedBackground, colors.base, 0.1)
+              : theme.groupedBackground,
+          },
+          lift,
+        ]}
+      >
+        <HStack className="items-center gap-1.5">
+          <Box
+            className="h-[7px] w-[7px] rounded-full"
+            style={{ backgroundColor: colors.base }}
+          />
+          <Text
+            className="text-[12.5px] font-semibold"
+            style={{ color: active ? colors.text : theme.textMuted }}
           >
-            <HStack className="items-center gap-1.5">
-              <Box
-                className="h-[7px] w-[7px] rounded-full"
-                style={{ backgroundColor: colors.base }}
-              />
-              <Text
-                className="text-[12.5px] font-semibold"
-                style={{ color: active ? colors.text : theme.textMuted }}
-              >
-                {service.name}
-              </Text>
-            </HStack>
-          </Pressable>
-        );
-      })}
-    </ScrollView>
+            {service.name}
+          </Text>
+        </HStack>
+      </Animated.View>
+    </Sortable.Touchable>
   );
 }

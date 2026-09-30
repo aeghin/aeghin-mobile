@@ -4,7 +4,7 @@ import CircleAlert from "lucide-react-native/icons/circle-alert";
 import CircleCheckBig from "lucide-react-native/icons/circle-check-big";
 import ListFilter from "lucide-react-native/icons/list-filter";
 import Plus from "lucide-react-native/icons/plus";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Alert, RefreshControl, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -47,10 +47,11 @@ import {
   useUserEvents,
 } from "@/hooks/use-events";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
-import { useServiceTypes } from "@/hooks/use-service-types";
+import { useServiceTypes, useSetServiceTypeOrder } from "@/hooks/use-service-types";
 import { useTheme } from "@/hooks/use-theme";
 import { ApiError } from "@/lib/api";
 import { canManageOrg } from "@/lib/config/roles";
+import { orderServiceTypes } from "@/lib/config/service-types";
 import {
   currentMonthKey,
   formatMonth,
@@ -66,6 +67,7 @@ import {
   type EventsTab,
   type TimeScope,
 } from "@/lib/events/schedule";
+import { failureMessage } from "@/lib/failure";
 import type { OrganizationEvent, ServiceType } from "@/types/event";
 
 /** How much page the tab bar covers once the list has scrolled under it. */
@@ -83,6 +85,7 @@ const NO_EVENTS: OrganizationEvent[] = [];
 
 /** Same, for an organization that has not defined a service type yet. */
 const NO_SERVICES: ServiceType[] = [];
+const NO_ORDER: string[] = [];
 
 export default function EventsScreen() {
   const theme = useTheme();
@@ -102,6 +105,8 @@ export default function EventsScreen() {
   const userEvents = useUserEvents(organizationId);
   const orgEvents = useOrgEvents(organizationId, canManage);
   const serviceTypes = useServiceTypes(organizationId);
+  const saveServiceOrder = useSetServiceTypeOrder(organizationId);
+  const saveServiceOrderMutate = saveServiceOrder.mutate;
   const autoFillAvailable = useSmartSchedulingAvailable(organizationId);
 
   // ── View state ────────────────────────────────────────────────────────
@@ -185,7 +190,16 @@ export default function EventsScreen() {
 
   const pullToRefresh = usePullToRefresh(refresh);
 
-  const services = serviceTypes.data ?? NO_SERVICES;
+  // In the viewer's own order — theirs alone, saved when they drag a pill.
+  // Memoised by hand: the early return below folds the rest of this body into
+  // one compiler block that re-runs every render, and a new array here would
+  // re-render every pill and rebuild its tap gesture each time.
+  const serviceList = serviceTypes.data ?? NO_SERVICES;
+  const serviceOrder = organization?.serviceTypeOrder ?? NO_ORDER;
+  const services = useMemo(
+    () => orderServiceTypes(serviceList, serviceOrder),
+    [serviceList, serviceOrder],
+  );
   // A first load and a failed one both have nothing behind them, and an empty
   // list is what the counts and the tabs below should read in either case.
   const myEvents = userEvents.data ?? NO_EVENTS;
@@ -488,6 +502,12 @@ export default function EventsScreen() {
               services={services}
               value={serviceId}
               onChange={setServiceId}
+              onReorder={(ids) =>
+                saveServiceOrderMutate(ids, {
+                  onError: (error) =>
+                    Alert.alert("Couldn't save your order", failureMessage(error)),
+                })
+              }
             />
           ) : null}
 

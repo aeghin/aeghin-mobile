@@ -118,3 +118,21 @@ export function getServiceColors(
     shadowAlpha: ALPHA.shadow,
   };
 }
+
+/**
+ * Service types in one person's own order: the ones they arranged first, then
+ * any added since, alphabetically. Ids no longer in the list are skipped.
+ * Mirrors `orderServiceTypes` in the web's `service-types-config.ts`.
+ */
+export function orderServiceTypes<T extends { id: string; name: string }>(
+  serviceTypes: T[],
+  order: readonly string[],
+): T[] {
+  const rank = new Map(order.map((id, index) => [id, index]));
+
+  return [...serviceTypes].sort((a, b) => {
+    const left = rank.get(a.id) ?? Infinity;
+    const right = rank.get(b.id) ?? Infinity;
+    return left === right ? a.name.localeCompare(b.name) : left - right;
+  });
+}

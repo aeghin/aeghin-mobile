@@ -11,6 +11,7 @@ import {
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import {
   configureReanimatedLogger,
   ReanimatedLogLevel,
@@ -90,18 +91,22 @@ const publishableKey = requirePublishableKey();
 
 export default function RootLayout() {
   return (
-    <GluestackUIProvider mode="system">
-      <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-        <QueryProvider>
-          {/* Inside QueryProvider and ClerkProvider: it reads the membership
-              list to resolve the remembered id, and needs a session to do it. */}
-          <OrganizationProvider>
-            <StatusBar style="auto" />
-            <RootNavigator />
-          </OrganizationProvider>
-        </QueryProvider>
-      </ClerkProvider>
-    </GluestackUIProvider>
+    // The drag on the Events service pills is a gesture-handler gesture, and
+    // those only run under this root.
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <GluestackUIProvider mode="system">
+        <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
+          <QueryProvider>
+            {/* Inside QueryProvider and ClerkProvider: it reads the membership
+                list to resolve the remembered id, and needs a session to do it. */}
+            <OrganizationProvider>
+              <StatusBar style="auto" />
+              <RootNavigator />
+            </OrganizationProvider>
+          </QueryProvider>
+        </ClerkProvider>
+      </GluestackUIProvider>
+    </GestureHandlerRootView>
   );
 }
 

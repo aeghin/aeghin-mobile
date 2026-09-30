@@ -18,6 +18,12 @@ export type OrganizationSummary = {
    * crash on `.includes`. Read it through `isVocalist`, never directly.
    */
   volunteerRoles?: VolunteerRole[];
+  /**
+   * The caller's own order for the service-type pills on Events, as ids. Read
+   * it through `orderServiceTypes`. Optional for the same reason as
+   * `volunteerRoles`.
+   */
+  serviceTypeOrder?: string[];
 };
 
 export type OrganizationDetail = OrganizationSummary & {

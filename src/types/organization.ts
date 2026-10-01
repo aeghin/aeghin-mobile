@@ -15,7 +15,7 @@ export type OrganizationSummary = {
    *
    * Optional because it arrived after the first release: an app holding a
    * cached list from before it shipped would otherwise read `undefined` and
-   * crash on `.includes`. Read it through `isVocalist`, never directly.
+   * crash on `.includes`. Read it through `useRoles().sings`, never directly.
    */
   volunteerRoles?: VolunteerRole[];
   /**

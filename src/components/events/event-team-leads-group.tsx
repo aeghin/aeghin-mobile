@@ -13,8 +13,8 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
+import { useRoles } from "@/hooks/use-roles";
 import { useTheme } from "@/hooks/use-theme";
-import { teamLabel } from "@/lib/config/volunteer-roles";
 import type { Team, TeamLeadPick, TeamPerson } from "@/types/team-notifications";
 
 /**
@@ -80,6 +80,7 @@ export function EventTeamLeadsGroup({
   tint,
 }: EventTeamLeadsGroupProps) {
   const [picking, setPicking] = useState<Team | null>(null);
+  const { teamLabel } = useRoles();
 
   if (teams.length === 0) return null;
 

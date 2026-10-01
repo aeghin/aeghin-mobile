@@ -57,13 +57,13 @@ import { brand } from "@/constants/branding";
 import { useBillingStatus, useSmartSchedulingAvailable } from "@/hooks/use-billing";
 import { useCheckAvailability, useCreateEvent } from "@/hooks/use-events";
 import { useMembersList } from "@/hooks/use-members-list";
+import { useRoles } from "@/hooks/use-roles";
 import { useServiceTypes } from "@/hooks/use-service-types";
 import { useTeamNotifications } from "@/hooks/use-team-notifications";
 import { useTemplates } from "@/hooks/use-templates";
 import { useTheme } from "@/hooks/use-theme";
 import { canManageOrg } from "@/lib/config/roles";
 import { getServiceColors } from "@/lib/config/service-types";
-import { getVolunteerRoleConfig, ROLE_ORDER, teamsOfRoles } from "@/lib/config/volunteer-roles";
 import {
   addDays,
   daysInRange,
@@ -459,6 +459,7 @@ function CreateEventForm({
   hidden: boolean;
 }) {
   const theme = useTheme();
+  const roles = useRoles();
   const insets = useSafeAreaInsets();
   const nowPlayingInset = useNowPlayingInset();
   const router = useRouter();
@@ -947,7 +948,7 @@ function CreateEventForm({
                 slot you can fill later.
               </Text>
 
-              {ROLE_ORDER.filter((role) => rolesNeeded.includes(role)).map((role) => (
+              {roles.inOrder(rolesNeeded).map((role) => (
                 <RoleSection
                   key={role}
                   role={role}
@@ -999,7 +1000,7 @@ function CreateEventForm({
 
               {teamSettings.data ? (
                 <EventTeamLeadsGroup
-                  teams={teamsOfRoles(rolesNeeded)}
+                  teams={roles.teamsOf(rolesNeeded)}
                   defaults={teamLeadDefaults}
                   managers={teamSettings.data.managers}
                   viewerId={teamSettings.data.viewer.userId}
@@ -1056,7 +1057,7 @@ function RoleSection({
   onToggle: (member: OrganizationMember) => void;
 }) {
   const theme = useTheme();
-  const { emoji, label } = getVolunteerRoleConfig(role);
+  const { emoji, label } = useRoles().get(role);
 
   return (
     <VStack className="gap-1.5">

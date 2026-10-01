@@ -5,8 +5,11 @@
 
 import type { OrgRole } from "@/types/organization";
 
-/** The four teams the volunteer roles fall into, as the API names them. */
-export type Team = "BAND" | "VOCALS" | "PRODUCTION" | "HOSPITALITY";
+/**
+ * A team's key, e.g. `"BAND"`, as the API names it. A plain string for the same
+ * reason as `VolunteerRole`: the server adds teams without a release.
+ */
+export type Team = string;
 
 export type TeamPerson = {
   userId: string;
@@ -22,7 +25,7 @@ export type TeamSettings = {
   watchers: TeamPerson[];
 };
 
-/** One service type's four teams. */
+/** One service type's teams. */
 export type ServiceTypeTeams = {
   serviceTypeId: string;
   name: string;

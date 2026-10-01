@@ -31,6 +31,7 @@ import { VStack } from "@/components/ui/vstack";
 import { withAlpha } from "@/constants/branding";
 import { useSmartSchedulingAvailable } from "@/hooks/use-billing";
 import { useSetSmartScheduling } from "@/hooks/use-events";
+import { useRoles } from "@/hooks/use-roles";
 import { useTheme } from "@/hooks/use-theme";
 import { getServiceColors, WASH_STOPS } from "@/lib/config/service-types";
 import {
@@ -39,14 +40,6 @@ import {
   ROW_BORDER_ALPHA,
   ROW_FILL_ALPHA,
 } from "@/lib/config/status";
-import {
-  getVolunteerRoleConfig,
-  roleCategoryConfig,
-  roleToCategory,
-  ROLE_CATEGORIES,
-  ROLE_ORDER,
-  type RoleCategory,
-} from "@/lib/config/volunteer-roles";
 import { failureMessage } from "@/lib/failure";
 import { tintedGlow, tintedTopWash } from "@/lib/gradients";
 import { personName } from "@/lib/names";
@@ -55,6 +48,7 @@ import type {
   EventDetailsAssignment,
   VolunteerRole,
 } from "@/types/event";
+import type { Team } from "@/types/team-notifications";
 
 const AVATAR = 34;
 
@@ -64,11 +58,11 @@ const WASH_HEIGHT = 160;
 /**
  * The one section that opens by itself.
  *
- * The web accordion defaults to `["band"]` and the phone follows: four
- * sections all open is a screen of scrolling before the setlist, and the band
- * is the group whose gaps are noticed first.
+ * The web accordion defaults to the band and the phone follows: every
+ * section open is a screen of scrolling before the setlist, and the band is
+ * the group whose gaps are noticed first.
  */
-const DEFAULT_OPEN: RoleCategory[] = ["band"];
+const DEFAULT_OPEN: Team[] = ["BAND"];
 
 type RoleGroup = {
   role: VolunteerRole;
@@ -76,7 +70,7 @@ type RoleGroup = {
 };
 
 type Category = {
-  key: RoleCategory;
+  key: Team;
   label: string;
   groups: RoleGroup[];
   /** Roles here that are filled — see {@link isFilled}. */
@@ -150,7 +144,8 @@ export function EventTeamCard({
 }: EventTeamCardProps) {
   const theme = useTheme();
   const colors = getServiceColors(event.serviceType.color, theme);
-  const [open, setOpen] = useState<RoleCategory[]>(DEFAULT_OPEN);
+  const roles = useRoles();
+  const [open, setOpen] = useState<Team[]>(DEFAULT_OPEN);
   // Read once per mount: "has this invitation lapsed" must not flip mid-render.
   const [now] = useState(() => Date.now());
 
@@ -173,15 +168,14 @@ export function EventTeamCard({
   // A role belongs on the roster if the event declared it or somebody is on
   // it. The union keeps events created before `rolesNeeded` was persisted
   // intact — the same reason the web takes it.
-  const rosterRoles = ROLE_ORDER.filter(
-    (role) =>
-      event.rolesNeeded.includes(role) ||
-      assignments.some((assignment) => assignment.role === role),
-  );
+  const rosterRoles = roles.inOrder([
+    ...event.rolesNeeded,
+    ...assignments.map((assignment) => assignment.role),
+  ]);
 
-  const categories: Category[] = ROLE_CATEGORIES.map((key) => {
+  const categories: Category[] = roles.teamsOf(rosterRoles).map((key) => {
     const groups = rosterRoles
-      .filter((role) => roleToCategory[role] === key)
+      .filter((role) => roles.teamOf(role) === key)
       .map((role) => ({
         role,
         items: assignments.filter((assignment) => assignment.role === role),
@@ -189,7 +183,7 @@ export function EventTeamCard({
 
     return {
       key,
-      label: roleCategoryConfig[key].label,
+      label: roles.teamLabel(key),
       groups,
       filled: groups.filter((group) => isFilled(group, now)).length,
       stalled: hasStalled(groups, now),
@@ -199,7 +193,7 @@ export function EventTeamCard({
   const roleCount = categories.reduce((count, category) => count + category.groups.length, 0);
   const filledCount = categories.reduce((count, category) => count + category.filled, 0);
 
-  const toggle = (key: RoleCategory) =>
+  const toggle = (key: Team) =>
     setOpen((current) =>
       current.includes(key)
         ? current.filter((entry) => entry !== key)
@@ -481,7 +475,7 @@ function RoleGroupBlock({
   now: number;
 }) {
   const theme = useTheme();
-  const { label, emoji } = getVolunteerRoleConfig(group.role);
+  const { label, emoji } = useRoles().get(group.role);
 
   // The server only lets a role go when nobody is live on it; offer it then.
   const removable = onRemoveRole && !group.items.some((item) => isLive(item, now));

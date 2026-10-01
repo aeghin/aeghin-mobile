@@ -21,13 +21,8 @@ import { VolunteerRolePicker, toggleRole } from "@/components/volunteer-role-pic
 import { brand, withAlpha } from "@/constants/branding";
 import { useEventAvailability, useInviteToEvent } from "@/hooks/use-events";
 import { useMembersList } from "@/hooks/use-members-list";
+import { useRoles } from "@/hooks/use-roles";
 import { useTheme } from "@/hooks/use-theme";
-import {
-  getVolunteerRoleConfig,
-  ROLE_ORDER,
-  teamLabel,
-  teamOfRole,
-} from "@/lib/config/volunteer-roles";
 import { dayKey, formatDayMonth, formatTime } from "@/lib/events/format";
 import { failureMessage } from "@/lib/failure";
 import { personName } from "@/lib/names";
@@ -110,6 +105,7 @@ function InviteToEventBody({
   teamLeads,
 }: InviteToEventDialogProps) {
   const theme = useTheme();
+  const catalog = useRoles();
   const members = useMembersList(organizationId);
   const invite = useInviteToEvent(organizationId, eventId);
 
@@ -133,7 +129,7 @@ function InviteToEventBody({
   // action backfills `rolesNeeded` with whatever role it is handed — so the
   // roster grew behind the manager's back. Add roles is the deliberate way to
   // widen it, which is the line the dashboard draws by construction.
-  const roles = ROLE_ORDER.filter((entry) => rosterRoles.includes(entry));
+  const roles = catalog.inOrder(rosterRoles);
 
   // Reachable: removing the last role leaves an event with an empty roster.
   const noRoles = roles.length === 0;
@@ -183,12 +179,13 @@ function InviteToEventBody({
       )
     : [];
 
-  const lead = role ? teamLeads[teamOfRole(role)] : undefined;
+  const team = role ? catalog.teamOf(role) : null;
+  const lead = team ? teamLeads[team] : undefined;
   const leadLine =
-    role && lead && lead.userId !== viewerId
+    team && lead && lead.userId !== viewerId
       ? lead.cover
-        ? `${lead.firstName} ${lead.lastName} is covering ${teamLabel(teamOfRole(role))} for this event and is asked to fill its roles.`
-        : `${lead.firstName} ${lead.lastName} leads ${teamLabel(teamOfRole(role))} and is asked to fill its roles.`
+        ? `${lead.firstName} ${lead.lastName} is covering ${catalog.teamLabel(team)} for this event and is asked to fill its roles.`
+        : `${lead.firstName} ${lead.lastName} leads ${catalog.teamLabel(team)} and is asked to fill its roles.`
       : null;
 
   const holderLine = (assignment: EventDetailsAssignment) => {
@@ -259,7 +256,7 @@ function InviteToEventBody({
     const waiting = onRole.some((assignment) => assignment.status !== "ACCEPTED");
 
     Alert.alert(
-      `Invite another ${getVolunteerRoleConfig(role).label}?`,
+      `Invite another ${catalog.get(role).label}?`,
       `${names} ${onRole.length === 1 ? "is" : "are"} already on this role${
         waiting ? ", and not everyone has answered yet" : ""
       }. Send this only if the role needs more than one person.`,
@@ -363,7 +360,7 @@ function InviteToEventBody({
         </Box>
       ) : null}
 
-      <Field label={role ? `Members who can play ${getVolunteerRoleConfig(role).label}` : "Members"}>
+      <Field label={role ? `Members who can play ${catalog.get(role).label}` : "Members"}>
         <VStack className="gap-2">
           {holders.length > SEARCH_THRESHOLD ? (
             <HStack

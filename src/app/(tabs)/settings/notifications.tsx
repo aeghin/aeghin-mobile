@@ -24,6 +24,7 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
+import { useRoles } from "@/hooks/use-roles";
 import {
   useChangeTeamNotifications,
   useTeamNotifications,
@@ -31,7 +32,6 @@ import {
 import { useTheme } from "@/hooks/use-theme";
 import { canManageOrg } from "@/lib/config/roles";
 import { getServiceColors } from "@/lib/config/service-types";
-import { getVolunteerRoleConfig, teamLabel, teamRoles } from "@/lib/config/volunteer-roles";
 import { failureMessage } from "@/lib/failure";
 import type {
   ServiceTypeTeams,
@@ -202,6 +202,7 @@ function TeamsOverview({
   viewerId: string;
 }) {
   const theme = useTheme();
+  const roles = useRoles();
 
   const nameOf = (person: TeamPerson) => (person.userId === viewerId ? "You" : fullName(person));
 
@@ -224,7 +225,7 @@ function TeamsOverview({
             {serviceType.teams.map((entry) => (
               <VStack key={entry.team} className="min-h-[52px] justify-center px-3.5 py-2.5">
                 <HStack className="items-center gap-3">
-                  <Text className="text-base text-foreground">{teamLabel(entry.team)}</Text>
+                  <Text className="text-base text-foreground">{roles.teamLabel(entry.team)}</Text>
                   <Text
                     className="flex-1 text-right text-[15px] text-muted-foreground"
                     numberOfLines={1}
@@ -308,7 +309,8 @@ function TeamSection({
   onPickLead: () => void;
   onPickWatchers: () => void;
 }) {
-  const label = teamLabel(entry.team);
+  const roles = useRoles();
+  const label = roles.teamLabel(entry.team);
   const youLead = entry.lead?.userId === viewerId;
 
   return (
@@ -329,9 +331,7 @@ function TeamSection({
         />
       </InsetCard>
       <Text className="ml-1 mt-2 text-[12px] text-muted-foreground">
-        {teamRoles(entry.team)
-          .map((role) => getVolunteerRoleConfig(role).label)
-          .join(", ")}
+        {roles.teamRolesLabel(entry.team)}
       </Text>
     </VStack>
   );
@@ -356,6 +356,7 @@ function PeoplePicker({
   onSetLead: (team: Team, userId: string | null) => void;
   onSetWatching: (team: Team, userId: string, watching: boolean) => void;
 }) {
+  const { teamLabel } = useRoles();
   const entry = picking
     ? serviceType.teams.find((team) => team.team === picking.team)
     : undefined;

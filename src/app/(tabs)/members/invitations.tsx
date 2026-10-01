@@ -26,9 +26,9 @@ import {
   useResendInvitation,
 } from "@/hooks/use-invitations";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
+import { useRoles } from "@/hooks/use-roles";
 import { useTheme } from "@/hooks/use-theme";
 import { canManageOrg } from "@/lib/config/roles";
-import { getVolunteerRoleConfig } from "@/lib/config/volunteer-roles";
 import { formatActivityTime, formatExpiry, todayKey } from "@/lib/events/format";
 import { failureMessage } from "@/lib/failure";
 import { personName } from "@/lib/names";
@@ -199,6 +199,7 @@ function InvitationRow({
   resending?: boolean;
   onCancel?: () => void;
 }) {
+  const roles = useRoles();
   const status = STATUS_TONE[invitation.status];
   const expiry = invitation.status === "PENDING" ? formatExpiry(invitation.expiresAt, today) : null;
 
@@ -220,7 +221,7 @@ function InvitationRow({
 
       <HStack className="flex-wrap items-center gap-1">
         {invitation.volunteerRoles.map((role) => {
-          const { emoji, label } = getVolunteerRoleConfig(role);
+          const { emoji, label } = roles.get(role);
           return (
             <Text key={role} className="text-[12px] text-muted-foreground">
               {`${emoji} ${label}`}

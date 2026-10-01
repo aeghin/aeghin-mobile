@@ -10,19 +10,12 @@
 import type { KeyQuality, Pitch, SongAttachment } from "@/types/song";
 import type { Team, TeamLeadPick } from "@/types/team-notifications";
 
-export type VolunteerRole =
-  | "GUITARIST"
-  | "PIANIST"
-  | "AUX_KEYS"
-  | "DRUMMER"
-  | "LEAD_VOCALIST"
-  | "BGVS"
-  | "BASSIST"
-  | "SOUND_TECH"
-  | "STREAM_TECH"
-  | "PROJECTION_TECH"
-  | "USHER"
-  | "GREETER";
+/**
+ * A volunteer role's key, e.g. `"PIANIST"`. A plain string rather than a list
+ * of the ones this build knows: the server adds roles without a release, so
+ * read one through `useRoles` (`src/hooks/use-roles.ts`), never by name.
+ */
+export type VolunteerRole = string;
 
 /**
  * Mirrors the web's `InvitationStatus` enum.

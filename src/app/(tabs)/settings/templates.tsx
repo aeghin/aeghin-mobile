@@ -31,10 +31,10 @@ import {
   useTemplates,
   useUpdateTemplate,
 } from "@/hooks/use-templates";
+import { useRoles } from "@/hooks/use-roles";
 import { useTheme } from "@/hooks/use-theme";
 import { canManageOrg } from "@/lib/config/roles";
 import { getServiceColors } from "@/lib/config/service-types";
-import { getVolunteerRoleConfig } from "@/lib/config/volunteer-roles";
 import { WEEKDAY_LABELS, weekdayAfter } from "@/lib/config/weekdays";
 import { formatClock } from "@/components/events/time-field";
 import { failureMessage } from "@/lib/failure";
@@ -224,6 +224,7 @@ function TemplateRow({
   onPress: () => void;
 }) {
   const theme = useTheme();
+  const roles = useRoles();
   const colors = getServiceColors(template.serviceType.color, theme);
 
   const first = template.days[0];
@@ -270,7 +271,7 @@ function TemplateRow({
         {template.rolesNeeded.length > 0 ? (
           <HStack className="flex-wrap gap-1">
             {template.rolesNeeded.map((role) => {
-              const { emoji, label } = getVolunteerRoleConfig(role);
+              const { emoji, label } = roles.get(role);
               return (
                 <HStack
                   key={role}

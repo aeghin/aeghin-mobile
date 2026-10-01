@@ -36,6 +36,7 @@ import { brand, withAlpha } from "@/constants/branding";
 import { useBillingStatus } from "@/hooks/use-billing";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useSongKeys } from "@/hooks/use-song-keys";
+import { useRoles } from "@/hooks/use-roles";
 import { useTheme } from "@/hooks/use-theme";
 import {
   useAddSong,
@@ -46,7 +47,6 @@ import {
 import { ApiError } from "@/lib/api";
 import { PLAN_NAMES, planOf } from "@/lib/config/plans";
 import { canManageOrg } from "@/lib/config/roles";
-import { isVocalist } from "@/lib/config/volunteer-roles";
 import {
   SORT_OPTIONS,
   artistsOf,
@@ -75,6 +75,7 @@ const TAB_BAR_CLEARANCE = 64;
 
 export default function SongsScreen() {
   const theme = useTheme();
+  const roles = useRoles();
   const insets = useSafeAreaInsets();
 
   const { organization } = useCurrentOrganization();
@@ -86,7 +87,7 @@ export default function SongsScreen() {
 
   // Gated on the caller's volunteer roles, the way the dashboard gates its own
   // tab. Somebody who doesn't sing never asks for a journal they cannot open.
-  const canSeeKeys = isVocalist(organization?.volunteerRoles);
+  const canSeeKeys = roles.sings(organization?.volunteerRoles);
   const songKeys = useSongKeys(organizationId, { enabled: canSeeKeys });
 
   const addSong = useAddSong(organizationId);

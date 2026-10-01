@@ -11,9 +11,9 @@ import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
+import { useRoles } from "@/hooks/use-roles";
 import { useToggleVocalist } from "@/hooks/use-setlist";
 import { useTheme } from "@/hooks/use-theme";
-import { getVolunteerRoleConfig } from "@/lib/config/volunteer-roles";
 import type { ServiceColors } from "@/lib/config/service-types";
 import { failureMessage } from "@/lib/failure";
 import { personName } from "@/lib/names";
@@ -24,7 +24,7 @@ type VocalistDialogProps = {
   onClose: () => void;
   organizationId: string;
   eventId: string;
-  /** The event's roster; only accepted lead vocalists and BGVs are offered. */
+  /** The event's roster; only accepted singers are offered. */
   assignments: EventDetailsAssignment[];
   colors: ServiceColors;
 };
@@ -39,12 +39,12 @@ export function VocalistDialog({
   colors,
 }: VocalistDialogProps) {
   const theme = useTheme();
+  const roles = useRoles();
   const toggle = useToggleVocalist(organizationId, eventId);
 
   const candidates = assignments.filter(
     (assignment) =>
-      assignment.status === "ACCEPTED" &&
-      (assignment.role === "LEAD_VOCALIST" || assignment.role === "BGVS"),
+      assignment.status === "ACCEPTED" && roles.get(assignment.role).sings,
   );
 
   const assigned = new Set(song?.vocalists.map((person) => person.userId) ?? []);
@@ -89,7 +89,7 @@ export function VocalistDialog({
                         {name}
                       </Text>
                       <Text className="text-[12px] text-muted-foreground">
-                        {getVolunteerRoleConfig(candidate.role).label}
+                        {roles.get(candidate.role).label}
                       </Text>
                     </VStack>
                     <HStack

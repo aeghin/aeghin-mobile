@@ -6,8 +6,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
+import { useRoles } from "@/hooks/use-roles";
 import { useTheme } from "@/hooks/use-theme";
-import { getVolunteerRoleConfig } from "@/lib/config/volunteer-roles";
 import { formatExpiry, todayKey } from "@/lib/events/format";
 import { personName } from "@/lib/names";
 import type { PendingInvitation } from "@/types/organization";
@@ -35,6 +35,7 @@ export function InvitationCard({
   onAccept,
   onDecline,
 }: InvitationCardProps) {
+  const roles = useRoles();
   const { organization, invitedBy, volunteerRoles } = invitation;
   const expiry = formatExpiry(invitation.expiresAt, todayKey());
   const inviter = personName(invitedBy);
@@ -66,7 +67,7 @@ export function InvitationCard({
       {volunteerRoles.length > 0 ? (
         <HStack className="flex-wrap gap-1.5">
           {volunteerRoles.map((role) => {
-            const { emoji, label } = getVolunteerRoleConfig(role);
+            const { emoji, label } = roles.get(role);
             return (
               <HStack
                 key={role}

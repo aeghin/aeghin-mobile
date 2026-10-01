@@ -5,9 +5,9 @@ import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Text } from "@/components/ui/text";
 import { brand, withAlpha, type Palette } from "@/constants/branding";
+import { useRoles } from "@/hooks/use-roles";
 import { useTheme } from "@/hooks/use-theme";
 import { getServiceColors } from "@/lib/config/service-types";
-import { getVolunteerRoleConfig } from "@/lib/config/volunteer-roles";
 import type { ServiceType, VolunteerRole } from "@/types/event";
 
 /**
@@ -97,7 +97,7 @@ export function ServiceBadge({ service }: { service: ServiceType | undefined }) 
  * announces the glyph and then the word, and "guitar, Guitarist" is a stutter.
  */
 export function RoleChip({ role }: { role: VolunteerRole }) {
-  const { label, emoji } = getVolunteerRoleConfig(role);
+  const { label, emoji } = useRoles().get(role);
 
   return (
     <HStack

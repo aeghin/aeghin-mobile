@@ -24,10 +24,10 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand, withAlpha } from "@/constants/branding";
 import { useCreateEvent } from "@/hooks/use-events";
+import { useRoles } from "@/hooks/use-roles";
 import { useTheme } from "@/hooks/use-theme";
 import { apiBaseUrl, authHeaders } from "@/lib/api";
 import { getServiceColors } from "@/lib/config/service-types";
-import { getVolunteerRoleConfig } from "@/lib/config/volunteer-roles";
 import { formatShortDate, formatTime, keyToDate, todayKey } from "@/lib/events/format";
 import { failureMessage } from "@/lib/failure";
 import type { NewEvent } from "@/types/event";
@@ -365,6 +365,7 @@ function DraftCard({
   onCreated: () => void;
 }) {
   const theme = useTheme();
+  const roles = useRoles();
   const colors = getServiceColors(draft.serviceTypeColor, theme);
   const create = useCreateEvent(organizationId);
 
@@ -467,7 +468,7 @@ function DraftCard({
       <VStack className="gap-2">
         {draft.rolesNeeded.map((role) => {
           const people = kept.filter((assignment) => assignment.role === role);
-          const { emoji, label } = getVolunteerRoleConfig(role);
+          const { emoji, label } = roles.get(role);
 
           return (
             <HStack key={role} className="items-start gap-2">
@@ -529,7 +530,7 @@ function DraftCard({
                 <AppIcon icon={TriangleAlert} size={12} color={theme.warning} />
               </Box>
               <Text className="flex-1 text-[11.5px]" style={{ color: theme.warning }}>
-                {`${warning.name} skipped for ${getVolunteerRoleConfig(warning.role).label} — ${warning.reason}`}
+                {`${warning.name} skipped for ${roles.get(warning.role).label} — ${warning.reason}`}
               </Text>
             </HStack>
           ))}

@@ -39,10 +39,10 @@ import { useSeatUsage } from "@/hooks/use-billing";
 import { useMembersList } from "@/hooks/use-members-list";
 import { useOrganizationDetails } from "@/hooks/use-organizations";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
+import { useRoles } from "@/hooks/use-roles";
 import { useTheme } from "@/hooks/use-theme";
 import { PLAN_NAMES } from "@/lib/config/plans";
 import { canManageOrg, getRoleConfig } from "@/lib/config/roles";
-import { getVolunteerRoleConfig } from "@/lib/config/volunteer-roles";
 import {
   NO_FILTERS,
   activeFilterCount,
@@ -58,6 +58,7 @@ const NO_MEMBERS: OrganizationMember[] = [];
 
 export default function OrganizationMembersScreen() {
   const theme = useTheme();
+  const roles = useRoles();
   const insets = useSafeAreaInsets();
   const nowPlayingInset = useNowPlayingInset();
   const router = useRouter();
@@ -193,7 +194,7 @@ export default function OrganizationMembersScreen() {
 
             {filters.volunteerRole !== "ALL" ? (
               <FilterChip
-                label={getVolunteerRoleConfig(filters.volunteerRole).label}
+                label={roles.get(filters.volunteerRole).label}
                 onPress={() => setFilter("volunteerRole", "ALL")}
               />
             ) : null}

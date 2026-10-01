@@ -30,12 +30,13 @@ import {
   useRemoveMember,
   useUpdateMember,
 } from "@/hooks/use-members-list";
+import { useRoles } from "@/hooks/use-roles";
 import { useTheme } from "@/hooks/use-theme";
 import { canManageOrg, getRoleConfig } from "@/lib/config/roles";
-import { getVolunteerRoleConfig } from "@/lib/config/volunteer-roles";
 import { formatShortDate } from "@/lib/events/format";
 import { failureMessage } from "@/lib/failure";
 import { personName } from "@/lib/names";
+import type { VolunteerRole } from "@/types/event";
 import type { OrgRole } from "@/types/organization";
 
 const TAB_BAR_CLEARANCE = 64;
@@ -53,6 +54,7 @@ function formatPhone(phone: string): string {
  */
 export default function MemberScreen() {
   const theme = useTheme();
+  const roles = useRoles();
   const insets = useSafeAreaInsets();
   const nowPlayingInset = useNowPlayingInset();
   const router = useRouter();
@@ -130,7 +132,7 @@ export default function MemberScreen() {
       ],
     );
 
-  const toggleVolunteerRole = (volunteerRole: Parameters<typeof getVolunteerRoleConfig>[0]) =>
+  const toggleVolunteerRole = (volunteerRole: VolunteerRole) =>
     update.mutate(
       { memberId: member!.id, change: { toggleVolunteerRole: volunteerRole } },
       { onError: (error) => Alert.alert("Couldn't update roles", failureMessage(error)) },
@@ -239,7 +241,7 @@ export default function MemberScreen() {
               ) : member.volunteerRoles.length > 0 ? (
                 <HStack className="flex-wrap gap-1.5">
                   {member.volunteerRoles.map((volunteerRole) => {
-                    const { emoji, label } = getVolunteerRoleConfig(volunteerRole);
+                    const { emoji, label } = roles.get(volunteerRole);
                     return (
                       <HStack
                         key={volunteerRole}

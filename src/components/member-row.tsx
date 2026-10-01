@@ -7,9 +7,10 @@ import { Pressable } from "@/components/ui/pressable";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
+import { useRoles } from "@/hooks/use-roles";
 import { useTheme } from "@/hooks/use-theme";
 import { getRoleConfig } from "@/lib/config/roles";
-import { ROLE_ORDER, getVolunteerRoleConfig } from "@/lib/config/volunteer-roles";
+import type { Roles } from "@/lib/config/volunteer-roles";
 import { personName } from "@/lib/names";
 import type { OrganizationMember } from "@/types/organization";
 
@@ -40,6 +41,7 @@ type MemberRowProps = {
  */
 export function MemberRow({ member, isYou, onPress }: MemberRowProps) {
   const theme = useTheme();
+  const roles = useRoles();
   const { email, imageUrl, role } = member;
 
   const { icon, label, textClass, tint } = getRoleConfig(role, theme);
@@ -49,7 +51,7 @@ export function MemberRow({ member, isYou, onPress }: MemberRowProps) {
   // An address for whoever is allowed one, and what they play for everybody
   // else. The row is as tall as its avatar either way, so a person with
   // neither simply loses the second line rather than leaving a gap.
-  const subtitle = email || volunteerRoleSummary(member.volunteerRoles);
+  const subtitle = email || volunteerRoleSummary(member.volunteerRoles, roles);
 
   const row = (
     <HStack space="md" className={ROW_CLASS}>
@@ -109,9 +111,13 @@ export function MemberRow({ member, isYou, onPress }: MemberRowProps) {
  * the same pair of instruments read identically. Labels without their emoji:
  * at 13px in a single line that clips, the words are what survive truncation.
  */
-function volunteerRoleSummary(roles: OrganizationMember["volunteerRoles"]): string {
-  return ROLE_ORDER.filter((role) => roles.includes(role))
-    .map((role) => getVolunteerRoleConfig(role).label)
+function volunteerRoleSummary(
+  volunteerRoles: OrganizationMember["volunteerRoles"],
+  roles: Roles,
+): string {
+  return roles
+    .inOrder(volunteerRoles)
+    .map((role) => roles.get(role).label)
     .join(" · ");
 }
 

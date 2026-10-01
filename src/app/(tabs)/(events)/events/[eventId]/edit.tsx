@@ -41,6 +41,7 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand, withAlpha } from "@/constants/branding";
 import { useCheckAvailability, useEditEvent, useEventDetails } from "@/hooks/use-events";
+import { useRoles } from "@/hooks/use-roles";
 import { useTeamNotifications } from "@/hooks/use-team-notifications";
 import { useTheme } from "@/hooks/use-theme";
 import { ApiError } from "@/lib/api";
@@ -54,7 +55,6 @@ import {
   todayKey,
 } from "@/lib/events/format";
 import { getServiceColors } from "@/lib/config/service-types";
-import { TEAMS, teamsOfRoles } from "@/lib/config/volunteer-roles";
 import { failureMessage } from "@/lib/failure";
 import { personName } from "@/lib/names";
 import type { EventDate, EventDetails, EventDetailsAssignment, NewEventDay } from "@/types/event";
@@ -193,6 +193,7 @@ function EditForm({
   event: EventDetails;
 }) {
   const theme = useTheme();
+  const roles = useRoles();
   const insets = useSafeAreaInsets();
   const nowPlayingInset = useNowPlayingInset();
   const router = useRouter();
@@ -249,12 +250,12 @@ function EditForm({
     ).flatMap(({ team, lead }) => (lead ? [[team, lead]] : [])),
   );
 
-  const rosterTeams = teamsOfRoles([
+  const rosterTeams = roles.teamsOf([
     ...event.rolesNeeded,
     ...event.assignments.map((assignment) => assignment.role),
   ]);
 
-  const teamLeadTeams = TEAMS.filter(
+  const teamLeadTeams = roles.teams.filter(
     (team) => rosterTeams.includes(team) || teamLeadPicks[team] !== undefined,
   );
 

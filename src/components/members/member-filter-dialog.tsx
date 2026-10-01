@@ -10,9 +10,9 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
+import { useRoles } from "@/hooks/use-roles";
 import { useTheme } from "@/hooks/use-theme";
 import { getRoleConfig } from "@/lib/config/roles";
-import { ROLE_ORDER, getVolunteerRoleConfig } from "@/lib/config/volunteer-roles";
 import {
   ORG_ROLE_ORDER,
   activeFilterCount,
@@ -57,14 +57,15 @@ export function MemberFilterDialog({
   onClear,
 }: MemberFilterDialogProps) {
   const theme = useTheme();
+  const roles = useRoles();
 
   const byRole = roleCounts(members);
   const byVolunteerRole = volunteerRoleCounts(members);
   const active = activeFilterCount(filters);
 
-  // Only the roles somebody actually holds. Listing all twelve would bury the
-  // four this organization uses under eight that return nobody.
-  const volunteerRoles = ROLE_ORDER.filter((role) => byVolunteerRole.has(role));
+  // Only the roles somebody actually holds. Listing every role would bury the
+  // few this organization uses under ones that return nobody.
+  const volunteerRoles = roles.inOrder([...byVolunteerRole.keys()]);
 
   return (
     <Dialog
@@ -123,7 +124,7 @@ export function MemberFilterDialog({
           </Text>
         ) : (
           volunteerRoles.map((role) => {
-            const { emoji, label } = getVolunteerRoleConfig(role);
+            const { emoji, label } = roles.get(role);
             return (
               <OptionRow
                 key={role}

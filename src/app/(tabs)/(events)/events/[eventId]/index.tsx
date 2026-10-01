@@ -37,11 +37,12 @@ import {
   useResendAssignment,
 } from "@/hooks/use-events";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
+import { useRoles } from "@/hooks/use-roles";
 import { useSongKeys } from "@/hooks/use-song-keys";
 import { useTheme } from "@/hooks/use-theme";
 import { ApiError } from "@/lib/api";
 import { getServiceColors } from "@/lib/config/service-types";
-import { getVolunteerRoleConfig } from "@/lib/config/volunteer-roles";
+import type { Roles } from "@/lib/config/volunteer-roles";
 import { failureMessage } from "@/lib/failure";
 import { personName } from "@/lib/names";
 import type { EventDetailsAssignment, EventSetlistSong, VolunteerRole } from "@/types/event";
@@ -64,7 +65,7 @@ type Confirm =
   | { kind: "removeRole"; role: VolunteerRole };
 
 /** What each one says. Every case is destructive and none of them is undoable. */
-function describeConfirm(confirm: Confirm) {
+function describeConfirm(confirm: Confirm, roles: Roles) {
   switch (confirm.kind) {
     case "deleteEvent":
       return {
@@ -79,7 +80,7 @@ function describeConfirm(confirm: Confirm) {
 
       return {
         title: "Remove from event",
-        description: `${name} will be taken off ${getVolunteerRoleConfig(role).label}.`,
+        description: `${name} will be taken off ${roles.get(role).label}.`,
         label: "Remove",
       };
     }
@@ -90,7 +91,7 @@ function describeConfirm(confirm: Confirm) {
 
       return {
         title: "Delete expired invite",
-        description: `${name}'s expired ${getVolunteerRoleConfig(role).label} invitation comes off the roster, and the role reads as needing someone again.`,
+        description: `${name}'s expired ${roles.get(role).label} invitation comes off the roster, and the role reads as needing someone again.`,
         label: "Delete",
       };
     }
@@ -98,7 +99,7 @@ function describeConfirm(confirm: Confirm) {
     case "removeRole":
       return {
         title: "Remove role",
-        description: `${getVolunteerRoleConfig(confirm.role).label} will come off this event's roster.`,
+        description: `${roles.get(confirm.role).label} will come off this event's roster.`,
         label: "Remove",
       };
   }
@@ -118,6 +119,7 @@ function describeConfirm(confirm: Confirm) {
  */
 export default function EventDetailScreen() {
   const theme = useTheme();
+  const roles = useRoles();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -154,7 +156,7 @@ export default function EventDetailScreen() {
         (assignment) =>
           assignment.userId === event.viewer.userId &&
           assignment.status === "ACCEPTED" &&
-          (assignment.role === "LEAD_VOCALIST" || assignment.role === "BGVS"),
+          roles.get(assignment.role).sings,
       )
     : false;
 
@@ -235,7 +237,7 @@ export default function EventDetailScreen() {
           ? deleteExpired.isPending
           : cancelAssignment.isPending;
 
-  const confirmWords = confirm ? describeConfirm(confirm) : null;
+  const confirmWords = confirm ? describeConfirm(confirm, roles) : null;
 
   return (
     <VStack className="flex-1 bg-grouped">

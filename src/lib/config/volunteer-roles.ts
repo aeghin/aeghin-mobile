@@ -1,147 +1,139 @@
 import type { VolunteerRole } from "@/types/event";
 import type { Team } from "@/types/team-notifications";
 
-export type VolunteerRoleConfig = {
+/** One volunteer role, as `GET /api/mobile/v1/roles` describes it. */
+export type CatalogRole = {
+  role: VolunteerRole;
   label: string;
   emoji: string;
+  team: Team;
+  /** Can be put on a song in a setlist, and keeps a key journal. */
+  sings: boolean;
+};
+
+export type CatalogTeam = {
+  team: Team;
+  label: string;
+};
+
+/** Every role and team, in roster order. Mirrors the NHC route's wire type. */
+export type RoleCatalog = {
+  roles: CatalogRole[];
+  teams: CatalogTeam[];
 };
 
 /**
- * What each volunteer role is called and what it looks like.
+ * The roles as this build shipped: what the app shows until the server's list
+ * arrives, and all it has against a server too old to send one. The server's
+ * list is the real one — a role or team added there shows up here without a
+ * release.
  *
- * Emoji, character for character with the web app's `lib/config/roles.ts`, so
- * a guitarist sees the same guitar on both. They are the one place in this app
- * that is not a lucide glyph: a role is content rather than chrome, and colour
- * is what tells twelve of them apart at chip size, which a monochrome icon set
- * cannot do.
- *
- * Every glyph here is Emoji 3.0 or older. The newest is 🥁 (Emoji 3.0), which
- * Android picked up in 7.0 — this app's `minSdkVersion` is 24, which *is*
- * Android 7.0, so nothing here can land as a tofu box on a supported device.
- * Android draws Google's Noto set rather than Apple's, so the art differs by
- * platform; the meaning does not.
+ * Emoji, character for character with the web's `lib/config/roles.ts`. They
+ * are the one place in this app that is not a lucide glyph: colour is what
+ * tells the roles apart at chip size. Every glyph is Emoji 3.0 or older, which
+ * Android 7.0 (`minSdkVersion` 24) can draw.
  */
-export const volunteerRoleConfig: Record<VolunteerRole, VolunteerRoleConfig> = {
-  GUITARIST: { label: "Guitarist", emoji: "🎸" },
-  BASSIST: { label: "Bassist", emoji: "🎸" },
-  PIANIST: { label: "Pianist", emoji: "🎹" },
-  AUX_KEYS: { label: "Aux Keys", emoji: "🎹" },
-  DRUMMER: { label: "Drummer", emoji: "🥁" },
-  LEAD_VOCALIST: { label: "Lead Vocalist", emoji: "🎤" },
-  BGVS: { label: "BGVs", emoji: "🎤" },
-  SOUND_TECH: { label: "Sound Tech", emoji: "🎚️" },
-  STREAM_TECH: { label: "Stream Tech", emoji: "📹" },
-  PROJECTION_TECH: { label: "Projection", emoji: "📽️" },
-  USHER: { label: "Usher", emoji: "🚪" },
-  GREETER: { label: "Greeter", emoji: "👋" },
+export const BUILT_IN_CATALOG: RoleCatalog = {
+  roles: [
+    { role: "PIANIST", label: "Pianist", emoji: "🎹", team: "BAND", sings: false },
+    { role: "AUX_KEYS", label: "Aux Keys", emoji: "🎹", team: "BAND", sings: false },
+    { role: "BASSIST", label: "Bassist", emoji: "🎸", team: "BAND", sings: false },
+    { role: "GUITARIST", label: "Guitarist", emoji: "🎸", team: "BAND", sings: false },
+    { role: "DRUMMER", label: "Drummer", emoji: "🥁", team: "BAND", sings: false },
+    { role: "LEAD_VOCALIST", label: "Lead Vocalist", emoji: "🎤", team: "VOCALS", sings: true },
+    { role: "BGVS", label: "BGVs", emoji: "🎤", team: "VOCALS", sings: true },
+    { role: "SOUND_TECH", label: "Sound Tech", emoji: "🎚️", team: "PRODUCTION", sings: false },
+    { role: "STREAM_TECH", label: "Stream Tech", emoji: "📹", team: "PRODUCTION", sings: false },
+    { role: "PROJECTION_TECH", label: "Projection", emoji: "📽️", team: "PRODUCTION", sings: false },
+    { role: "USHER", label: "Usher", emoji: "🚪", team: "HOSPITALITY", sings: false },
+    { role: "GREETER", label: "Greeter", emoji: "👋", team: "HOSPITALITY", sings: false },
+  ],
+  teams: [
+    { team: "BAND", label: "Band" },
+    { team: "VOCALS", label: "Vocals" },
+    { team: "PRODUCTION", label: "Production" },
+    { team: "HOSPITALITY", label: "Hospitality" },
+  ],
 };
 
-export const getVolunteerRoleConfig = (role: VolunteerRole) =>
-  volunteerRoleConfig[role];
+/** Where a role the catalog doesn't know is grouped. */
+const OTHER_TEAM: Team = "OTHER";
 
-/**
- * Whether somebody sings — a lead vocalist or a BGV.
- *
- * The one volunteer-role question the app asks outside a roster: the key
- * journal belongs to whoever stands at a microphone, and the dashboard gates
- * its My Keys tab on exactly these two roles.
- *
- * Takes a possibly-missing list on purpose. `volunteerRoles` arrived on the
- * organization payload after the first release, so a cached list from before
- * it shipped has none — which reads as "not a vocalist" rather than throwing.
- */
-export const isVocalist = (roles: VolunteerRole[] | undefined): boolean =>
-  roles?.some((role) => role === "LEAD_VOCALIST" || role === "BGVS") ?? false;
+/** `"CAMERA_OP"` -> `"Camera Op"`, for a key the catalog doesn't know. */
+const humanize = (key: string) =>
+  key
+    .toLowerCase()
+    .split("_")
+    .filter(Boolean)
+    .map((word) => word[0].toUpperCase() + word.slice(1))
+    .join(" ");
 
-export type RoleCategory = "band" | "vocals" | "production" | "hospitality";
-
-/**
- * The four groups the event roster is split into, and the order they sit in.
- *
- * Ported straight from the web's `lib/config/roles.ts` — the team card on both
- * platforms has to break the same twelve roles into the same four sections, or
- * a volunteer looking for "who else is on production" learns two layouts.
- */
-export const roleCategoryConfig: Record<
-  RoleCategory,
-  { label: string; order: number }
-> = {
-  band: { label: "Band", order: 0 },
-  vocals: { label: "Vocals", order: 1 },
-  production: { label: "Production", order: 2 },
-  hospitality: { label: "Hospitality", order: 3 },
+/** Everything a screen asks about roles. */
+export type Roles = {
+  /** Every role, in roster order. */
+  order: VolunteerRole[];
+  /** Every team, in roster order. */
+  teams: Team[];
+  /** One role's label, emoji and team. A role the catalog doesn't know gets a readable stand-in. */
+  get: (role: VolunteerRole) => CatalogRole;
+  teamLabel: (team: Team) => string;
+  teamOf: (role: VolunteerRole) => Team;
+  /** These roles in roster order. Any the catalog doesn't know go last rather than vanishing. */
+  inOrder: (roles: VolunteerRole[]) => VolunteerRole[];
+  /** The teams a set of roles falls into, in roster order. */
+  teamsOf: (roles: VolunteerRole[]) => Team[];
+  /** One team's roles for a sentence: "Sound Tech, Stream Tech". */
+  teamRolesLabel: (team: Team) => string;
+  /** Whether any of these roles sings: the gate for My Keys and song assignment. */
+  sings: (roles: VolunteerRole[] | undefined) => boolean;
 };
 
-export const roleToCategory: Record<VolunteerRole, RoleCategory> = {
-  PIANIST: "band",
-  AUX_KEYS: "band",
-  BASSIST: "band",
-  GUITARIST: "band",
-  DRUMMER: "band",
-  LEAD_VOCALIST: "vocals",
-  BGVS: "vocals",
-  SOUND_TECH: "production",
-  STREAM_TECH: "production",
-  PROJECTION_TECH: "production",
-  USHER: "hospitality",
-  GREETER: "hospitality",
-};
+/** The catalog, with every question a screen asks of it. */
+export function buildRoles(catalog: RoleCatalog): Roles {
+  const byRole = new Map(catalog.roles.map((entry) => [entry.role, entry]));
+  const labels = new Map(catalog.teams.map((entry) => [entry.team, entry.label]));
+  const order = catalog.roles.map((entry) => entry.role);
+  const teams = catalog.teams.map((entry) => entry.team);
 
-/**
- * Every role, in the order a roster lists them — rhythm section first, then
- * the front line, then the booth, then the door. The same array the web's
- * `EventAssignmentsCard` sorts by.
- */
-export const ROLE_ORDER: VolunteerRole[] = [
-  "PIANIST",
-  "AUX_KEYS",
-  "BASSIST",
-  "GUITARIST",
-  "DRUMMER",
-  "LEAD_VOCALIST",
-  "BGVS",
-  "SOUND_TECH",
-  "STREAM_TECH",
-  "PROJECTION_TECH",
-  "USHER",
-  "GREETER",
-];
+  const get = (role: VolunteerRole): CatalogRole =>
+    byRole.get(role) ?? {
+      role,
+      label: humanize(role),
+      emoji: "👤",
+      team: OTHER_TEAM,
+      sings: false,
+    };
 
-/** The categories in `order`, which is the sequence the team card renders. */
-export const ROLE_CATEGORIES: RoleCategory[] = (
-  Object.keys(roleCategoryConfig) as RoleCategory[]
-).sort((a, b) => roleCategoryConfig[a].order - roleCategoryConfig[b].order);
+  const teamOf = (role: VolunteerRole) => get(role).team;
 
-/**
- * The same four groups under the names the API keeps team leads and watchers
- * against. `roleToCategory` stays the one place a role is put in a team.
- */
-export const TEAMS: Team[] = ["BAND", "VOCALS", "PRODUCTION", "HOSPITALITY"];
+  const inOrder = (roles: VolunteerRole[]) => [
+    ...order.filter((role) => roles.includes(role)),
+    ...[...new Set(roles)].filter((role) => !byRole.has(role)),
+  ];
 
-const teamOfCategory: Record<RoleCategory, Team> = {
-  band: "BAND",
-  vocals: "VOCALS",
-  production: "PRODUCTION",
-  hospitality: "HOSPITALITY",
-};
+  const teamsOf = (roles: VolunteerRole[]) => {
+    const present = new Set(roles.map(teamOf));
 
-const categoryOfTeam: Record<Team, RoleCategory> = {
-  BAND: "band",
-  VOCALS: "vocals",
-  PRODUCTION: "production",
-  HOSPITALITY: "hospitality",
-};
+    return [
+      ...teams.filter((team) => present.has(team)),
+      ...[...present].filter((team) => !labels.has(team)),
+    ];
+  };
 
-export const teamOfRole = (role: VolunteerRole): Team =>
-  teamOfCategory[roleToCategory[role]];
+  const ofTeam = (team: Team) => order.filter((role) => teamOf(role) === team);
 
-export const teamLabel = (team: Team): string =>
-  roleCategoryConfig[categoryOfTeam[team]].label;
-
-/** A team's roles, in roster order. */
-export const teamRoles = (team: Team): VolunteerRole[] =>
-  ROLE_ORDER.filter((role) => teamOfRole(role) === team);
-
-/** The teams a set of roles falls into, in `TEAMS` order. */
-export const teamsOfRoles = (roles: VolunteerRole[]): Team[] =>
-  TEAMS.filter((team) => roles.some((role) => teamOfRole(role) === team));
+  return {
+    order,
+    teams,
+    get,
+    teamLabel: (team) => labels.get(team) ?? humanize(team),
+    teamOf,
+    inOrder,
+    teamsOf,
+    teamRolesLabel: (team) =>
+      ofTeam(team)
+        .map((role) => get(role).label)
+        .join(", "),
+    sings: (roles) => roles?.some((role) => get(role).sings) ?? false,
+  };
+}

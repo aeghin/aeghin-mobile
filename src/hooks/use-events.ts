@@ -1,6 +1,6 @@
 import { useAuth } from "@clerk/expo";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 
 import { apiDelete, apiDeleteWithBody, apiGet, apiPatch, apiPost } from "@/lib/api";
 import type {
@@ -28,6 +28,14 @@ const eventDetailsKey = (
   orgId: string,
   eventId: string,
 ) => ["organizations", userId, "event-details", orgId, eventId];
+
+/** The detail request itself, shared by the query and the prefetch below. */
+async function fetchEventDetails(orgId: string, eventId: string) {
+  const { event } = await apiGet<EventDetailsResponse>(
+    `/api/mobile/v1/organizations/${orgId}/events/${eventId}`,
+  );
+  return event;
+}
 
 /**
  * Every event in one organization the signed-in user has been invited to —
@@ -135,13 +143,31 @@ export function useEventDetails(orgId: string, eventId: string) {
   return useQuery({
     queryKey: eventDetailsKey(userId, orgId, eventId),
     enabled: Boolean(userId && orgId && eventId),
-    queryFn: async () => {
-      const { event } = await apiGet<EventDetailsResponse>(
-        `/api/mobile/v1/organizations/${orgId}/events/${eventId}`,
-      );
-      return event;
-    },
+    queryFn: () => fetchEventDetails(orgId, eventId),
   });
+}
+
+/**
+ * Loads an event into the cache ahead of time, so stepping to it from the one
+ * beside it lands at once instead of on the skeleton. The same key and request
+ * as `useEventDetails`, and a no-op while the cached copy is still fresh.
+ * Never throws — a failed prefetch just means the screen fetches on arrival.
+ */
+export function usePrefetchEventDetails(orgId: string) {
+  const { userId } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useCallback(
+    (eventId: string) => {
+      if (!userId || !orgId) return;
+
+      void queryClient.prefetchQuery({
+        queryKey: eventDetailsKey(userId, orgId, eventId),
+        queryFn: () => fetchEventDetails(orgId, eventId),
+      });
+    },
+    [queryClient, userId, orgId],
+  );
 }
 
 /** The two answers an invitation takes. */

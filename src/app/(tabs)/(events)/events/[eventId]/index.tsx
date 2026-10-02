@@ -3,7 +3,7 @@ import CircleAlert from "lucide-react-native/icons/circle-alert";
 import CircleSlash from "lucide-react-native/icons/circle-slash";
 import Pencil from "lucide-react-native/icons/pencil";
 import Trash2 from "lucide-react-native/icons/trash-2";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, RefreshControl, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -15,6 +15,7 @@ import {
 } from "@/components/events/event-detail-hero";
 import { EventSetlistCard } from "@/components/events/event-setlist-card";
 import { EventSmartSchedulingCard } from "@/components/events/event-smart-scheduling-card";
+import { EventStepper } from "@/components/events/event-stepper";
 import { EventTeamCard } from "@/components/events/event-team-card";
 import {
   EventWhenWhereCard,
@@ -33,6 +34,7 @@ import {
   useDeleteEvent,
   useDeleteExpiredAssignment,
   useEventDetails,
+  usePrefetchEventDetails,
   useRemoveEventRole,
   useResendAssignment,
 } from "@/hooks/use-events";
@@ -45,7 +47,12 @@ import { getServiceColors } from "@/lib/config/service-types";
 import type { Roles } from "@/lib/config/volunteer-roles";
 import { failureMessage } from "@/lib/failure";
 import { personName } from "@/lib/names";
-import type { EventDetailsAssignment, EventSetlistSong, VolunteerRole } from "@/types/event";
+import type {
+  EventDetailsAssignment,
+  EventNeighbor,
+  EventSetlistSong,
+  VolunteerRole,
+} from "@/types/event";
 
 /** How much page the tab bar covers once the list has scrolled under it. */
 const TAB_BAR_CLEARANCE = 64;
@@ -170,6 +177,40 @@ export default function EventDetailScreen() {
   const { play: playTrack } = useTrackPlayer();
   const nowPlayingInset = useNowPlayingInset();
 
+  const scrollRef = useRef<ScrollView>(null);
+  const prefetchEvent = usePrefetchEventDetails(organizationId);
+  const serviceColors = event ? getServiceColors(event.serviceType.color, theme) : null;
+
+  // The step in flight. Until its event arrives it names the header at once and
+  // holds the arrows in place, disabled, rather than the bar jumping.
+  const [stepping, setStepping] = useState<{
+    target: EventNeighbor;
+    serviceName: string;
+    dotColor: string;
+  } | null>(null);
+  const pendingStep =
+    stepping && !details.isError && event?.id !== stepping.target.id ? stepping : null;
+
+  // The same screen with a new event, rather than a screen pushed per step:
+  // Back still means the list, not whichever event came before.
+  const step = (target: EventNeighbor) => {
+    if (!event || !serviceColors) return;
+
+    setStepping({ target, serviceName: event.serviceType.name, dotColor: serviceColors.base });
+    router.setParams({ eventId: target.id });
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  };
+
+  const previousId = event?.adjacent?.previous?.id;
+  const nextId = event?.adjacent?.next?.id;
+
+  // Warm both neighbours once this event is up, so a step lands at once rather
+  // than on the skeleton. Free while a cached copy is still fresh.
+  useEffect(() => {
+    if (nextId) prefetchEvent(nextId);
+    if (previousId) prefetchEvent(previousId);
+  }, [nextId, previousId, prefetchEvent]);
+
   // `confirm` is what the dialog *says*; `confirmOpen` is whether it is up.
   // Two pieces rather than one nullable, so closing does not blank the card
   // it is still fading out.
@@ -243,12 +284,32 @@ export default function EventDetailScreen() {
     <VStack className="flex-1 bg-grouped">
       <Stack.Screen
         options={{
-          title: event?.name ?? "Event",
+          title: event?.name ?? pendingStep?.target.name ?? "Event",
           headerBackTitle: "Events",
         }}
       />
 
+      {event?.adjacent && serviceColors && (event.adjacent.previous || event.adjacent.next) ? (
+        <EventStepper
+          previous={event.adjacent.previous}
+          next={event.adjacent.next}
+          serviceName={event.serviceType.name}
+          dotColor={serviceColors.base}
+          onStep={step}
+        />
+      ) : pendingStep ? (
+        <EventStepper
+          previous={null}
+          next={null}
+          serviceName={pendingStep.serviceName}
+          dotColor={pendingStep.dotColor}
+          busy
+          onStep={step}
+        />
+      ) : null}
+
       <ScrollView
+        ref={scrollRef}
         className="flex-1"
         contentContainerStyle={{
           paddingTop: 14,
@@ -269,7 +330,8 @@ export default function EventDetailScreen() {
         ) : !event ? (
           <DetailLoading />
         ) : (
-          <VStack className="gap-4">
+          // Keyed so each card starts fresh when a step swaps the event.
+          <VStack key={event.id} className="gap-4">
             <EventDetailHero
               event={event}
               actions={

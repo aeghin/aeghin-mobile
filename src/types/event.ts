@@ -260,6 +260,24 @@ export type EventDetails = {
    * nobody. The team card labels the lapsed row itself.
    */
   expiredInviteCount: number;
+  /**
+   * The events either side of this one in its service type that the caller can
+   * open — every one for a manager, only accepted ones for anybody else — for
+   * the header's previous and next. Null at either end; absent from an older
+   * server.
+   */
+  adjacent?: {
+    previous: EventNeighbor | null;
+    next: EventNeighbor | null;
+  };
+};
+
+/** Enough of a neighbouring event to label the step to it. */
+export type EventNeighbor = {
+  id: string;
+  name: string;
+  /** The first day's start, wall-clock like `dates`. */
+  startTime: string;
 };
 
 /**

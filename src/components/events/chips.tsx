@@ -157,10 +157,7 @@ type StaffingMeterProps = {
   needed: number;
 };
 
-/**
- * Seven roles' worth of bar. A longer roster gets thinner segments instead, so
- * "Needs volunteers" still fits beside it on a 360pt-wide phone.
- */
+/** Seven roles' worth of bar. A longer roster gets thinner segments instead. */
 const METER_MAX_WIDTH = 81;
 
 /**
@@ -169,12 +166,15 @@ const METER_MAX_WIDTH = 81;
  * Only the All Events tab shows it: it answers a question owners and admins
  * have and volunteers do not.
  *
- * A glance, not the roster: the count says how far along it is and the colour
- * says whether anybody has to act. Amber is every unfilled role waiting on an
- * answer; red is a role with nobody on it.
+ * Each segment is a role, coloured like an answer on the roster: green once it
+ * is filled, pale amber while an invitation is out, grey with nobody on it. The
+ * bar only ever gains green as people accept.
  *
- * The bar says the same without the colour: solid for a filled role, pale for
- * one waiting on an answer, grey for one with nobody on it.
+ * The bar shows how far along it is, so the label only says what is left, in
+ * the event's colour: red while a role still needs somebody invited, amber once
+ * every open role is waiting on an answer, green when it is fully staffed. Kept
+ * short so it fits beside the bar on a 360pt phone; with larger text it drops
+ * underneath rather than running off the card.
  */
 export function StaffingMeter({ filled, awaiting, needed }: StaffingMeterProps) {
   const theme = useTheme();
@@ -184,7 +184,7 @@ export function StaffingMeter({ filled, awaiting, needed }: StaffingMeterProps) 
   const color = full ? theme.success : waiting ? theme.warning : theme.destructive;
 
   return (
-    <HStack className="items-center gap-2">
+    <HStack className="shrink flex-wrap items-center gap-x-2 gap-y-1">
       <HStack
         className="gap-[3px]"
         style={{ width: Math.min(needed * 12 - 3, METER_MAX_WIDTH) }}
@@ -196,9 +196,9 @@ export function StaffingMeter({ filled, awaiting, needed }: StaffingMeterProps) 
             style={{
               backgroundColor:
                 index < filled
-                  ? color
+                  ? theme.success
                   : index < filled + awaiting
-                    ? withAlpha(color, 0.35)
+                    ? withAlpha(theme.warning, 0.35)
                     : theme.border,
             }}
           />
@@ -210,7 +210,9 @@ export function StaffingMeter({ filled, awaiting, needed }: StaffingMeterProps) 
           ? "Fully staffed"
           : filled === 0 && !waiting
             ? "Needs volunteers"
-            : `${filled} of ${needed} filled`}
+            : waiting
+              ? `Waiting on ${needed - filled}`
+              : `${needed - filled - awaiting} to invite`}
       </Text>
     </HStack>
   );

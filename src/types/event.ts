@@ -103,6 +103,8 @@ export type OrganizationEvent = {
   filledRoleCount?: number;
   /** Roles in `rolesNeeded` with an invitation still waiting on an answer. */
   awaitingRoleCount?: number;
+  /** Roles somebody declined with nobody accepted or deciding in their place. */
+  declinedRoleCount?: number;
 };
 
 /**

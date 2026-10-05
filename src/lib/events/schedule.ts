@@ -203,19 +203,36 @@ export function findUpNext(
   return best;
 }
 
+export type Staffing = {
+  filled: number;
+  awaiting: number;
+  declined: number;
+  needed: number;
+};
+
 /**
- * How many of an event's needed roles are filled, and how many are waiting on
- * an answer, when the payload says. A server without the awaiting count reads
- * as nobody waiting.
+ * How many of an event's needed roles are filled, waiting on an answer, or
+ * declined, when the payload says. A server without the newer counts reads as
+ * nobody waiting and nobody declining.
  */
-export function staffingFor(
-  event: OrganizationEvent,
-): { filled: number; awaiting: number; needed: number } | null {
+export function staffingFor(event: OrganizationEvent): Staffing | null {
   const needed = event.rolesNeeded.length;
   if (needed === 0 || event.filledRoleCount === undefined) return null;
   return {
     filled: Math.min(event.filledRoleCount, needed),
     awaiting: event.awaitingRoleCount ?? 0,
+    declined: event.declinedRoleCount ?? 0,
     needed,
   };
+}
+
+/** The meter read aloud, since it carries no words of its own. */
+export function describeStaffing({ filled, awaiting, declined, needed }: Staffing): string {
+  return [
+    `${filled} of ${needed} roles filled`,
+    awaiting > 0 ? `${awaiting} pending` : null,
+    declined > 0 ? `${declined} declined` : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
 }

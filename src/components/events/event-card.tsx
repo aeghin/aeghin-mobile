@@ -24,7 +24,11 @@ import {
   earliestDate,
   isMultiDay,
 } from "@/lib/events/format";
-import { assignmentFor, staffingFor } from "@/lib/events/schedule";
+import {
+  assignmentFor,
+  describeStaffing,
+  staffingFor,
+} from "@/lib/events/schedule";
 import type { OrganizationEvent, ServiceType } from "@/types/event";
 
 /** The time column's width, shared with the skeleton so nothing shifts. */
@@ -107,11 +111,7 @@ export function EventCard({
 
           {staffing ? (
             <HStack className="pt-0.5">
-              <StaffingMeter
-                filled={staffing.filled}
-                awaiting={staffing.awaiting}
-                needed={staffing.needed}
-              />
+              <StaffingMeter {...staffing} />
             </HStack>
           ) : null}
         </VStack>
@@ -132,7 +132,9 @@ export function EventCard({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={event.name}
+      accessibilityLabel={
+        staffing ? `${event.name}, ${describeStaffing(staffing)}` : event.name
+      }
       className={`${CARD_CLASS} data-[active=true]:opacity-80`}
     >
       {content}

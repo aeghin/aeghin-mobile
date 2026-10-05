@@ -8,6 +8,8 @@ import { brand, withAlpha, type Palette } from "@/constants/branding";
 import { useRoles } from "@/hooks/use-roles";
 import { useTheme } from "@/hooks/use-theme";
 import { getServiceColors } from "@/lib/config/service-types";
+import { getStatusConfig } from "@/lib/config/status";
+import { describeStaffing, type Staffing } from "@/lib/events/schedule";
 import type { ServiceType, VolunteerRole } from "@/types/event";
 
 /**
@@ -150,15 +152,12 @@ export function ServiceRail({ service }: { service: ServiceType | undefined }) {
   );
 }
 
-type StaffingMeterProps = {
-  filled: number;
-  /** Roles with an invitation still out. */
-  awaiting: number;
-  needed: number;
-};
+const FILLED = getStatusConfig("ACCEPTED").color;
+const PENDING = getStatusConfig("PENDING").color;
+const DECLINED = getStatusConfig("DECLINED").color;
 
-/** Seven roles' worth of bar. A longer roster gets thinner segments instead. */
-const METER_MAX_WIDTH = 81;
+/** Eight roles' worth of bar. A longer roster gets thinner segments instead. */
+const METER_MAX_WIDTH = 109;
 
 /**
  * How close an event is to being fully staffed.
@@ -166,54 +165,39 @@ const METER_MAX_WIDTH = 81;
  * Only the All Events tab shows it: it answers a question owners and admins
  * have and volunteers do not.
  *
- * Each segment is a role, coloured like an answer on the roster: green once it
- * is filled, pale amber while an invitation is out, grey with nobody on it. The
- * bar only ever gains green as people accept.
- *
- * The bar shows how far along it is, so the label only says what is left, in
- * the event's colour: red while a role still needs somebody invited, amber once
- * every open role is waiting on an answer, green when it is fully staffed. Kept
- * short so it fits beside the bar on a 360pt phone; with larger text it drops
- * underneath rather than running off the card.
+ * One segment per role, in the roster's own status colours so a segment matches
+ * the badge it leads to: green filled, amber invited, red declined with nobody
+ * in their place, grey nobody asked. Always in that order, so position still
+ * reads where red and green look alike. There is no label — the colours are the
+ * status — so VoiceOver hears {@link describeStaffing} instead.
  */
-export function StaffingMeter({ filled, awaiting, needed }: StaffingMeterProps) {
+export function StaffingMeter(staffing: Staffing) {
   const theme = useTheme();
-
-  const full = filled >= needed;
-  const waiting = filled + awaiting >= needed;
-  const color = full ? theme.success : waiting ? theme.warning : theme.destructive;
+  const { filled, awaiting, declined, needed } = staffing;
 
   return (
-    <HStack className="shrink flex-wrap items-center gap-x-2 gap-y-1">
-      <HStack
-        className="gap-[3px]"
-        style={{ width: Math.min(needed * 12 - 3, METER_MAX_WIDTH) }}
-      >
-        {Array.from({ length: needed }, (_, index) => (
-          <Box
-            key={index}
-            className="h-[5px] flex-1 rounded-full"
-            style={{
-              backgroundColor:
-                index < filled
-                  ? theme.success
-                  : index < filled + awaiting
-                    ? withAlpha(theme.warning, 0.35)
+    <HStack
+      className="gap-[3px]"
+      style={{ width: Math.min(needed * 14 - 3, METER_MAX_WIDTH) }}
+      accessible
+      accessibilityLabel={describeStaffing(staffing)}
+    >
+      {Array.from({ length: needed }, (_, index) => (
+        <Box
+          key={index}
+          className="h-[6px] flex-1 rounded-full"
+          style={{
+            backgroundColor:
+              index < filled
+                ? FILLED
+                : index < filled + awaiting
+                  ? PENDING
+                  : index < filled + awaiting + declined
+                    ? DECLINED
                     : theme.border,
-            }}
-          />
-        ))}
-      </HStack>
-
-      <Text className="text-[11px] font-semibold" style={{ color }}>
-        {full
-          ? "Fully staffed"
-          : filled === 0 && !waiting
-            ? "Needs volunteers"
-            : waiting
-              ? `Waiting on ${needed - filled}`
-              : `${needed - filled - awaiting} to invite`}
-      </Text>
+          }}
+        />
+      ))}
     </HStack>
   );
 }

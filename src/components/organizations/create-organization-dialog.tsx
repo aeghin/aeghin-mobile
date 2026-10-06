@@ -78,7 +78,7 @@ function CreateOrganizationBody({ visible, onClose, onCreated }: CreateOrganizat
       visible={visible}
       icon={Building2}
       title="Create organization"
-      description="Set up your organization to start managing volunteers and events."
+      description="Set up your organization to start managing volunteers and events. Use one organization for your whole church."
       action={{ label: "Create", onPress: submit }}
       submitting={create.isPending}
       onClose={onClose}

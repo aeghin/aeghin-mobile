@@ -123,9 +123,8 @@ export function blendOver(base: string, overlay: string, alpha: number): string 
 export const mediaTint = {
   /** Tailwind green-500, the web's `hover:text-green-500`. */
   spotify: "#22C55E",
-  /** Tailwind red-500, shared by YouTube and by PDF charts. */
+  /** Tailwind red-500, the web's `hover:text-red-500`. */
   youtube: "#EF4444",
-  chart: "#EF4444",
   /** Tailwind sky-500, the web's `hover:text-sky-500` for backing tracks. */
   audio: "#0EA5E9",
 } as const;

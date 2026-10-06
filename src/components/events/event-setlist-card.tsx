@@ -332,6 +332,7 @@ function AttachmentButton({
   attachment: SongAttachment;
   onPlay: () => void;
 }) {
+  const theme = useTheme();
   const isPdf = attachment.type === "application/pdf";
 
   return (
@@ -343,7 +344,8 @@ function AttachmentButton({
       <AppIcon
         icon={isPdf ? FileText : AudioLines}
         size={17}
-        color={isPdf ? mediaTint.chart : mediaTint.audio}
+        // A chart is a plain document, so it takes the text colour, the web's `hover:text-foreground`.
+        color={isPdf ? theme.text : mediaTint.audio}
       />
     </OpenButton>
   );

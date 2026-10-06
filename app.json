@@ -60,7 +60,13 @@
         }
       ],
       "expo-image",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#F77F00"
+        }
+      ],
       [
         "expo-audio",
         {

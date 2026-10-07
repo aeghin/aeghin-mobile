@@ -42,6 +42,9 @@ import type { OrganizationEvent, ServiceType } from "@/types/event";
  */
 const TILE = { width: 48, height: 60 };
 
+/** The Upcoming card's tile: the same tile, a size up. */
+const LARGE_TILE = { width: 60, height: 76 };
+
 const TILE_RADIUS = 12;
 
 /** How far the tile's text follows the system text size before it stops growing. */
@@ -177,6 +180,7 @@ type DateTileProps = {
   today: string;
   service: ServiceType | undefined;
   solid?: boolean;
+  large?: boolean;
 };
 
 /**
@@ -184,11 +188,15 @@ type DateTileProps = {
  * colour, or solid for the day that comes next, so the column of tiles down
  * the list reads as a column of services.
  */
-function DateTile({ dayKey, today, service, solid }: DateTileProps) {
+export function DateTile({ dayKey, today, service, solid, large }: DateTileProps) {
   const theme = useTheme();
   const tint = getServiceColors(service?.color ?? "indigo", theme);
   const dark = theme.scheme === "dark";
   const tile = formatDateTile(keyToDate(dayKey));
+  const size = large ? LARGE_TILE : TILE;
+  const label = large
+    ? "text-[12px] leading-[15px] tracking-[0.7px]"
+    : "text-[10px] leading-[13px] tracking-[0.6px]";
 
   const colors = solid
     ? {
@@ -208,8 +216,8 @@ function DateTile({ dayKey, today, service, solid }: DateTileProps) {
     <VStack
       className="items-center justify-center self-center border px-1 py-1.5"
       style={{
-        minWidth: TILE.width,
-        minHeight: TILE.height,
+        minWidth: size.width,
+        minHeight: size.height,
         backgroundColor: colors.bg,
         borderColor: colors.border,
         borderRadius: TILE_RADIUS,
@@ -218,7 +226,7 @@ function DateTile({ dayKey, today, service, solid }: DateTileProps) {
       }}
     >
       <Text
-        className="text-[10px] font-bold leading-[13px] tracking-[0.6px]"
+        className={`font-bold ${label}`}
         style={{ color: colors.label }}
         numberOfLines={1}
         maxFontSizeMultiplier={MAX_TILE_SCALE}
@@ -226,7 +234,9 @@ function DateTile({ dayKey, today, service, solid }: DateTileProps) {
         {tile.month}
       </Text>
       <Text
-        className="text-[18px] font-bold leading-[21px] tracking-[-0.3px]"
+        className={`font-bold tracking-[-0.3px] ${
+          large ? "text-[24px] leading-[28px]" : "text-[18px] leading-[21px]"
+        }`}
         style={{ color: colors.day }}
         numberOfLines={1}
         maxFontSizeMultiplier={MAX_TILE_SCALE}
@@ -234,7 +244,7 @@ function DateTile({ dayKey, today, service, solid }: DateTileProps) {
         {tile.day}
       </Text>
       <Text
-        className="text-[10px] font-bold uppercase leading-[13px] tracking-[0.6px]"
+        className={`font-bold uppercase ${label}`}
         style={{ color: colors.label }}
         numberOfLines={1}
         maxFontSizeMultiplier={MAX_TILE_SCALE}

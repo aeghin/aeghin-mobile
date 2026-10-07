@@ -1,136 +1,166 @@
-import ArrowUpRight from "lucide-react-native/icons/arrow-up-right";
+import ArrowRight from "lucide-react-native/icons/arrow-right";
+import Calendar from "lucide-react-native/icons/calendar";
 import CalendarClock from "lucide-react-native/icons/calendar-clock";
 import Clock from "lucide-react-native/icons/clock";
 import MapPin from "lucide-react-native/icons/map-pin";
 
-import { AppIcon } from "@/components/app-icon";
+import { AppIcon, type AppIconName } from "@/components/app-icon";
 import {
   MetaLine,
-  Pill,
   RoleChip,
   ServiceBadge,
+  ServiceRail,
 } from "@/components/events/chips";
+import { DateTile } from "@/components/events/event-card";
 import { Box } from "@/components/ui/box";
-import { Center } from "@/components/ui/center";
-import { Divider } from "@/components/ui/divider";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
-import { brand } from "@/constants/branding";
 import { useTheme } from "@/hooks/use-theme";
+import { getServiceColors } from "@/lib/config/service-types";
 import {
-  countdownLabel,
-  formatShortDate,
-  formatTime,
+  dayKey,
+  formatDateRange,
+  formatDayHeading,
+  formatRehearsal,
+  formatTimeOn,
+  isMultiDay,
 } from "@/lib/events/format";
 import { assignmentFor, type UpNext } from "@/lib/events/schedule";
-import { brandGlow, brandSheen } from "@/lib/gradients";
 import type { ServiceType } from "@/types/event";
 
 type UpNextCardProps = {
   upNext: UpNext;
   service: ServiceType | undefined;
+  today: string;
   onPress?: () => void;
 };
 
-/** The hero's own surface, worn by the tappable and the static card alike. */
-const CARD_CLASS =
-  "mx-4 overflow-hidden rounded-3xl border border-border bg-card";
+/** The event cards' surface, so this reads as the first of them, a size up. */
+const CARD_CLASS = "mx-4 overflow-hidden rounded-2xl border border-border bg-card";
 
 /**
  * The next thing the user has actually committed to.
  *
  * A volunteer opening this tab has one question, and it is almost never "what
  * does the whole month look like" — it is "when am I next up, and doing what".
- * The hero answers that before any filter has been touched, which is why it
- * sits above the controls rather than inside the list.
+ * Led like the event cards, with the next day's solid tile, and opened up into
+ * the design's time and location tiles. The list below starts after it, so
+ * this event is never shown twice.
  */
-export function UpNextCard({ upNext, service, onPress }: UpNextCardProps) {
+export function UpNextCard({ upNext, service, today, onPress }: UpNextCardProps) {
   const theme = useTheme();
-  const { event, date, inDays } = upNext;
+  const serviceColors = getServiceColors(service?.color ?? "indigo", theme);
+  const { event, date } = upNext;
 
+  const key = dayKey(date.startTime);
+  const time = formatTimeOn(event.dates, key);
   const role = assignmentFor(event, "ACCEPTED")?.role ?? null;
-  const imminent = inDays <= 1;
+  const rehearsal = formatRehearsal(event.rehearsalStart, event.rehearsalEnd);
 
   const content = (
     <>
-      {/* The warm bloom the web dashboard gets from a blurred primary circle. */}
-      <Box
-        pointerEvents="none"
-        className="absolute -right-16 -top-16 h-40 w-40 rounded-full"
-        style={brandGlow("lead")}
-      />
+      <ServiceRail service={service} />
 
-      <VStack className="gap-3 p-4">
-        <HStack className="items-center gap-2.5">
-          <Center className="h-9 w-9 rounded-xl bg-brand/10">
-            <AppIcon icon={CalendarClock} size={18} color={brand.orange} />
-          </Center>
+      <VStack className="py-4 pl-[18px] pr-4">
+        <HStack className="items-center gap-3.5">
+          <DateTile dayKey={key} today={today} service={service} solid large />
 
-          <Text className="flex-1 text-[11px] font-bold uppercase tracking-[1.1px] text-muted-foreground">
-            Upcoming
-          </Text>
-
-          <Pill
-            label={countdownLabel(inDays)}
-            tone={imminent ? "success" : "brand"}
-          />
-        </HStack>
-
-        <HStack className="items-center gap-2">
           <VStack className="flex-1 gap-2">
             <Text
-              className="text-[19px] font-bold leading-6 tracking-[-0.4px] text-foreground"
+              className="text-[18px] font-bold leading-[23px] tracking-[-0.3px] text-foreground"
               numberOfLines={2}
             >
               {event.name}
             </Text>
-
-            <HStack className="flex-wrap items-center gap-1.5">
+            <HStack>
               <ServiceBadge service={service} />
-              {role ? <RoleChip role={role} /> : null}
             </HStack>
+            {isMultiDay(event.dates) ? (
+              <MetaLine icon={Calendar}>{formatDateRange(event.dates)}</MetaLine>
+            ) : null}
           </VStack>
-
-          {onPress ? (
-            <AppIcon icon={ArrowUpRight} size={14} color={theme.textMuted} />
-          ) : null}
         </HStack>
 
-        <Divider />
+        <HStack className="mt-3.5 gap-2">
+          <InfoTile icon={Clock} label="Time" value={time} />
+          <InfoTile icon={MapPin} label="Location" value={event.location} />
+        </HStack>
 
-        <VStack className="gap-1.5">
-          <MetaLine icon={Clock}>
-            {`${formatShortDate(date.startTime)} · ${formatTime(date.startTime)} – ${formatTime(date.endTime)}`}
-          </MetaLine>
-          <MetaLine icon={MapPin}>{event.location}</MetaLine>
-        </VStack>
+        {/* Optional, and dated on its own: it rarely falls on the service day. */}
+        {rehearsal ? (
+          <HStack className="mt-2">
+            <InfoTile icon={CalendarClock} label="Rehearsal" value={rehearsal} />
+          </HStack>
+        ) : null}
+
+        {role || onPress ? (
+          <HStack className="mt-3.5 items-center justify-between border-t border-border pt-3">
+            {role ? <RoleChip role={role} /> : <Box />}
+            {onPress ? (
+              <HStack className="items-center gap-1">
+                <Text
+                  className="text-[12.5px] font-semibold"
+                  style={{ color: serviceColors.text }}
+                >
+                  View event
+                </Text>
+                <AppIcon icon={ArrowRight} size={13} color={serviceColors.text} />
+              </HStack>
+            ) : null}
+          </HStack>
+        ) : null}
       </VStack>
     </>
   );
 
-  const surface = brandSheen(theme.card);
-
-  // Nowhere to go keeps the hero at full strength: a `disabled` Pressable
+  // Nowhere to go keeps the card at full strength: a `disabled` Pressable
   // would render the whole card at 40%.
   if (!onPress) {
-    return (
-      <VStack className={CARD_CLASS} style={surface}>
-        {content}
-      </VStack>
-    );
+    return <VStack className={CARD_CLASS}>{content}</VStack>;
   }
 
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Up next: ${event.name}, ${countdownLabel(inDays)}`}
+      accessibilityLabel={[event.name, formatDayHeading(key, today), time]
+        .filter(Boolean)
+        .join(", ")}
       className={`${CARD_CLASS} data-[active=true]:opacity-80`}
-      style={surface}
     >
       {content}
     </Pressable>
+  );
+}
+
+/** An icon-led label over its value, two to a row, as on the event page. */
+function InfoTile({
+  icon,
+  label,
+  value,
+}: {
+  icon: AppIconName;
+  label: string;
+  value: string;
+}) {
+  const theme = useTheme();
+
+  return (
+    <VStack className="flex-1 gap-1 rounded-xl border border-border bg-surface/60 p-2.5">
+      <HStack className="items-center gap-1.5">
+        <AppIcon icon={icon} size={11} color={theme.textMuted} />
+        <Text className="text-[10px] font-semibold uppercase tracking-[0.3px] text-muted-foreground">
+          {label}
+        </Text>
+      </HStack>
+      <Text
+        className="text-[13px] font-semibold leading-[18px] text-foreground"
+        numberOfLines={2}
+      >
+        {value}
+      </Text>
+    </VStack>
   );
 }

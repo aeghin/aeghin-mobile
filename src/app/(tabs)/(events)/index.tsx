@@ -300,7 +300,6 @@ export default function EventsScreen() {
     .filter(matchesService)
     .filter(inPeriod);
   const groups = groupByDay(scheduled, scope, month, today);
-  const nextKey = groups.find((group) => group.key >= today)?.key;
 
   // Only on the default period. Narrowed to a week or a month, a hero
   // announcing something outside that window contradicts the list under it.
@@ -308,6 +307,20 @@ export default function EventsScreen() {
     activeTab === "schedule" && scope === "upcoming"
       ? findUpNext(accepted.filter(matchesService), today)
       : null;
+
+  // The card is the list's first event, so the list picks up after it. The
+  // card wears the solid tile; without one, the next day's row does.
+  const listed = upNext
+    ? groups
+        .map((group) => ({
+          ...group,
+          events: group.events.filter((event) => event.id !== upNext.event.id),
+        }))
+        .filter((group) => group.events.length > 0)
+    : groups;
+  const nextKey = upNext
+    ? undefined
+    : groups.find((group) => group.key >= today)?.key;
 
   // The tabs layout redirects when there is no organization; this is only the
   // frame between that decision and the redirect committing.
@@ -403,20 +416,23 @@ export default function EventsScreen() {
           <UpNextCard
             upNext={upNext}
             service={serviceById.get(upNext.event.serviceTypeId)}
+            today={today}
             onPress={() => openEvent(upNext.event.id)}
           />
         ) : null}
 
-        {groups.length === 0 ? (
-          <EventsEmptyState
-            {...emptyScheduleState({
-              tab: activeTab,
-              scope,
-              month,
-              filtered: serviceId !== null,
-              clearFilter: () => setServiceId(null),
-            })}
-          />
+        {listed.length === 0 ? (
+          upNext ? null : (
+            <EventsEmptyState
+              {...emptyScheduleState({
+                tab: activeTab,
+                scope,
+                month,
+                filtered: serviceId !== null,
+                clearFilter: () => setServiceId(null),
+              })}
+            />
+          )
         ) : (
           <VStack
             className="gap-3 px-4"
@@ -427,7 +443,7 @@ export default function EventsScreen() {
             // live controls above it.
             style={scope === "past" ? { opacity: 0.6 } : undefined}
           >
-            {groups.flatMap((group) =>
+            {listed.flatMap((group) =>
               group.events.map((event) => (
                 <EventCard
                   key={event.id}

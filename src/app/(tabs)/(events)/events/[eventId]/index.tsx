@@ -317,6 +317,10 @@ export default function EventDetailScreen() {
           flexGrow: 1,
         }}
         contentInsetAdjustmentBehavior="never"
+        // The team card's dialogs render inside this scroll view, and a touch
+        // reaches it before them. Without this, the first tap on Cancel or Send
+        // while typing only put the keyboard away, and needed tapping twice.
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             {...pullToRefresh}

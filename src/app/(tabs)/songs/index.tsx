@@ -263,6 +263,11 @@ export default function SongsScreen() {
         }}
         contentInsetAdjustmentBehavior="never"
         keyboardDismissMode="on-drag"
+        // The My Keys dialog renders inside this scroll view, and a touch
+        // reaches it before the dialog. Without this, the first tap on its
+        // buttons while typing only put the keyboard away; it also lets a row
+        // open on the first tap while the search keyboard is up.
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             {...pullToRefresh}

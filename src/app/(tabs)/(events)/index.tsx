@@ -10,7 +10,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppHeader } from "@/components/app-header";
 import { AppIcon, type AppIconName } from "@/components/app-icon";
-import { DayHeading } from "@/components/events/day-heading";
 import {
   EventCard,
   EventCardSkeleton,
@@ -36,7 +35,6 @@ import { useCurrentOrganization } from "@/components/organization-provider";
 import { useNowPlayingInset } from "@/components/track-player-provider";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
@@ -421,7 +419,7 @@ export default function EventsScreen() {
           />
         ) : (
           <VStack
-            className="gap-5 px-4"
+            className="gap-3 px-4"
             // Every other period drops finished events, so a past day can only
             // ever appear here — which makes marking them one by one say
             // nothing the period selector hasn't. The whole list recedes
@@ -429,29 +427,24 @@ export default function EventsScreen() {
             // live controls above it.
             style={scope === "past" ? { opacity: 0.6 } : undefined}
           >
-            {groups.map((group) => (
-              <VStack key={group.key} className="gap-2">
-                <DayHeading
+            {groups.flatMap((group) =>
+              group.events.map((event) => (
+                <EventCard
+                  key={event.id}
+                  event={event}
+                  service={serviceById.get(event.serviceTypeId)}
                   dayKey={group.key}
                   today={today}
-                  isNext={group.key === nextKey}
+                  highlight={group.key === nextKey}
+                  showStaffing={activeTab === "all"}
+                  autoFillAvailable={autoFillAvailable}
+                  // Both lists that reach here qualify: the All tab is
+                  // managers only, and the Schedule tab is what this person
+                  // has accepted.
+                  onPress={() => openEvent(event.id)}
                 />
-
-                {group.events.map((event) => (
-                  <EventCard
-                    key={event.id}
-                    event={event}
-                    service={serviceById.get(event.serviceTypeId)}
-                    showStaffing={activeTab === "all"}
-                    autoFillAvailable={autoFillAvailable}
-                    // Both lists that reach here qualify: the All tab is
-                    // managers only, and the Schedule tab is what this person
-                    // has accepted.
-                    onPress={() => openEvent(event.id)}
-                  />
-                ))}
-              </VStack>
-            ))}
+              )),
+            )}
           </VStack>
         )}
       </VStack>
@@ -598,16 +591,11 @@ function PendingLoading() {
   );
 }
 
-/** Two short days rather than one long one — the real list is grouped. */
 function ScheduleLoading() {
   return (
-    <VStack className="gap-5 px-4">
-      {[0, 1].map((group) => (
-        <VStack key={group} className="gap-2">
-          <Skeleton startColor="bg-border" style={{ width: 104, height: 13 }} />
-          <EventCardSkeleton index={group * 2} />
-          <EventCardSkeleton index={group * 2 + 1} />
-        </VStack>
+    <VStack className="gap-3 px-4">
+      {[0, 1, 2].map((index) => (
+        <EventCardSkeleton key={index} index={index} />
       ))}
     </VStack>
   );

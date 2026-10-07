@@ -1,5 +1,6 @@
 import Calendar from "lucide-react-native/icons/calendar";
 import ChevronRight from "lucide-react-native/icons/chevron-right";
+import Clock from "lucide-react-native/icons/clock";
 import MapPin from "lucide-react-native/icons/map-pin";
 import Sparkles from "lucide-react-native/icons/sparkles";
 
@@ -17,12 +18,16 @@ import { Pressable } from "@/components/ui/pressable";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
+import { blendOver, withAlpha } from "@/constants/branding";
 import { useTheme } from "@/hooks/use-theme";
+import { getServiceColors } from "@/lib/config/service-types";
 import {
   formatDateRange,
-  formatTimeParts,
-  earliestDate,
+  formatDateTile,
+  formatDayHeading,
+  formatTimeOn,
   isMultiDay,
+  keyToDate,
 } from "@/lib/events/format";
 import {
   assignmentFor,
@@ -32,14 +37,15 @@ import {
 import type { OrganizationEvent, ServiceType } from "@/types/event";
 
 /**
- * The time column's width at the default text size, shared with the skeleton
- * so nothing shifts. A minimum: at a larger system text size the column grows
- * with its times rather than breaking "10:30 AM" across two lines.
+ * The date tile's size at the default text size, shared with the skeleton so
+ * nothing shifts. A minimum: at a larger text size the tile grows with its text.
  */
-const TIME_COLUMN = 66;
+const TILE = { width: 48, height: 60 };
 
-/** How far the times follow the system text size before they stop growing. */
-const MAX_TIME_SCALE = 1.6;
+const TILE_RADIUS = 12;
+
+/** How far the tile's text follows the system text size before it stops growing. */
+const MAX_TILE_SCALE = 1.3;
 
 /** The card's own surface, worn by the tappable and the static row alike. */
 const CARD_CLASS = "overflow-hidden rounded-2xl border border-border bg-card";
@@ -47,6 +53,11 @@ const CARD_CLASS = "overflow-hidden rounded-2xl border border-border bg-card";
 type EventCardProps = {
   event: OrganizationEvent;
   service: ServiceType | undefined;
+  /** The `"2026-08-30"` day the card files under, which its date tile shows. */
+  dayKey: string;
+  today: string;
+  /** The first day still to come, whose tile goes solid in the service's colour. */
+  highlight?: boolean;
   /**
    * Adds the staffing meter and the smart-scheduling mark — the two things
    * only someone managing the roster needs to see.
@@ -58,22 +69,25 @@ type EventCardProps = {
 };
 
 /**
- * One event inside a day's group.
+ * One event in the schedule.
  *
- * The leading time column is what makes a stack of these read as a day rather
- * than as a list: the times line up down the left edge, so scanning "when"
- * costs one glance and never involves reading a name.
+ * The leading date tile is what makes a stack of these read as a calendar:
+ * the days line up down the left edge, each in its service's colour, so
+ * scanning "when" costs one glance and never involves reading a name.
  */
 export function EventCard({
   event,
   service,
+  dayKey,
+  today,
+  highlight,
   showStaffing,
   autoFillAvailable = true,
   onPress,
 }: EventCardProps) {
   const theme = useTheme();
 
-  const first = earliestDate(event.dates);
+  const time = formatTimeOn(event.dates, dayKey);
   // An accepted role outranks a pending one; a declined one never shows.
   const assignment =
     assignmentFor(event, "ACCEPTED") ?? assignmentFor(event, "PENDING");
@@ -85,19 +99,12 @@ export function EventCard({
       <ServiceRail service={service} />
 
       <HStack className="items-start gap-2.5 py-3 pl-[14px] pr-3">
-        <VStack className="gap-px" style={{ minWidth: TIME_COLUMN }}>
-          <ClockTime
-            value={first?.startTime}
-            className="text-[13.5px] font-semibold tracking-[-0.2px] text-foreground"
-            periodClassName="text-[11px] font-semibold text-foreground"
-            placeholder="—"
-          />
-          <ClockTime
-            value={first?.endTime}
-            className="text-[12px] text-muted-foreground"
-            periodClassName="text-[10px] text-muted-foreground"
-          />
-        </VStack>
+        <DateTile
+          dayKey={dayKey}
+          today={today}
+          service={service}
+          solid={highlight}
+        />
 
         <VStack className="flex-1 gap-1.5">
           <Text
@@ -114,6 +121,8 @@ export function EventCard({
               <Pill label="Auto-fill" tone="brand" icon={Sparkles} />
             ) : null}
           </HStack>
+
+          {time ? <MetaLine icon={Clock}>{time}</MetaLine> : null}
 
           {spansDays ? (
             <MetaLine icon={Calendar}>{formatDateRange(event.dates)}</MetaLine>
@@ -140,13 +149,22 @@ export function EventCard({
   // Pressable would render the whole thing at 40%.
   if (!onPress) return <VStack className={CARD_CLASS}>{content}</VStack>;
 
+  // The label replaces everything inside the card for VoiceOver, so the day
+  // and time the tile and clock line show have to be in it too.
+  const label = [
+    event.name,
+    formatDayHeading(dayKey, today),
+    time,
+    staffing ? describeStaffing(staffing) : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={
-        staffing ? `${event.name}, ${describeStaffing(staffing)}` : event.name
-      }
+      accessibilityLabel={label}
       className={`${CARD_CLASS} data-[active=true]:opacity-80`}
     >
       {content}
@@ -154,30 +172,76 @@ export function EventCard({
   );
 }
 
-type ClockTimeProps = {
-  value: string | undefined;
-  className: string;
-  periodClassName: string;
-  /** Shown when there is no time to give. */
-  placeholder?: string;
+type DateTileProps = {
+  dayKey: string;
+  today: string;
+  service: ServiceType | undefined;
+  solid?: boolean;
 };
 
 /**
- * `10:30` with a smaller `AM` after it, always on one line. The smaller period
- * keeps the column narrow, and the hour is what the eye scans down the list.
+ * `OCT`, `18`, `SUN` — the event detail tile's order — tinted in the service's
+ * colour, or solid for the day that comes next, so the column of tiles down
+ * the list reads as a column of services.
  */
-function ClockTime({ value, className, periodClassName, placeholder = "" }: ClockTimeProps) {
-  const parts = value ? formatTimeParts(value) : null;
+function DateTile({ dayKey, today, service, solid }: DateTileProps) {
+  const theme = useTheme();
+  const tint = getServiceColors(service?.color ?? "indigo", theme);
+  const dark = theme.scheme === "dark";
+  const tile = formatDateTile(keyToDate(dayKey));
+
+  const colors = solid
+    ? {
+        bg: tint.base,
+        border: tint.base,
+        label: withAlpha("#FFFFFF", 0.85),
+        day: "#FFFFFF",
+      }
+    : {
+        bg: blendOver(theme.card, tint.base, dark ? 0.16 : 0.08),
+        border: blendOver(theme.card, tint.base, dark ? 0.4 : 0.28),
+        label: tint.text,
+        day: theme.text,
+      };
 
   return (
-    <Text className={className} numberOfLines={1} maxFontSizeMultiplier={MAX_TIME_SCALE}>
-      {parts ? parts.clock : placeholder}
-      {parts ? (
-        <Text className={periodClassName} maxFontSizeMultiplier={MAX_TIME_SCALE}>
-          {` ${parts.period}`}
-        </Text>
-      ) : null}
-    </Text>
+    <VStack
+      className="items-center justify-center self-center border px-1 py-1.5"
+      style={{
+        minWidth: TILE.width,
+        minHeight: TILE.height,
+        backgroundColor: colors.bg,
+        borderColor: colors.border,
+        borderRadius: TILE_RADIUS,
+        borderCurve: "continuous",
+        boxShadow: "0px 1px 0px rgba(0, 0, 0, 0.05)",
+      }}
+    >
+      <Text
+        className="text-[10px] font-bold leading-[13px] tracking-[0.6px]"
+        style={{ color: colors.label }}
+        numberOfLines={1}
+        maxFontSizeMultiplier={MAX_TILE_SCALE}
+      >
+        {tile.month}
+      </Text>
+      <Text
+        className="text-[18px] font-bold leading-[21px] tracking-[-0.3px]"
+        style={{ color: colors.day }}
+        numberOfLines={1}
+        maxFontSizeMultiplier={MAX_TILE_SCALE}
+      >
+        {tile.day}
+      </Text>
+      <Text
+        className="text-[10px] font-bold uppercase leading-[13px] tracking-[0.6px]"
+        style={{ color: colors.label }}
+        numberOfLines={1}
+        maxFontSizeMultiplier={MAX_TILE_SCALE}
+      >
+        {dayKey === today ? "Today" : tile.weekday}
+      </Text>
+    </VStack>
   );
 }
 
@@ -191,10 +255,11 @@ export function EventCardSkeleton({ index = 0 }: { index?: number }) {
   return (
     <VStack className="overflow-hidden rounded-2xl border border-border bg-card">
       <HStack className="items-start gap-2.5 py-3 pl-[14px] pr-3">
-        <VStack className="gap-1.5" style={{ width: TIME_COLUMN }}>
-          <Skeleton startColor="bg-border" style={{ width: 54, height: 12 }} />
-          <Skeleton startColor="bg-border" style={{ width: 46, height: 10 }} />
-        </VStack>
+        <Skeleton
+          startColor="bg-border"
+          className="self-center rounded-xl"
+          style={TILE}
+        />
 
         <VStack className="flex-1 gap-2">
           <Skeleton startColor="bg-border" style={{ width, height: 13 }} />

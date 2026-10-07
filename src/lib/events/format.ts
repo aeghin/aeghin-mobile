@@ -109,22 +109,6 @@ export function formatTime(value: string | Date): string {
   });
 }
 
-/**
- * `{ clock: "9:00", period: "AM" }` — {@link formatTime} in two pieces, so the
- * period can be set smaller than the hour. Built from the UTC parts rather than
- * by splitting the formatted string, whose separator is a narrow no-break
- * space on some platforms and a plain one on others.
- */
-export function formatTimeParts(value: string | Date): { clock: string; period: string } {
-  const date = toDate(value);
-  const hours = date.getUTCHours();
-
-  return {
-    clock: `${hours % 12 || 12}:${pad(date.getUTCMinutes())}`,
-    period: hours < 12 ? "AM" : "PM",
-  };
-}
-
 /** Blocks in chronological order. Every helper below assumes this ordering. */
 export function sortDates(dates: EventDate[]): EventDate[] {
   return [...dates].sort(
@@ -179,6 +163,20 @@ export function formatTimeRange(dates: EventDate[]): string {
   const first = earliestDate(dates);
   if (!first) return "";
   return `${formatTime(first.startTime)} – ${formatTime(first.endTime)}`;
+}
+
+/**
+ * The time a row shows for the day it stands on, so an event already under
+ * way reads that day's hours rather than its first day's. A day with more
+ * than one block — two services — says how many more follow.
+ */
+export function formatTimeOn(dates: EventDate[], key: string): string {
+  const sameDay = sortDates(dates).filter((date) => dayKey(date.startTime) === key);
+  const block = sameDay[0] ?? earliestDate(dates);
+  if (!block) return "";
+
+  const range = `${formatTime(block.startTime)} – ${formatTime(block.endTime)}`;
+  return sameDay.length > 1 ? `${range} +${sameDay.length - 1}` : range;
 }
 
 /** The heading over a day's events: relative when it's near, else dated. */

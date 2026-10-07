@@ -20,7 +20,7 @@ import { VStack } from "@/components/ui/vstack";
 import { useTheme } from "@/hooks/use-theme";
 import {
   formatDateRange,
-  formatTime,
+  formatTimeParts,
   earliestDate,
   isMultiDay,
 } from "@/lib/events/format";
@@ -31,8 +31,15 @@ import {
 } from "@/lib/events/schedule";
 import type { OrganizationEvent, ServiceType } from "@/types/event";
 
-/** The time column's width, shared with the skeleton so nothing shifts. */
+/**
+ * The time column's width at the default text size, shared with the skeleton
+ * so nothing shifts. A minimum: at a larger system text size the column grows
+ * with its times rather than breaking "10:30 AM" across two lines.
+ */
 const TIME_COLUMN = 66;
+
+/** How far the times follow the system text size before they stop growing. */
+const MAX_TIME_SCALE = 1.6;
 
 /** The card's own surface, worn by the tappable and the static row alike. */
 const CARD_CLASS = "overflow-hidden rounded-2xl border border-border bg-card";
@@ -78,13 +85,18 @@ export function EventCard({
       <ServiceRail service={service} />
 
       <HStack className="items-start gap-2.5 py-3 pl-[14px] pr-3">
-        <VStack className="gap-px" style={{ width: TIME_COLUMN }}>
-          <Text className="text-[13.5px] font-semibold tracking-[-0.2px] text-foreground">
-            {first ? formatTime(first.startTime) : "—"}
-          </Text>
-          <Text className="text-[12px] text-muted-foreground">
-            {first ? formatTime(first.endTime) : ""}
-          </Text>
+        <VStack className="gap-px" style={{ minWidth: TIME_COLUMN }}>
+          <ClockTime
+            value={first?.startTime}
+            className="text-[13.5px] font-semibold tracking-[-0.2px] text-foreground"
+            periodClassName="text-[11px] font-semibold text-foreground"
+            placeholder="—"
+          />
+          <ClockTime
+            value={first?.endTime}
+            className="text-[12px] text-muted-foreground"
+            periodClassName="text-[10px] text-muted-foreground"
+          />
         </VStack>
 
         <VStack className="flex-1 gap-1.5">
@@ -139,6 +151,33 @@ export function EventCard({
     >
       {content}
     </Pressable>
+  );
+}
+
+type ClockTimeProps = {
+  value: string | undefined;
+  className: string;
+  periodClassName: string;
+  /** Shown when there is no time to give. */
+  placeholder?: string;
+};
+
+/**
+ * `10:30` with a smaller `AM` after it, always on one line. The smaller period
+ * keeps the column narrow, and the hour is what the eye scans down the list.
+ */
+function ClockTime({ value, className, periodClassName, placeholder = "" }: ClockTimeProps) {
+  const parts = value ? formatTimeParts(value) : null;
+
+  return (
+    <Text className={className} numberOfLines={1} maxFontSizeMultiplier={MAX_TIME_SCALE}>
+      {parts ? parts.clock : placeholder}
+      {parts ? (
+        <Text className={periodClassName} maxFontSizeMultiplier={MAX_TIME_SCALE}>
+          {` ${parts.period}`}
+        </Text>
+      ) : null}
+    </Text>
   );
 }
 

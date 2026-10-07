@@ -109,6 +109,22 @@ export function formatTime(value: string | Date): string {
   });
 }
 
+/**
+ * `{ clock: "9:00", period: "AM" }` — {@link formatTime} in two pieces, so the
+ * period can be set smaller than the hour. Built from the UTC parts rather than
+ * by splitting the formatted string, whose separator is a narrow no-break
+ * space on some platforms and a plain one on others.
+ */
+export function formatTimeParts(value: string | Date): { clock: string; period: string } {
+  const date = toDate(value);
+  const hours = date.getUTCHours();
+
+  return {
+    clock: `${hours % 12 || 12}:${pad(date.getUTCMinutes())}`,
+    period: hours < 12 ? "AM" : "PM",
+  };
+}
+
 /** Blocks in chronological order. Every helper below assumes this ordering. */
 export function sortDates(dates: EventDate[]): EventDate[] {
   return [...dates].sort(

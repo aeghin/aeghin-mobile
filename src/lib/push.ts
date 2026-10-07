@@ -34,6 +34,16 @@ export async function obtainPushToken(): Promise<string | null> {
       description: "New messages in your events' team chats",
       importance: Notifications.AndroidImportance.DEFAULT,
     });
+    // The server's silent follow-ups: a message that lands within a minute of
+    // one that already rang. Same importance, so it still shows on the lock
+    // screen, just without sound or vibration.
+    await Notifications.setNotificationChannelAsync("chat-quiet", {
+      name: "Event chat follow-ups",
+      description: "Messages that arrive right after one that already alerted you",
+      importance: Notifications.AndroidImportance.DEFAULT,
+      sound: null,
+      enableVibrate: false,
+    });
   }
 
   let { status } = await Notifications.getPermissionsAsync();

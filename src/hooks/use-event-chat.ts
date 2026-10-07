@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Ably from "ably";
 import * as Crypto from "expo-crypto";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { AppState } from "react-native";
 
 import { apiGet, apiPost } from "@/lib/api";
 import type {
@@ -163,23 +164,39 @@ export function useEventChat(orgId: string, eventId: string): UseEventChatReturn
       .subscribe(["enter", "leave", "present"], syncPresence)
       .catch(() => {});
 
+    const enterPresence = () =>
+      channel.presence.enter({
+        firstName: me.firstName,
+        lastName: me.lastName,
+        userImageUrl: me.userImageUrl,
+      });
+
+    // Present means looking. The server skips the push for anyone present, so
+    // a phone locked with the chat still open mustn't count.
+    let away = AppState.currentState === "background";
+    const appState = AppState.addEventListener("change", (state) => {
+      if (!canPost) return;
+      if (state === "background" && !away) {
+        away = true;
+        channel.presence.leave().catch(() => {});
+      } else if (state === "active" && away) {
+        away = false;
+        channel.attach().then(enterPresence).catch(() => {});
+      }
+    });
+
     // Enter only after our own attach resolves — see the dashboard hook for
     // why entering an unattached channel leaks an uncatchable rejection.
     channel
       .attach()
       .then(async () => {
-        if (canPost) {
-          await channel.presence.enter({
-            firstName: me.firstName,
-            lastName: me.lastName,
-            userImageUrl: me.userImageUrl,
-          });
-        }
+        if (canPost && !away) await enterPresence();
         await syncPresence();
       })
       .catch(() => {});
 
     return () => {
+      appState.remove();
       channel.unsubscribe();
       channel.presence.unsubscribe();
       if (canPost) channel.presence.leave().catch(() => {});

@@ -35,7 +35,14 @@ export function ScopeFilter({ value, onChange }: ScopeFilterProps) {
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ paddingHorizontal: GUTTER, gap: 4 }}
+      // Grows to the row's width so the scopes sit centred; at a large text
+      // size they outgrow it and scroll from the left as before.
+      contentContainerStyle={{
+        flexGrow: 1,
+        justifyContent: "center",
+        paddingHorizontal: GUTTER,
+        gap: 4,
+      }}
     >
       {TIME_SCOPES.map((scope) => {
         const active = scope.value === value;

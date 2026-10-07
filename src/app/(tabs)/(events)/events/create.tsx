@@ -41,6 +41,7 @@ import {
   FormRow,
   FormTextArea,
 } from "@/components/form-fields";
+import { KeyboardSpacer } from "@/components/keyboard-spacer";
 import { OrgAvatar } from "@/components/org-avatar";
 import { useCurrentOrganization } from "@/components/organization-provider";
 import { ServiceTypeDialog } from "@/components/service-type-dialog";
@@ -409,6 +410,11 @@ export default function CreateEventScreen() {
               </ScrollView>
             )}
           </Box>
+
+          {/* Lifts the composer on Android, where the avoiding view does
+              nothing. Gives back the tab bar clearance under it, which would
+              otherwise float it that far above the keyboard. */}
+          <KeyboardSpacer inset={insets.bottom + TAB_BAR_CLEARANCE + nowPlayingInset - 8} />
         </KeyboardAvoidingView>
       ) : null}
 
@@ -1026,6 +1032,8 @@ function CreateEventForm({
           )}
         </VStack>
       </ScrollView>
+
+      <KeyboardSpacer />
 
       {/* `key` remounts it, so a cancelled draft is not still in the fields
           next time — the same trick the other dialogs on this screen use. */}

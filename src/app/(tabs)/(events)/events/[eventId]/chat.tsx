@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppIcon } from "@/components/app-icon";
 import { Composer, MessageRow, placeMessage } from "@/components/events/chat-parts";
 import { EventsEmptyState } from "@/components/events/events-empty-state";
+import { KeyboardSpacer } from "@/components/keyboard-spacer";
 import { useCurrentOrganization } from "@/components/organization-provider";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
@@ -194,6 +195,11 @@ export default function EventChatScreen() {
             </Text>
           </Box>
         ) : null}
+
+        {/* Lifts the composer on Android, where the avoiding view does
+            nothing. Gives back the composer's bottom padding, which would
+            otherwise be a gap over the keyboard. */}
+        <KeyboardSpacer inset={Math.max(insets.bottom, 8) - 8} />
       </KeyboardAvoidingView>
     </VStack>
   );

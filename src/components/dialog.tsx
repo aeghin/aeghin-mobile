@@ -152,7 +152,9 @@ export function Dialog({
       transparent
       animationType="fade"
       statusBarTranslucent
-      onRequestClose={onClose}
+      // Android's back button, held off while sending like the scrim and Cancel:
+      // closing then would drop the result, and a resend would go out twice.
+      onRequestClose={dismiss}
     >
       {/* The scrim. Its own layer under the card so a tap anywhere off the
           card dismisses, while taps on the card do not reach it. */}
@@ -173,10 +175,12 @@ export function Dialog({
       {/* The card shrinks into what the keyboard leaves rather than sliding
           under it. The even padding keeps it centred at rest and off the
           status bar; the offset hands back the bottom half of that padding
-          once the keyboard covers the screen's bottom edge. */}
+          once the keyboard covers the screen's bottom edge. Android too: the
+          app draws edge to edge, which stops a modal's window from shrinking
+          for the keyboard, so without this the footer sat under it. */}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior="padding"
         keyboardVerticalOffset={-insets.top}
         pointerEvents="box-none"
       >

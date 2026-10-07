@@ -13,6 +13,7 @@ import { AiSetlistPanel } from "@/components/events/ai-setlist-panel";
 import { CatalogPicker } from "@/components/events/catalog-picker";
 import { SegmentedControl, type Segment } from "@/components/events/segmented-control";
 import { SetlistDraftList } from "@/components/events/setlist-draft-list";
+import { KeyboardSpacer } from "@/components/keyboard-spacer";
 import { useCurrentOrganization } from "@/components/organization-provider";
 import { useNowPlayingInset } from "@/components/track-player-provider";
 import { Box } from "@/components/ui/box";
@@ -242,6 +243,14 @@ function Editor({
             )}
           </ScrollView>
         )}
+
+        {/* Lifts the panes on Android, where the avoiding view does nothing.
+            The AI composer gives back its tab bar clearance, which would
+            otherwise float it that far above the keyboard; the lists keep
+            theirs, so a field in a low row still scrolls clear. */}
+        <KeyboardSpacer
+          inset={pane === "ai" ? insets.bottom + TAB_BAR_CLEARANCE + nowPlayingInset - 8 : 0}
+        />
       </KeyboardAvoidingView>
     </VStack>
   );

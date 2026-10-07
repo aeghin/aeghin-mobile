@@ -31,6 +31,7 @@ import {
   FormRow,
   FormTextArea,
 } from "@/components/form-fields";
+import { KeyboardSpacer } from "@/components/keyboard-spacer";
 import { useCurrentOrganization } from "@/components/organization-provider";
 import { useNowPlayingInset } from "@/components/track-player-provider";
 import { Box } from "@/components/ui/box";
@@ -601,6 +602,8 @@ function EditForm({
           ) : null}
         </VStack>
       </ScrollView>
+
+      <KeyboardSpacer />
     </VStack>
   );
 }

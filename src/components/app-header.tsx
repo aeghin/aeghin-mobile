@@ -1,4 +1,5 @@
 import { Stack, useRouter } from "expo-router";
+import type { ReactNode } from "react";
 
 import { HeaderCapsule } from "@/components/header-capsule";
 import { Logo } from "@/components/logo";
@@ -9,7 +10,11 @@ import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 
-export function AppHeader() {
+/**
+ * `actions` are a screen's own controls, drawn ahead of the bell in the same
+ * bar item so they keep its 8pt rhythm rather than UIKit's 16pt item gap.
+ */
+export function AppHeader({ actions }: { actions?: ReactNode }) {
   const router = useRouter();
   const { organization } = useCurrentOrganization();
 
@@ -31,6 +36,7 @@ export function AppHeader() {
           {/* One item drawing two capsules: as separate items UIKit set them 16pt apart. */}
           <Stack.Toolbar.View hidesSharedBackground>
             <HStack className="items-center gap-2">
+              {actions}
               <NotificationsBell />
 
               <Pressable

@@ -31,10 +31,11 @@ import {
   type Segment,
 } from "@/components/events/segmented-control";
 import { UpNextCard } from "@/components/events/up-next-card";
+import { HeaderCapsule } from "@/components/header-capsule";
 import { useCurrentOrganization } from "@/components/organization-provider";
 import { useNowPlayingInset } from "@/components/track-player-provider";
 import { Box } from "@/components/ui/box";
-import { Button, ButtonText } from "@/components/ui/button";
+import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
@@ -469,7 +470,22 @@ export default function EventsScreen() {
 
   return (
     <VStack className="flex-1 bg-grouped">
-      <AppHeader />
+      <AppHeader
+        actions={
+          canManage ? (
+            <Pressable
+              onPress={() => router.push("/events/create")}
+              accessibilityRole="button"
+              accessibilityLabel="New event"
+              className="data-[active=true]:opacity-60"
+            >
+              <HeaderCapsule>
+                <AppIcon icon={Plus} size={22} color={brand.orange} />
+              </HeaderCapsule>
+            </Pressable>
+          ) : undefined
+        }
+      />
 
       <ScrollView
         className="flex-1"
@@ -520,22 +536,6 @@ export default function EventsScreen() {
             />
           ) : null}
 
-          {/* The header's two ends are already the app mark and the
-              organization switcher, so creating an event lives in the page. */}
-          {canManage ? (
-            <Box className="px-4">
-              <Button
-                variant="outline"
-                onPress={() => router.push("/events/create")}
-                className="h-auto rounded-2xl border-dashed border-border py-3"
-              >
-                <AppIcon icon={Plus} size={18} color={brand.orange} />
-                <ButtonText className="text-[15px] font-semibold text-brand">
-                  New event
-                </ButtonText>
-              </Button>
-            </Box>
-          ) : null}
         </VStack>
 
         <VStack className="flex-1 pt-4">{content()}</VStack>

@@ -9,7 +9,6 @@ import {
   MetaLine,
   RoleChip,
   ServiceBadge,
-  ServiceRail,
 } from "@/components/events/chips";
 import { DateTile } from "@/components/events/event-card";
 import { Box } from "@/components/ui/box";
@@ -61,11 +60,14 @@ export function UpNextCard({ upNext, service, today, onPress }: UpNextCardProps)
 
   const content = (
     <>
-      <ServiceRail service={service} />
-
-      <VStack className="py-4 pl-[18px] pr-4">
+      <VStack className="p-4">
         <HStack className="items-center gap-3.5">
           <DateTile dayKey={key} today={today} service={service} solid large />
+
+          <Box
+            className="w-[3px] self-stretch rounded-full"
+            style={{ backgroundColor: serviceColors.base }}
+          />
 
           <VStack className="flex-1 gap-2">
             <Text

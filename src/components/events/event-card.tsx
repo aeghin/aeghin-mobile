@@ -10,9 +10,9 @@ import {
   Pill,
   RoleChip,
   ServiceBadge,
-  ServiceRail,
   StaffingMeter,
 } from "@/components/events/chips";
+import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -96,56 +96,59 @@ export function EventCard({
     assignmentFor(event, "ACCEPTED") ?? assignmentFor(event, "PENDING");
   const staffing = showStaffing ? staffingFor(event) : null;
   const spansDays = isMultiDay(event.dates);
+  const serviceColor = getServiceColors(service?.color ?? "indigo", theme).base;
 
   const content = (
-    <>
-      <ServiceRail service={service} />
+    <HStack className="items-start gap-3 p-3">
+      <DateTile
+        dayKey={dayKey}
+        today={today}
+        service={service}
+        solid={highlight}
+      />
 
-      <HStack className="items-start gap-2.5 py-3 pl-[14px] pr-3">
-        <DateTile
-          dayKey={dayKey}
-          today={today}
-          service={service}
-          solid={highlight}
-        />
+      {/* The service's stripe splits the "when" from the "what". */}
+      <Box
+        className="w-[3px] self-stretch rounded-full"
+        style={{ backgroundColor: serviceColor }}
+      />
 
-        <VStack className="flex-1 gap-1.5">
-          <Text
-            className="text-[15px] font-semibold leading-5 tracking-[-0.2px] text-foreground"
-            numberOfLines={1}
-          >
-            {event.name}
-          </Text>
+      <VStack className="flex-1 gap-1.5">
+        <Text
+          className="text-[15px] font-semibold leading-5 tracking-[-0.2px] text-foreground"
+          numberOfLines={1}
+        >
+          {event.name}
+        </Text>
 
-          <HStack className="flex-wrap items-center gap-1.5">
-            <ServiceBadge service={service} />
-            {assignment ? <RoleChip role={assignment.role} /> : null}
-            {showStaffing && autoFillAvailable && event.smartSchedulingEnabled ? (
-              <Pill label="Auto-fill" tone="brand" icon={Sparkles} />
-            ) : null}
-          </HStack>
-
-          {time ? <MetaLine icon={Clock}>{time}</MetaLine> : null}
-
-          {spansDays ? (
-            <MetaLine icon={Calendar}>{formatDateRange(event.dates)}</MetaLine>
+        <HStack className="flex-wrap items-center gap-1.5">
+          <ServiceBadge service={service} />
+          {assignment ? <RoleChip role={assignment.role} /> : null}
+          {showStaffing && autoFillAvailable && event.smartSchedulingEnabled ? (
+            <Pill label="Auto-fill" tone="brand" icon={Sparkles} />
           ) : null}
+        </HStack>
 
-          <MetaLine icon={MapPin}>{event.location}</MetaLine>
+        {time ? <MetaLine icon={Clock}>{time}</MetaLine> : null}
 
-          {staffing ? (
-            <HStack className="pt-0.5">
-              <StaffingMeter {...staffing} />
-            </HStack>
-          ) : null}
-        </VStack>
-
-        {/* The chevron is a promise. It appears once there is somewhere to go. */}
-        {onPress ? (
-          <AppIcon icon={ChevronRight} size={13} color={theme.textMuted} />
+        {spansDays ? (
+          <MetaLine icon={Calendar}>{formatDateRange(event.dates)}</MetaLine>
         ) : null}
-      </HStack>
-    </>
+
+        <MetaLine icon={MapPin}>{event.location}</MetaLine>
+
+        {staffing ? (
+          <HStack className="pt-0.5">
+            <StaffingMeter {...staffing} />
+          </HStack>
+        ) : null}
+      </VStack>
+
+      {/* The chevron is a promise. It appears once there is somewhere to go. */}
+      {onPress ? (
+        <AppIcon icon={ChevronRight} size={13} color={theme.textMuted} />
+      ) : null}
+    </HStack>
   );
 
   // An event with nowhere to go keeps the card's normal weight: a `disabled`
@@ -264,11 +267,15 @@ export function EventCardSkeleton({ index = 0 }: { index?: number }) {
 
   return (
     <VStack className="overflow-hidden rounded-2xl border border-border bg-card">
-      <HStack className="items-start gap-2.5 py-3 pl-[14px] pr-3">
+      <HStack className="items-start gap-3 p-3">
         <Skeleton
           startColor="bg-border"
           className="self-center rounded-xl"
           style={TILE}
+        />
+        <Skeleton
+          startColor="bg-border"
+          className="w-[3px] self-stretch rounded-full"
         />
 
         <VStack className="flex-1 gap-2">

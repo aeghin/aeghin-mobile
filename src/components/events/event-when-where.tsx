@@ -5,6 +5,7 @@ import { useRef } from "react";
 import { ScrollView, type LayoutChangeEvent } from "react-native";
 
 import { AppIcon, type AppIconName } from "@/components/app-icon";
+import { Divider } from "@/components/ui/divider";
 import { HStack } from "@/components/ui/hstack";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
@@ -45,7 +46,8 @@ type Tile = {
  * of `EventDate`s, which is what lets a conference or a weekend of rehearsals
  * be one event, and collapsing them to "Saturday to Sunday" would lose the
  * times somebody actually has to turn up at. Past one block they get a row of
- * their own, so a week is no taller than a weekend.
+ * their own, so a week is no taller than a weekend, and the place and the
+ * rehearsal share one box beneath it.
  */
 export function EventWhenWhere({
   dates,
@@ -111,23 +113,50 @@ export function EventWhenWhere({
     );
   }
 
+  // One box for the place and the rehearsal, each label against its value:
+  // beside a row of days, a short place like "Sanctuary" left most of a box
+  // of its own empty.
   return (
     <VStack className="gap-2">
       <DayRow tiles={blocks} colors={colors} />
 
-      <HStack className="gap-2">
-        <BlockTile tile={where} colors={colors} />
-        {/* Date over time, so the half-width box breaks where it reads. */}
+      <VStack className="rounded-xl border border-border bg-surface/60">
+        <DetailRow icon={MapPin} label="Location" value={location} />
+        {/* Date over time, so the value breaks where it reads. */}
         {rehearsal ? (
-          <InfoTile
-            icon={CalendarClock}
-            label="Rehearsal"
-            value={rehearsal.replace(" · ", "\n")}
-            lines={3}
-          />
+          <>
+            <Divider style={{ marginHorizontal: 10 }} />
+            <DetailRow
+              icon={CalendarClock}
+              label="Rehearsal"
+              value={rehearsal.replace(" · ", "\n")}
+            />
+          </>
         ) : null}
-      </HStack>
+      </VStack>
     </VStack>
+  );
+}
+
+/** A label on the left and its value on the right, in the box under a row of days. */
+function DetailRow({ icon, label, value }: { icon: AppIconName; label: string; value: string }) {
+  const theme = useTheme();
+
+  return (
+    <HStack className="items-center gap-3 p-2.5">
+      <HStack className="items-center gap-1.5">
+        <AppIcon icon={icon} size={11} color={theme.textMuted} />
+        <Text className="text-[10px] font-semibold uppercase tracking-[0.3px] text-muted-foreground">
+          {label}
+        </Text>
+      </HStack>
+      <Text
+        className="flex-1 text-right text-[13px] font-semibold leading-[18px] text-foreground"
+        numberOfLines={3}
+      >
+        {value}
+      </Text>
+    </HStack>
   );
 }
 

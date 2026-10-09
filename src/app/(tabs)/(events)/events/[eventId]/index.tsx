@@ -14,13 +14,9 @@ import {
   EventDetailHeroSkeleton,
 } from "@/components/events/event-detail-hero";
 import { EventSetlistCard } from "@/components/events/event-setlist-card";
+import { EventPager } from "@/components/events/event-pager";
 import { EventSmartSchedulingCard } from "@/components/events/event-smart-scheduling-card";
-import { EventStepper } from "@/components/events/event-stepper";
 import { EventTeamCard } from "@/components/events/event-team-card";
-import {
-  EventWhenWhereCard,
-  EventWhenWhereCardSkeleton,
-} from "@/components/events/event-when-where-card";
 import { EventsEmptyState } from "@/components/events/events-empty-state";
 import { VocalistDialog } from "@/components/events/vocalist-dialog";
 import { ErrorBanner } from "@/components/form-fields";
@@ -116,8 +112,8 @@ function describeConfirm(confirm: Confirm, roles: Roles) {
  * One event in full.
  *
  * The sections are the dashboard's, in the order its grid falls back to on a
- * narrow viewport: what this is, what auto-fill has been doing, when and
- * where, the setlist, the team, the chat.
+ * narrow viewport: what this is and when and where, what auto-fill has been
+ * doing, the setlist, the team, the chat.
  *
  * Every manager action sits on the section it changes — the setlist's editor
  * on the setlist card, the roster's on the Team card — and the two that change
@@ -181,22 +177,16 @@ export default function EventDetailScreen() {
   const prefetchEvent = usePrefetchEventDetails(organizationId);
   const serviceColors = event ? getServiceColors(event.serviceType.color, theme) : null;
 
-  // The step in flight. Until its event arrives it names the header at once and
-  // holds the arrows in place, disabled, rather than the bar jumping.
-  const [stepping, setStepping] = useState<{
-    target: EventNeighbor;
-    serviceName: string;
-    dotColor: string;
-  } | null>(null);
+  // The step in flight. Until its event arrives it names the header at once,
+  // rather than the title falling back to "Event" for a frame.
+  const [stepping, setStepping] = useState<EventNeighbor | null>(null);
   const pendingStep =
-    stepping && !details.isError && event?.id !== stepping.target.id ? stepping : null;
+    stepping && !details.isError && event?.id !== stepping.id ? stepping : null;
 
   // The same screen with a new event, rather than a screen pushed per step:
   // Back still means the list, not whichever event came before.
   const step = (target: EventNeighbor) => {
-    if (!event || !serviceColors) return;
-
-    setStepping({ target, serviceName: event.serviceType.name, dotColor: serviceColors.base });
+    setStepping(target);
     router.setParams({ eventId: target.id });
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   };
@@ -284,29 +274,10 @@ export default function EventDetailScreen() {
     <VStack className="flex-1 bg-grouped">
       <Stack.Screen
         options={{
-          title: event?.name ?? pendingStep?.target.name ?? "Event",
+          title: event?.name ?? pendingStep?.name ?? "Event",
           headerBackTitle: "Events",
         }}
       />
-
-      {event?.adjacent && serviceColors && (event.adjacent.previous || event.adjacent.next) ? (
-        <EventStepper
-          previous={event.adjacent.previous}
-          next={event.adjacent.next}
-          serviceName={event.serviceType.name}
-          dotColor={serviceColors.base}
-          onStep={step}
-        />
-      ) : pendingStep ? (
-        <EventStepper
-          previous={null}
-          next={null}
-          serviceName={pendingStep.serviceName}
-          dotColor={pendingStep.dotColor}
-          busy
-          onStep={step}
-        />
-      ) : null}
 
       <ScrollView
         ref={scrollRef}
@@ -338,6 +309,19 @@ export default function EventDetailScreen() {
           <VStack key={event.id} className="gap-4">
             <EventDetailHero
               event={event}
+              pager={
+                event.adjacent &&
+                serviceColors &&
+                (event.adjacent.previous || event.adjacent.next) ? (
+                  <EventPager
+                    previous={event.adjacent.previous}
+                    next={event.adjacent.next}
+                    serviceName={event.serviceType.name}
+                    service={serviceColors}
+                    onStep={step}
+                  />
+                ) : undefined
+              }
               actions={
                 event.viewer.canManage
                   ? [
@@ -363,16 +347,9 @@ export default function EventDetailScreen() {
                 enabled={event.smartSchedulingEnabled}
                 available={autoFillAvailable}
                 items={event.smartSchedulingActivity}
+                service={event.serviceType}
               />
             ) : null}
-
-            <EventWhenWhereCard
-              dates={event.dates}
-              location={event.location}
-              service={event.serviceType}
-              rehearsalStart={event.rehearsalStart}
-              rehearsalEnd={event.rehearsalEnd}
-            />
 
             <EventSetlistCard
               setlist={event.setlist}
@@ -483,10 +460,5 @@ function Unavailable({ error }: { error: unknown }) {
 }
 
 function DetailLoading() {
-  return (
-    <VStack className="gap-4">
-      <EventDetailHeroSkeleton />
-      <EventWhenWhereCardSkeleton />
-    </VStack>
-  );
+  return <EventDetailHeroSkeleton />;
 }

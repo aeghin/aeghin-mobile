@@ -1,22 +1,24 @@
+import type { ReactNode } from "react";
+
 import { ActionMenu, type ActionMenuItem } from "@/components/action-menu";
-import { ServiceBadge, ServiceRail } from "@/components/events/chips";
+import { ServiceBadge } from "@/components/events/chips";
+import { DateTile } from "@/components/events/event-card";
+import { EventWhenWhere, EventWhenWhereSkeleton } from "@/components/events/event-when-where";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
-import { withAlpha } from "@/constants/branding";
 import { useTheme } from "@/hooks/use-theme";
 import { getServiceColors } from "@/lib/config/service-types";
-import { earliestDate, formatDateTile } from "@/lib/events/format";
-import { tintedGlow, tintedSheen } from "@/lib/gradients";
+import { dayKey, earliestDate, todayKey } from "@/lib/events/format";
 import type { EventDetails } from "@/types/event";
 
-/** Matches the web's 64px tile, which is also a comfortable thumb-sized block. */
-const TILE = 64;
+/** Room the ⋮ needs in the corner it shares with the name. */
+const MENU_CLEARANCE = 30;
 
-/** Room the ⋮ needs in the corner it shares with the service badge. */
-const MENU_CLEARANCE = 34;
+/** The Upcoming card's tile, so the page opens on the card that led to it. */
+const TILE_SKELETON = { width: 60, height: 76 };
 
 type EventDetailHeroProps = {
   event: EventDetails;
@@ -28,89 +30,82 @@ type EventDetailHeroProps = {
    * beside one section of it the way the roster and setlist actions do.
    */
   actions?: ActionMenuItem[];
+  /** The previous/next pager, drawn as the card's footer. */
+  pager?: ReactNode;
 };
 
 /**
- * The top of the event screen: what this is, when it starts, and what kind of
- * service it belongs to.
+ * The top of the event screen: what this is, when and where, and the way to
+ * the one before and after it.
  *
- * Washed in the service type's own colour rather than the brand's — the
- * dashboard's hero does the same, and it is what makes two events on one
- * calendar tell themselves apart before either name is read.
+ * Built like the Upcoming card on the Events tab — the solid date tile in the
+ * service's colour, its stripe, then the name — so tapping that card opens on
+ * the same shape, grown to hold every block and the pager.
+ *
+ * The tile is the only place the day is written: the blocks below give their
+ * own date only when the event runs over more than one.
  */
-export function EventDetailHero({ event, actions }: EventDetailHeroProps) {
+export function EventDetailHero({ event, actions, pager }: EventDetailHeroProps) {
   const theme = useTheme();
   const colors = getServiceColors(event.serviceType.color, theme);
-
   const first = earliestDate(event.dates);
-  const tile = first ? formatDateTile(first.startTime) : null;
+  const menu = actions && actions.length > 0;
 
   return (
-    <VStack
-      className="mx-4 overflow-hidden rounded-2xl border border-border bg-card"
-      style={tintedSheen(theme.card, colors.base, colors.sheenAlpha)}
-    >
-      <ServiceRail service={event.serviceType} />
-
-      <Box
-        pointerEvents="none"
-        className="absolute -right-16 -top-16 h-40 w-40 rounded-full"
-        style={tintedGlow(colors.base, "lead", colors.glowSoftAlpha)}
-      />
-      <Box
-        pointerEvents="none"
-        className="absolute -bottom-14 -left-14 h-32 w-32 rounded-full"
-        style={tintedGlow(colors.base, "trail", colors.glowStrongAlpha)}
-      />
-
-      {actions && actions.length > 0 ? (
+    <VStack className="mx-4 overflow-hidden rounded-2xl border border-border bg-card">
+      {menu ? (
         <Box className="absolute right-2 top-2 z-10">
           <ActionMenu label={`Actions for ${event.name}`} items={actions} />
         </Box>
       ) : null}
 
-      <HStack className="items-start gap-3.5 py-4 pl-[17px] pr-4">
-        {tile ? (
-          <VStack
-            className="items-center justify-center rounded-2xl border border-border bg-surface"
-            style={{
-              width: TILE,
-              height: TILE,
-              // `shadow-lg shadow-<c>-500/10`: the tile is lit by its own
-              // service rather than by a neutral grey.
-              boxShadow: `0px 8px 15px ${withAlpha(colors.base, colors.shadowAlpha)}`,
-            }}
-          >
-            <Text className="text-[10px] font-bold tracking-[1.1px] text-muted-foreground">
-              {tile.month}
+      <VStack className="gap-3.5 p-4">
+        <HStack className="items-center gap-3.5">
+          {first ? (
+            <DateTile
+              dayKey={dayKey(first.startTime)}
+              today={todayKey()}
+              service={event.serviceType}
+              solid
+              large
+            />
+          ) : null}
+
+          {/* The service's stripe splits the "when" from the "what". */}
+          <Box
+            className="w-[3px] self-stretch rounded-full"
+            style={{ backgroundColor: colors.base }}
+          />
+
+          <VStack className="flex-1 gap-2">
+            <Text
+              className="text-[20px] font-bold leading-[25px] tracking-[-0.4px] text-foreground"
+              style={{ paddingRight: menu ? MENU_CLEARANCE : 0 }}
+            >
+              {event.name}
             </Text>
-            <Text className="text-[26px] font-bold leading-[30px] tracking-[-0.6px] text-foreground">
-              {tile.day}
-            </Text>
-            <Text className="text-[10px] tracking-[0.5px] text-muted-foreground">
-              {tile.weekday}
-            </Text>
+            <HStack>
+              <ServiceBadge service={event.serviceType} />
+            </HStack>
           </VStack>
+        </HStack>
+
+        {event.description ? (
+          <Text className="text-[13.5px] leading-[19px] text-muted-foreground">
+            {event.description}
+          </Text>
         ) : null}
 
-        <VStack className="flex-1 gap-2 pt-0.5">
-          {/* The name and description start below the ⋮, so only this row
-              has to keep out from under it. */}
-          <HStack style={{ paddingRight: actions ? MENU_CLEARANCE : 0 }}>
-            <ServiceBadge service={event.serviceType} />
-          </HStack>
+        <EventWhenWhere
+          dates={event.dates}
+          location={event.location}
+          service={event.serviceType}
+          rehearsalStart={event.rehearsalStart}
+          rehearsalEnd={event.rehearsalEnd}
+        />
 
-          <Text className="text-[22px] font-bold leading-[27px] tracking-[-0.5px] text-foreground">
-            {event.name}
-          </Text>
-
-          {event.description ? (
-            <Text className="text-[13.5px] leading-[19px] text-muted-foreground">
-              {event.description}
-            </Text>
-          ) : null}
-        </VStack>
-      </HStack>
+        {pager}
+      </VStack>
     </VStack>
   );
 }
@@ -119,19 +114,19 @@ export function EventDetailHero({ event, actions }: EventDetailHeroProps) {
 export function EventDetailHeroSkeleton() {
   return (
     <VStack className="mx-4 overflow-hidden rounded-2xl border border-border bg-card">
-      <HStack className="items-start gap-3.5 py-4 pl-[17px] pr-4">
-        <Skeleton
-          startColor="bg-border"
-          className="rounded-2xl"
-          style={{ width: TILE, height: TILE }}
-        />
+      <VStack className="gap-3.5 p-4">
+        <HStack className="items-center gap-3.5">
+          <Skeleton startColor="bg-border" className="rounded-xl" style={TILE_SKELETON} />
+          <Skeleton startColor="bg-border" className="w-[3px] self-stretch rounded-full" />
 
-        <VStack className="flex-1 gap-2 pt-0.5">
-          <Skeleton startColor="bg-border" style={{ width: 92, height: 18 }} />
-          <Skeleton startColor="bg-border" style={{ width: 210, height: 20 }} />
-          <Skeleton startColor="bg-border" style={{ width: 170, height: 13 }} />
-        </VStack>
-      </HStack>
+          <VStack className="flex-1 gap-2">
+            <Skeleton startColor="bg-border" style={{ width: 190, height: 20 }} />
+            <Skeleton startColor="bg-border" style={{ width: 96, height: 18 }} />
+          </VStack>
+        </HStack>
+
+        <EventWhenWhereSkeleton />
+      </VStack>
     </VStack>
   );
 }

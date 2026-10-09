@@ -7,9 +7,9 @@ import Pencil from "lucide-react-native/icons/pencil";
 import { AppIcon } from "@/components/app-icon";
 import {
   AvatarStack,
+  DetailButton,
   DetailCard,
   DetailCardHeader,
-  DetailCount,
   DetailEmpty,
 } from "@/components/events/event-detail-parts";
 import { SongKeySaveButton } from "@/components/events/song-key-save-button";
@@ -33,7 +33,7 @@ import type { SongAttachment, SongKey } from "@/types/song";
 /** The running-order badge. */
 const NUMBER = 22;
 /** Hairlines start past the position badge, so they line up with the titles. */
-const SEPARATOR_INSET = 14 + NUMBER + 10;
+const SEPARATOR_INSET = 16 + NUMBER + 10;
 /** Assigned faces. The web draws these at 24. */
 const VOCALIST = 22;
 /** Half the gap between a 28pt `OpenButton` and the 17pt glyph it centres. */
@@ -98,25 +98,16 @@ export function EventSetlistCard({
       <DetailCardHeader
         icon={Music}
         title="Setlist"
-        tint={colors.text}
+        subtitle={
+          setlist.length > 0
+            ? `${setlist.length} ${setlist.length === 1 ? "song" : "songs"}`
+            : undefined
+        }
+        tint={colors}
         trailing={
-          <HStack className="items-center gap-3">
-            {setlist.length > 0 ? (
-              <DetailCount>
-                {`${setlist.length} ${setlist.length === 1 ? "song" : "songs"}`}
-              </DetailCount>
-            ) : null}
-            {onEdit ? (
-              <Pressable onPress={onEdit} accessibilityRole="button" hitSlop={8}>
-                <HStack className="items-center gap-1">
-                  <AppIcon icon={Pencil} size={12} color={colors.text} />
-                  <Text className="text-[13px] font-semibold" style={{ color: colors.text }}>
-                    Edit
-                  </Text>
-                </HStack>
-              </Pressable>
-            ) : null}
-          </HStack>
+          onEdit ? (
+            <DetailButton icon={Pencil} label="Edit" service={colors} onPress={onEdit} />
+          ) : undefined
         }
       />
 
@@ -125,7 +116,7 @@ export function EventSetlistCard({
           here, under the heading, where it is read once on the way into the
           list. Managers only: nobody else's tap does anything. */}
       {onSongPress && setlist.length > 0 ? (
-        <HStack className="items-center gap-1.5 px-3.5 pb-0.5">
+        <HStack className="items-center gap-1.5 px-4 pb-1">
           <AppIcon icon={Info} size={11} color={theme.textMuted} />
           <Text className="flex-1 text-[12px] text-muted-foreground">
             Tap a song to assign who sings it.
@@ -192,7 +183,7 @@ function SetlistRow({
   const showControls = hasLinks || song.vocalists.length > 0 || canSaveKey;
 
   const row = (
-    <HStack className="items-start gap-2.5 px-3.5 py-2.5">
+    <HStack className="items-start gap-2.5 px-4 py-2.5">
       <Center
         className="mt-0.5 shrink-0 rounded-md bg-surface"
         style={{ width: NUMBER, height: NUMBER }}

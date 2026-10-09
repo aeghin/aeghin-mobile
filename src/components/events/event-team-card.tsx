@@ -11,10 +11,11 @@ import { useState } from "react";
 import { Alert } from "react-native";
 
 import { ActionMenu } from "@/components/action-menu";
-import { AppIcon, type AppIconName } from "@/components/app-icon";
+import { AppIcon } from "@/components/app-icon";
 import { AddRolesDialog } from "@/components/events/add-roles-dialog";
 import { EmailTeamDialog } from "@/components/events/email-team-dialog";
 import {
+  DetailButton,
   DetailCard,
   DetailCardHeader,
   DetailCount,
@@ -28,12 +29,12 @@ import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
-import { withAlpha } from "@/constants/branding";
+import { withAlpha, type Palette } from "@/constants/branding";
 import { useSmartSchedulingAvailable } from "@/hooks/use-billing";
 import { useSetSmartScheduling } from "@/hooks/use-events";
 import { useRoles } from "@/hooks/use-roles";
 import { useTheme } from "@/hooks/use-theme";
-import { getServiceColors, WASH_STOPS } from "@/lib/config/service-types";
+import { getServiceColors } from "@/lib/config/service-types";
 import {
   getStatusConfig,
   isInactiveStatus,
@@ -41,7 +42,6 @@ import {
   ROW_FILL_ALPHA,
 } from "@/lib/config/status";
 import { failureMessage } from "@/lib/failure";
-import { tintedGlow, tintedTopWash } from "@/lib/gradients";
 import { personName } from "@/lib/names";
 import type {
   EventDetails,
@@ -50,10 +50,10 @@ import type {
 } from "@/types/event";
 import type { Team } from "@/types/team-notifications";
 
-const AVATAR = 34;
+const AVATAR = 32;
 
-/** The web's `h-40` tinted strip across the top of the card. */
-const WASH_HEIGHT = 160;
+/** Half a line less the gap, so the four roster actions sit two by two. */
+const HALF = { flexBasis: "48%", flexGrow: 1 } as const;
 
 /**
  * The one section that opens by itself.
@@ -193,6 +193,31 @@ export function EventTeamCard({
   const roleCount = categories.reduce((count, category) => count + category.groups.length, 0);
   const filledCount = categories.reduce((count, category) => count + category.filled, 0);
 
+  // The count without the events list's meter: managers saw the pills before
+  // they tapped in, and past a dozen roles they stop lining up with anything
+  // here. Each team below says which roles are open.
+  const fillRate =
+    roleCount > 0 ? (
+      <HStack
+        className="items-baseline gap-1.5"
+        accessible
+        accessibilityLabel={`${filledCount} of ${roleCount} ${roleCount === 1 ? "role" : "roles"} filled`}
+      >
+        {/* The title's size and line, so the count reads as part of the
+            header rather than a second headline beside it. */}
+        <Text
+          className="text-[15px] font-bold leading-[20px] text-foreground"
+          style={{ fontVariant: ["tabular-nums"] }}
+        >
+          {filledCount}
+          <Text className="text-muted-foreground">{`/${roleCount}`}</Text>
+        </Text>
+        <Text className="text-[13px] text-muted-foreground">
+          {roleCount === 1 ? "role filled" : "roles filled"}
+        </Text>
+      </HStack>
+    ) : undefined;
+
   const toggle = (key: Team) =>
     setOpen((current) =>
       current.includes(key)
@@ -214,59 +239,53 @@ export function EventTeamCard({
   return (
     <>
       <DetailCard>
-        {/* The web tints only the top of this card and masks the wash away by
-            75% of its height. `overflow-hidden` on the strip clips the blooms
-            the way the card's own rounding does there. */}
-        <Box
-          pointerEvents="none"
-          className="absolute inset-x-0 top-0 overflow-hidden"
-          style={{ height: WASH_HEIGHT }}
-        >
-          <Box
-            className="absolute inset-0"
-            style={tintedTopWash(colors.base, colors.sheenAlpha, WASH_STOPS)}
-          />
-          <Box
-            className="absolute -right-16 -top-16 h-40 w-40 rounded-full"
-            style={tintedGlow(colors.base, "lead", colors.glowSoftAlpha)}
-          />
-          <Box
-            className="absolute -bottom-16 -left-16 h-32 w-32 rounded-full"
-            style={tintedGlow(colors.base, "trail", colors.glowSoftAlpha)}
-          />
-        </Box>
+        <DetailCardHeader icon={Users} title="Team" tint={colors} trailing={fillRate} />
 
-        <DetailCardHeader
-          icon={Users}
-          title="Team"
-          trailing={<DetailCount>{`${filledCount} of ${roleCount} filled`}</DetailCount>}
-        />
-
-        {/* The dashboard's three roster-wide actions, on their own line under
-            the title exactly as its narrow column puts them. */}
+        {/* The dashboard's roster-wide actions, under the title exactly as its
+            narrow column puts them. */}
         {canManage ? (
-          <HStack className="flex-wrap gap-1 px-3.5 pb-3">
-            <ActionChip icon={UserPlus} label="Invite" onPress={() => setDialog("invite")} />
-            <ActionChip
+          <HStack className="flex-wrap gap-2 px-4 pb-4">
+            <DetailButton
+              icon={UserPlus}
+              label="Invite"
+              service={colors}
+              primary
+              onPress={() => setDialog("invite")}
+              style={HALF}
+            />
+            <DetailButton
               icon={Zap}
               label="Auto-fill"
+              service={colors}
               checked={autoFillOn}
-              tint={autoFillOn ? theme.success : undefined}
+              on={autoFillOn}
               busy={smart.isPending}
               onPress={() => toggleSmart(!event.smartSchedulingEnabled)}
+              style={HALF}
             />
-            <ActionChip icon={Plus} label="Add roles" onPress={() => setDialog("roles")} />
+            <DetailButton
+              icon={Plus}
+              label="Add roles"
+              service={colors}
+              onPress={() => setDialog("roles")}
+              style={HALF}
+            />
             {/* The dashboard hides this until somebody has accepted. Here it
-                stays: four pills are a fixed row, and one going missing reads
-                as a fault rather than as "there is nobody to email yet" — which
-                the dialog says in words, and now refuses to send on. */}
-            <ActionChip icon={Mail} label="Email" onPress={() => setDialog("email")} />
+                stays: four buttons are a fixed block, and one going missing
+                reads as a fault rather than as "there is nobody to email yet"
+                — which the dialog says in words, and refuses to send on. */}
+            <DetailButton
+              icon={Mail}
+              label="Email"
+              service={colors}
+              onPress={() => setDialog("email")}
+              style={HALF}
+            />
           </HStack>
         ) : null}
 
-
         {categories.length === 0 ? (
-          <Text className="px-3.5 pb-4 pt-1 text-[13px] text-muted-foreground">
+          <Text className="border-t border-border px-4 pb-4 pt-3 text-[13px] text-muted-foreground">
             {canManage
               ? "No roles on this event yet. Add roles to start building the team."
               : "No roles on this event yet."}
@@ -288,8 +307,8 @@ export function EventTeamCard({
                   }`}
                   className="data-[active=true]:bg-border/40"
                 >
-                  <HStack className="items-center gap-2 px-3.5 py-3">
-                    <Text className="flex-1 text-[13.5px] font-semibold text-foreground">
+                  <HStack className="items-center gap-2 px-4 py-3">
+                    <Text className="flex-1 text-[14px] font-bold text-foreground">
                       {category.label}
                     </Text>
 
@@ -306,7 +325,7 @@ export function EventTeamCard({
                 </Pressable>
 
                 {open.includes(category.key) ? (
-                  <VStack className="gap-4 px-3.5 pb-4 pt-0.5">
+                  <VStack className="gap-4 px-4 pb-4 pt-0.5">
                     {category.groups.map((group) => (
                       <RoleGroupBlock
                         key={group.role}
@@ -365,61 +384,20 @@ export function EventTeamCard({
 }
 
 /**
- * One of the card's roster-wide actions: a small pill, the web's ghost button.
- *
- * Four of these have to sit on one line inside the card, so the padding is
- * tighter than a tap target would otherwise want — `hitSlop` gives the finger
- * back what the box gives up.
+ * The status pill's words, darker than its dot so they read on the tint — the
+ * Volunteers design's `bg-emerald-50 text-emerald-700`, and the -400 stop on a
+ * dark card. Tailwind v4 values, like the dots in `status.ts`.
  */
-function ActionChip({
-  icon,
-  label,
-  onPress,
-  tint,
-  checked,
-  busy,
-}: {
-  icon: AppIconName;
-  label: string;
-  onPress: () => void;
-  /** Colours the pill when the action is *on*, as auto-fill goes green. */
-  tint?: string;
-  /**
-   * Present on a pill that toggles. The label does not spell the state out —
-   * the colour carries it — so this is what says "on" to a screen reader,
-   * which cannot see the colour at all.
-   */
-  checked?: boolean;
-  busy?: boolean;
-}) {
-  const theme = useTheme();
-  const color = tint ?? theme.textMuted;
+const PILL_TEXT = {
+  light: { ACCEPTED: "#007A55", PENDING: "#BB4D00", EXPIRED: "#45556C", OTHER: "#C10007" },
+  dark: { ACCEPTED: "#00D492", PENDING: "#FFB900", EXPIRED: "#90A1B9", OTHER: "#FF6467" },
+} as const;
 
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={busy}
-      hitSlop={{ top: 8, bottom: 8 }}
-      accessibilityRole={checked === undefined ? "button" : "switch"}
-      accessibilityLabel={label}
-      accessibilityState={checked === undefined ? undefined : { checked }}
-      className="rounded-full data-[active=true]:opacity-60"
-      style={{ opacity: busy ? 0.5 : 1 }}
-    >
-      <HStack
-        className="items-center gap-1 rounded-full border px-2 py-1.5"
-        style={{
-          borderColor: tint ? withAlpha(tint, 0.35) : theme.border,
-          backgroundColor: tint ? withAlpha(tint, 0.1) : theme.surface,
-        }}
-      >
-        <AppIcon icon={icon} size={12} color={color} />
-        <Text className="text-[12px] font-semibold" style={{ color }}>
-          {label}
-        </Text>
-      </HStack>
-    </Pressable>
-  );
+function pillText(status: EventDetailsAssignment["status"] | "EXPIRED", theme: Palette) {
+  const shades = PILL_TEXT[theme.scheme];
+  return status === "ACCEPTED" || status === "PENDING" || status === "EXPIRED"
+    ? shades[status]
+    : shades.OTHER;
 }
 
 /** Points down when the section is open, right when it is closed. */
@@ -581,15 +559,16 @@ function AssignmentRow({
 
   const row = (
     <HStack
-      className="items-center gap-2.5 rounded-xl border px-2.5 py-2"
-      style={
-        isCurrentUser
+      className="items-center gap-3 rounded-xl border px-3 py-2.5"
+      style={{
+        borderCurve: "continuous",
+        ...(isCurrentUser
           ? {
               borderColor: withAlpha(status.color, ROW_BORDER_ALPHA),
               backgroundColor: withAlpha(status.color, ROW_FILL_ALPHA),
             }
-          : { borderColor: theme.border }
-      }
+          : { borderColor: theme.border, backgroundColor: theme.card }),
+      }}
     >
       <Box className="shrink-0" style={{ opacity: inactive ? 0.6 : 1 }}>
         {/* The web's `ring-2 ring-offset-2`: a hoop in the status colour with
@@ -624,7 +603,7 @@ function AssignmentRow({
       </Box>
 
       <Text
-        className={`flex-1 text-[14px] font-medium ${
+        className={`flex-1 text-[14px] font-semibold ${
           inactive ? "text-muted-foreground" : "text-foreground"
         }`}
         style={
@@ -635,9 +614,18 @@ function AssignmentRow({
         {isCurrentUser ? "You" : fullName}
       </Text>
 
-      <Text className="text-[11.5px] font-semibold" style={{ color: status.color }}>
-        {status.label}
-      </Text>
+      <HStack
+        className="items-center gap-1 rounded-full px-2 py-[3px]"
+        style={{ backgroundColor: withAlpha(status.color, 0.12) }}
+      >
+        <Box className="h-[6px] w-[6px] rounded-full" style={{ backgroundColor: status.color }} />
+        <Text
+          className="text-[11px] font-semibold"
+          style={{ color: pillText(expired ? "EXPIRED" : assignment.status, theme) }}
+        >
+          {status.label}
+        </Text>
+      </HStack>
 
       {menu ? (
         <ActionMenu

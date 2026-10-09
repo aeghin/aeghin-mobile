@@ -1,5 +1,6 @@
 import CalendarClock from "lucide-react-native/icons/calendar-clock";
 import ChevronDown from "lucide-react-native/icons/chevron-down";
+import ChevronUp from "lucide-react-native/icons/chevron-up";
 import TriangleAlert from "lucide-react-native/icons/triangle-alert";
 import UserSearch from "lucide-react-native/icons/user-search";
 import Zap from "lucide-react-native/icons/zap";
@@ -8,19 +9,19 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 
 import { AppIcon, type AppIconName } from "@/components/app-icon";
-import { DetailCard } from "@/components/events/event-detail-parts";
-import { Box } from "@/components/ui/box";
+import { DetailButton, DetailCard } from "@/components/events/event-detail-parts";
 import { Center } from "@/components/ui/center";
 import { Divider } from "@/components/ui/divider";
 import { HStack } from "@/components/ui/hstack";
-import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { withAlpha, type Palette } from "@/constants/branding";
 import { useTheme } from "@/hooks/use-theme";
+import { getServiceColors } from "@/lib/config/service-types";
 import { formatActivityTime } from "@/lib/events/format";
 import { capitalizeName } from "@/lib/names";
 import type {
+  ServiceType,
   SmartActivityType,
   SmartSchedulingActivityItem,
 } from "@/types/event";
@@ -53,6 +54,7 @@ type EventSmartSchedulingCardProps = {
   /** Whether the plan includes it. An enabled event on a plan without it is paused. */
   available: boolean;
   items: SmartSchedulingActivityItem[];
+  service: ServiceType;
 };
 
 /**
@@ -70,8 +72,10 @@ export function EventSmartSchedulingCard({
   enabled,
   available,
   items,
+  service,
 }: EventSmartSchedulingCardProps) {
   const theme = useTheme();
+  const colors = getServiceColors(service.color, theme);
   const [open, setOpen] = useState(false);
 
   const running = enabled && available;
@@ -107,57 +111,49 @@ export function EventSmartSchedulingCard({
     color: string;
   }[];
 
-  const accent = running ? theme.success : theme.textMuted;
+  const accent = running ? colors.text : theme.textMuted;
 
   return (
     <DetailCard>
-      <VStack className="gap-2.5 px-3.5 py-3.5">
-        <HStack className="items-center gap-2.5">
-          <Center
-            className="h-8 w-8 shrink-0 rounded-xl"
-            style={{ backgroundColor: withAlpha(accent, running ? 0.14 : 0.1) }}
-          >
-            <AppIcon icon={running ? Zap : ZapOff} size={15} color={accent} />
-          </Center>
+      <VStack className="gap-1 p-4">
+        {/* The log's toggle sits opposite the title, where the setlist keeps
+            its Edit, so the counts below get the card's whole width. */}
+        <HStack className="items-center gap-3">
+          <VStack className="flex-1 gap-1">
+            {/* The Automation card's eyebrow: whether the rule is running. */}
+            <HStack className="items-center gap-1">
+              <AppIcon icon={running ? Zap : ZapOff} size={12} color={accent} />
+              <Text
+                className="shrink text-[10.5px] font-bold uppercase tracking-[0.8px]"
+                style={{ color: accent }}
+              >
+                {`Auto-fill ${running ? "on" : enabled ? "paused on this plan" : "off"}`}
+              </Text>
+            </HStack>
 
-          <VStack className="flex-1 gap-px">
-            <Text className="text-[14px] font-semibold tracking-[-0.2px] text-foreground">
+            <Text className="text-[15px] font-bold leading-[20px] tracking-[-0.2px] text-foreground">
               Smart Scheduling
-            </Text>
-            <Text className="text-[12px] text-muted-foreground">
-              {`Auto-fill ${running ? "on" : enabled ? "paused on this plan" : "off"}`}
             </Text>
           </VStack>
 
           {items.length > 0 ? (
-            <Pressable
+            <DetailButton
+              icon={open ? ChevronUp : ChevronDown}
+              label={open ? "Hide log" : "View log"}
+              service={colors}
+              expanded={open}
               onPress={() => setOpen((current) => !current)}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: open }}
-              accessibilityLabel={open ? "Hide log" : "View log"}
-              className="rounded-full border border-border bg-surface px-2.5 py-1 data-[active=true]:opacity-60"
-            >
-              <HStack className="items-center gap-1">
-                <Text className="text-[12px] font-semibold text-muted-foreground">
-                  {open ? "Hide log" : "View log"}
-                </Text>
-                <Box
-                  style={{ transform: [{ rotate: open ? "180deg" : "0deg" }] }}
-                >
-                  <AppIcon icon={ChevronDown} size={11} color={theme.textMuted} />
-                </Box>
-              </HStack>
-            </Pressable>
+            />
           ) : null}
         </HStack>
 
         {stats.length > 0 ? (
-          <HStack className="flex-wrap items-center gap-x-3.5 gap-y-1">
+          <HStack className="mt-0.5 flex-wrap items-center gap-x-3.5 gap-y-1">
             {stats.map((stat) => (
               <HStack key={stat.key} className="items-center gap-1.5">
                 <AppIcon icon={stat.icon} size={12} color={stat.color} />
                 <Text
-                  className="text-[12px] font-semibold"
+                  className="text-[12.5px] font-semibold"
                   style={{ color: stat.color, fontVariant: ["tabular-nums"] }}
                 >
                   {stat.label}
@@ -166,7 +162,7 @@ export function EventSmartSchedulingCard({
             ))}
           </HStack>
         ) : (
-          <Text className="text-[12px] text-muted-foreground">
+          <Text className="text-[12.5px] leading-[18px] text-muted-foreground">
             No declines to fill yet
           </Text>
         )}
@@ -175,7 +171,7 @@ export function EventSmartSchedulingCard({
       {open ? (
         <>
           <Divider />
-          <VStack className="gap-3 px-3.5 py-3">
+          <VStack className="gap-3 px-4 py-3">
             {items.map((item) => (
               <ActivityRow key={item.id} item={item} />
             ))}

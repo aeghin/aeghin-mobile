@@ -4,11 +4,17 @@ import type { ViewStyle } from "react-native";
 import { AppIcon, type AppIconName } from "@/components/app-icon";
 import { OrgAvatar } from "@/components/org-avatar";
 import { Box } from "@/components/ui/box";
+import { Center } from "@/components/ui/center";
 import { HStack } from "@/components/ui/hstack";
+import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
+import { withAlpha } from "@/constants/branding";
 import { useTheme } from "@/hooks/use-theme";
 import { personName } from "@/lib/names";
+
+/** A section header's icon square. */
+const ICON_TILE = 30;
 
 /**
  * The shell every section of the event screen sits in.
@@ -25,7 +31,6 @@ export function DetailCard({
 }: {
   children: ReactNode;
   className?: string;
-  /** A service-tinted wash, for the sections the web paints in that hue. */
   style?: ViewStyle;
 }) {
   return (
@@ -43,31 +48,126 @@ export function DetailCard({
 type DetailCardHeaderProps = {
   icon: AppIconName;
   title: string;
-  /** The icon's colour, when a section is tinted by its service type. */
-  tint?: string;
-  /** A count, a status — whatever the section answers at a glance. */
+  /** One muted line under the title: a count, who may post. */
+  subtitle?: string;
+  /** The service the event belongs to, which the icon's tile wears. */
+  tint: { base: string; text: string };
+  /** A count, a button — whatever the section offers at a glance. */
   trailing?: ReactNode;
 };
 
-/** A section's title bar: a glyph, a name, and what it adds up to. */
-export function DetailCardHeader({
-  icon,
-  title,
-  tint,
-  trailing,
-}: DetailCardHeaderProps) {
-  const theme = useTheme();
-
+/** A section's title bar: its glyph on a tinted tile, a name, and what it adds up to. */
+export function DetailCardHeader({ icon, title, subtitle, tint, trailing }: DetailCardHeaderProps) {
   return (
-    <HStack className="items-center gap-2 px-3.5 pb-2.5 pt-3.5">
-      <AppIcon icon={icon} size={15} color={tint ?? theme.textMuted} />
+    <HStack className="items-center gap-3 px-4 pb-3 pt-4">
+      <Center
+        className="rounded-[10px]"
+        style={{
+          width: ICON_TILE,
+          height: ICON_TILE,
+          borderCurve: "continuous",
+          backgroundColor: withAlpha(tint.base, 0.12),
+        }}
+      >
+        <AppIcon icon={icon} size={15} color={tint.text} />
+      </Center>
 
-      <Text className="flex-1 text-[14px] font-semibold tracking-[-0.2px] text-foreground">
-        {title}
-      </Text>
+      <VStack className="flex-1">
+        <Text className="text-[15px] font-bold leading-[20px] tracking-[-0.2px] text-foreground">
+          {title}
+        </Text>
+        {subtitle ? (
+          <Text
+            className="text-[12px] leading-[16px] text-muted-foreground"
+            style={{ fontVariant: ["tabular-nums"] }}
+            numberOfLines={1}
+          >
+            {subtitle}
+          </Text>
+        ) : null}
+      </VStack>
 
       {trailing}
     </HStack>
+  );
+}
+
+type DetailButtonProps = {
+  icon: AppIconName;
+  label: string;
+  onPress: () => void;
+  /** The event's service, whose colour every button on the page wears. */
+  service: { base: string; text: string };
+  /** Filled in the service's colour: the one action a section leads with. */
+  primary?: boolean;
+  /** Tinted in the service's colour while what it toggles is on. */
+  on?: boolean;
+  /**
+   * Present on a button that toggles. The label does not spell the state out —
+   * the colour carries it — so this is what says "on" to a screen reader.
+   */
+  checked?: boolean;
+  /** Present on a button that shows and hides something below it. */
+  expanded?: boolean;
+  busy?: boolean;
+  style?: ViewStyle;
+};
+
+/**
+ * A section's small outlined button. Kept at 34pt so a pair shares a line in
+ * the card; `hitSlop` gives the finger back what the box gives up.
+ */
+export function DetailButton({
+  icon,
+  label,
+  onPress,
+  service,
+  primary,
+  on,
+  checked,
+  expanded,
+  busy,
+  style,
+}: DetailButtonProps) {
+  const theme = useTheme();
+  const color = primary ? "#FFFFFF" : on ? service.text : theme.text;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={busy}
+      hitSlop={{ top: 6, bottom: 6 }}
+      accessibilityRole={checked === undefined ? "button" : "switch"}
+      accessibilityLabel={label}
+      accessibilityState={
+        checked !== undefined ? { checked } : expanded !== undefined ? { expanded } : undefined
+      }
+      className="data-[active=true]:opacity-70"
+      style={[{ opacity: busy ? 0.5 : 1 }, style]}
+    >
+      <HStack
+        className="h-[34px] items-center justify-center gap-1.5 rounded-[10px] border px-3"
+        style={{
+          borderCurve: "continuous",
+          borderColor: primary
+            ? service.base
+            : on
+              ? withAlpha(service.base, 0.35)
+              : theme.border,
+          backgroundColor: primary
+            ? service.base
+            : on
+              ? withAlpha(service.base, 0.1)
+              : theme.card,
+          boxShadow: "0px 1px 0px rgba(0, 0, 0, 0.05)",
+        }}
+      >
+        <AppIcon icon={icon} size={13} color={primary ? color : service.text} />
+        <Text className="text-[12.5px] font-semibold" style={{ color }} numberOfLines={1}>
+          {label}
+        </Text>
+      </HStack>
+    </Pressable>
   );
 }
 
@@ -86,7 +186,7 @@ export function DetailCount({ children }: { children: string }) {
 /** What a section shows when it has nothing in it yet. */
 export function DetailEmpty({ children }: { children: string }) {
   return (
-    <Text className="px-3.5 pb-4 pt-1 text-[13px] text-muted-foreground">
+    <Text className="px-4 pb-4 pt-0.5 text-[13px] text-muted-foreground">
       {children}
     </Text>
   );

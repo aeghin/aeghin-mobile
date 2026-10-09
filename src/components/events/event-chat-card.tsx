@@ -2,11 +2,7 @@ import ChevronRight from "lucide-react-native/icons/chevron-right";
 import MessagesSquare from "lucide-react-native/icons/messages-square";
 
 import { AppIcon } from "@/components/app-icon";
-import {
-  DetailCard,
-  DetailCardHeader,
-  DetailCount,
-} from "@/components/events/event-detail-parts";
+import { DetailCard, DetailCardHeader } from "@/components/events/event-detail-parts";
 import { OrgAvatar } from "@/components/org-avatar";
 import { Divider } from "@/components/ui/divider";
 import { HStack } from "@/components/ui/hstack";
@@ -46,12 +42,8 @@ export function EventChatCard({ organizationId, eventId, service, onOpen }: Even
       <DetailCardHeader
         icon={MessagesSquare}
         title="Event chat"
-        tint={colors.base}
-        trailing={
-          history.data ? (
-            <DetailCount>{canPost ? "You can post" : "View only"}</DetailCount>
-          ) : undefined
-        }
+        subtitle={history.data ? (canPost ? "You can post" : "View only") : undefined}
+        tint={colors}
       />
 
       <Divider />
@@ -62,7 +54,7 @@ export function EventChatCard({ organizationId, eventId, service, onOpen }: Even
         accessibilityLabel="Open event chat"
         className="data-[active=true]:bg-border/40"
       >
-        <HStack className="items-center gap-3 px-3.5 py-3">
+        <HStack className="items-center gap-3 px-4 py-3">
           {history.isPending ? (
             <>
               <Skeleton variant="circular" startColor="bg-border" style={{ width: 32, height: 32 }} />

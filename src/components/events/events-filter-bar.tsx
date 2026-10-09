@@ -75,23 +75,6 @@ export function ScopeFilter({ value, onChange }: ScopeFilterProps) {
   );
 }
 
-/** {@link ScopeFilter} while the screen loads: the same labels, hidden. */
-export function ScopeFilterSkeleton() {
-  return (
-    <HStack className="justify-center gap-1 px-4">
-      {TIME_SCOPES.map((scope) => (
-        <Box key={scope.value} className="px-2.5 py-1.5">
-          <Bone
-            className="rounded-md"
-            textClassName="text-[13px] font-semibold"
-            label={scope.label}
-          />
-        </Box>
-      ))}
-    </HStack>
-  );
-}
-
 type MonthStepperProps = {
   /** A `"2026-08"` month key. */
   value: string;
@@ -346,7 +329,7 @@ function ServicePill({
 /** Stand-ins for {@link ServiceFilterSkeleton}; only their widths show. */
 const PLACEHOLDER_PILLS = ["All", "Sunday Service", "Midweek", "Youth"];
 
-/** {@link ServiceFilter} while the screen loads: pills of the same height. */
+/** {@link ServiceFilter} while the service types load: pills of the same height. */
 export function ServiceFilterSkeleton() {
   return (
     <HStack className="gap-2 px-4">

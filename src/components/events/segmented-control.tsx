@@ -5,7 +5,6 @@ import { AppIcon, type AppIconName } from "@/components/app-icon";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { withAlpha } from "@/constants/branding";
 import { useTheme } from "@/hooks/use-theme";
@@ -178,16 +177,5 @@ export function SegmentedControl<T extends string>({
         })}
       </HStack>
     </Box>
-  );
-}
-
-/** The control's footprint, for a screen still loading what it switches between. */
-export function SegmentedControlSkeleton() {
-  return (
-    <Skeleton
-      startColor="bg-border"
-      className="rounded-xl"
-      style={{ height: TRACK_HEIGHT + TRACK_PADDING * 2 }}
-    />
   );
 }

@@ -1,5 +1,10 @@
 import { useAuth } from "@clerk/expo";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useCallback, useEffect } from "react";
 
 import { apiDelete, apiDeleteWithBody, apiGet, apiPatch, apiPost } from "@/lib/api";
@@ -38,6 +43,25 @@ async function fetchEventDetails(orgId: string, eventId: string) {
 }
 
 /**
+ * {@link useUserEvents}'s request on its own, for a screen that suspends on it
+ * alongside another. A suspending read can't be switched off, so whoever makes
+ * one must already have both ids.
+ */
+export const userEventsQuery = (
+  userId: string | null | undefined,
+  orgId: string,
+) =>
+  queryOptions({
+    queryKey: ["organizations", userId, "user-events", orgId],
+    queryFn: async () => {
+      const { events } = await apiGet<EventsResponse>(
+        `/api/mobile/v1/organizations/${orgId}/user-events`,
+      );
+      return events;
+    },
+  });
+
+/**
  * Every event in one organization the signed-in user has been invited to —
  * accepted and still pending, past and upcoming. Which of those belong on
  * which tab is the screen's decision, not this hook's.
@@ -61,14 +85,8 @@ export function useUserEvents(orgId: string) {
   }, [orgId]);
 
   return useQuery({
-    queryKey: ["organizations", userId, "user-events", orgId],
+    ...userEventsQuery(userId, orgId),
     enabled: Boolean(userId && orgId),
-    queryFn: async () => {
-      const { events } = await apiGet<EventsResponse>(
-        `/api/mobile/v1/organizations/${orgId}/user-events`,
-      );
-      return events;
-    },
   });
 }
 

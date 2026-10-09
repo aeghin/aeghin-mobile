@@ -1,5 +1,10 @@
 import { useAuth } from "@clerk/expo";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 import { teamNotificationsKey } from "@/hooks/use-team-notifications";
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "@/lib/api";
@@ -10,6 +15,26 @@ import type { OrganizationSummary } from "@/types/organization";
 type ServiceTypesResponse = {
   serviceTypes: ServiceType[];
 };
+
+const serviceTypesKey = (orgId: string) => ["organizations", orgId, "service-types"];
+
+const serviceTypesPath = (orgId: string) =>
+  `/api/mobile/v1/organizations/${orgId}/service-types`;
+
+/**
+ * {@link useServiceTypes}'s request on its own, for a screen that suspends on
+ * it alongside another.
+ */
+export const serviceTypesQuery = (orgId: string) =>
+  queryOptions({
+    queryKey: serviceTypesKey(orgId),
+    queryFn: async () => {
+      const { serviceTypes } = await apiGet<ServiceTypesResponse>(
+        serviceTypesPath(orgId),
+      );
+      return serviceTypes;
+    },
+  });
 
 /**
  * The kinds of service one organization runs — what names and colours every
@@ -24,21 +49,10 @@ export function useServiceTypes(orgId: string) {
   const { userId } = useAuth();
 
   return useQuery({
-    queryKey: ["organizations", orgId, "service-types"],
+    ...serviceTypesQuery(orgId),
     enabled: Boolean(userId && orgId),
-    queryFn: async () => {
-      const { serviceTypes } = await apiGet<ServiceTypesResponse>(
-        `/api/mobile/v1/organizations/${orgId}/service-types`,
-      );
-      return serviceTypes;
-    },
   });
 }
-
-const serviceTypesKey = (orgId: string) => ["organizations", orgId, "service-types"];
-
-const serviceTypesPath = (orgId: string) =>
-  `/api/mobile/v1/organizations/${orgId}/service-types`;
 
 export type ServiceTypeInput = { name: string; color: ServiceTypeColor };
 

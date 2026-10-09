@@ -258,6 +258,17 @@ export function DateTile({ dayKey, today, service, solid, large }: DateTileProps
   );
 }
 
+/** The {@link DateTile}'s footprint, for a card still loading. */
+export function DateTileSkeleton({ large }: { large?: boolean }) {
+  return (
+    <Skeleton
+      startColor="bg-border"
+      className="self-center rounded-xl"
+      style={large ? LARGE_TILE : TILE}
+    />
+  );
+}
+
 /** Widths cycle so a stack of placeholders reads as events, not as a grid. */
 const SKELETON_WIDTHS = [190, 150, 215];
 
@@ -268,11 +279,7 @@ export function EventCardSkeleton({ index = 0 }: { index?: number }) {
   return (
     <VStack className="overflow-hidden rounded-2xl border border-border bg-card">
       <HStack className="items-start gap-3 p-3">
-        <Skeleton
-          startColor="bg-border"
-          className="self-center rounded-xl"
-          style={TILE}
-        />
+        <DateTileSkeleton />
         <Skeleton
           startColor="bg-border"
           className="w-[3px] self-stretch rounded-full"

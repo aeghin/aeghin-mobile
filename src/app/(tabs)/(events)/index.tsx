@@ -1,10 +1,15 @@
+import { useAuth } from "@clerk/expo";
+import {
+  QueryErrorResetBoundary,
+  useSuspenseQueries,
+} from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Calendar from "lucide-react-native/icons/calendar";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
 import CircleCheckBig from "lucide-react-native/icons/circle-check-big";
 import ListFilter from "lucide-react-native/icons/list-filter";
 import Plus from "lucide-react-native/icons/plus";
-import { useCallback, useMemo, useState } from "react";
+import { Suspense, useCallback, useMemo, useState } from "react";
 import { Alert, RefreshControl, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -18,7 +23,9 @@ import { EventsEmptyState } from "@/components/events/events-empty-state";
 import {
   MonthStepper,
   ScopeFilter,
+  ScopeFilterSkeleton,
   ServiceFilter,
+  ServiceFilterSkeleton,
 } from "@/components/events/events-filter-bar";
 import {
   ExpiredInviteCard,
@@ -28,10 +35,15 @@ import {
 } from "@/components/events/pending-event-card";
 import {
   SegmentedControl,
+  SegmentedControlSkeleton,
   type Segment,
 } from "@/components/events/segmented-control";
-import { UpNextCard } from "@/components/events/up-next-card";
+import {
+  UpNextCard,
+  UpNextCardSkeleton,
+} from "@/components/events/up-next-card";
 import { HeaderCapsule } from "@/components/header-capsule";
+import { LoadErrorBoundary } from "@/components/load-error-boundary";
 import { useCurrentOrganization } from "@/components/organization-provider";
 import { useNowPlayingInset } from "@/components/track-player-provider";
 import { Box } from "@/components/ui/box";
@@ -43,10 +55,15 @@ import { useSmartSchedulingAvailable } from "@/hooks/use-billing";
 import {
   useOrgEvents,
   useRespondToInvitation,
+  userEventsQuery,
   useUserEvents,
 } from "@/hooks/use-events";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
-import { useServiceTypes, useSetServiceTypeOrder } from "@/hooks/use-service-types";
+import {
+  serviceTypesQuery,
+  useServiceTypes,
+  useSetServiceTypeOrder,
+} from "@/hooks/use-service-types";
 import { useTheme } from "@/hooks/use-theme";
 import { ApiError } from "@/lib/api";
 import { canManageOrg } from "@/lib/config/roles";
@@ -67,7 +84,8 @@ import {
   type TimeScope,
 } from "@/lib/events/schedule";
 import { failureMessage } from "@/lib/failure";
-import type { OrganizationEvent, ServiceType } from "@/types/event";
+import type { OrganizationEvent } from "@/types/event";
+import type { OrganizationSummary } from "@/types/organization";
 
 /** How much page the tab bar covers once the list has scrolled under it. */
 const TAB_BAR_CLEARANCE = 64;
@@ -81,9 +99,6 @@ const ICON = {
 
 /** Stable identity, so an empty result does not remake the array each render. */
 const NO_EVENTS: OrganizationEvent[] = [];
-
-/** Same, for an organization that has not defined a service type yet. */
-const NO_SERVICES: ServiceType[] = [];
 const NO_ORDER: string[] = [];
 
 export default function EventsScreen() {
@@ -98,12 +113,137 @@ export default function EventsScreen() {
   const organizationId = organization?.id ?? "";
   const canManage = canManageOrg(organization?.role);
 
-  // Three requests, because they answer to different people: the caller's own
-  // events, the whole organization's — managers only — and the service types
-  // that colour both.
+  // The same three requests the body reads — the caller's own events, the
+  // whole organization's (managers only) and the service types that colour
+  // both — held here too for what wraps it: pull-to-refresh, and clearing a
+  // failed first load once a refetch brings its data in.
   const userEvents = useUserEvents(organizationId);
   const orgEvents = useOrgEvents(organizationId, canManage);
   const serviceTypes = useServiceTypes(organizationId);
+  // Both, not either: one landing after the other had failed would otherwise
+  // read as a recovery and send the failed one again on its own.
+  const loaded =
+    userEvents.data !== undefined && serviceTypes.data !== undefined;
+
+  const refetchUserEvents = userEvents.refetch;
+  const refetchOrgEvents = orgEvents.refetch;
+  const refetchServiceTypes = serviceTypes.refetch;
+
+  const refresh = useCallback(
+    () =>
+      Promise.all([
+        refetchUserEvents(),
+        refetchServiceTypes(),
+        // Refetching by hand fires even a disabled query, and the roster-wide
+        // list is not a member's to ask for.
+        canManage ? refetchOrgEvents() : null,
+      ]),
+    [canManage, refetchOrgEvents, refetchServiceTypes, refetchUserEvents],
+  );
+
+  const pullToRefresh = usePullToRefresh(refresh);
+
+  // The placeholder takes the shape of the tab the screen will most likely
+  // open on: the one a notification asked for, else Schedule.
+  const { tab: requestedTab } = useLocalSearchParams<{ tab?: string }>();
+  const loadingTab: EventsTab =
+    requestedTab === "pending"
+      ? "pending"
+      : requestedTab === "all" && canManage
+        ? "all"
+        : "schedule";
+
+  // The tabs layout redirects when there is no organization; this is only the
+  // frame between that decision and the redirect committing.
+  if (!organization) {
+    return null;
+  }
+
+  return (
+    <VStack className="flex-1 bg-grouped">
+      <AppHeader
+        actions={
+          canManage ? (
+            <Pressable
+              onPress={() => router.push("/events/create")}
+              accessibilityRole="button"
+              accessibilityLabel="New event"
+              className="data-[active=true]:opacity-60"
+            >
+              <HeaderCapsule>
+                <AppIcon icon={Plus} size={22} color={brand.orange} />
+              </HeaderCapsule>
+            </Pressable>
+          ) : undefined
+        }
+      />
+
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{
+          paddingTop: 14,
+          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE + nowPlayingInset,
+          // Lets a short state centre itself instead of hugging the controls.
+          flexGrow: 1,
+        }}
+        // The nav bar is opaque and the list already starts below it.
+        contentInsetAdjustmentBehavior="never"
+        refreshControl={
+          <RefreshControl
+            {...pullToRefresh}
+            tintColor={theme.textMuted}
+            colors={[brand.orange]}
+          />
+        }
+      >
+        {/* Every card wears its service type's colour, so the two arrive as
+            one: until both are in, the placeholder holds each row where its
+            real one will land. */}
+        <QueryErrorResetBoundary>
+          {({ reset }) => (
+            <LoadErrorBoundary
+              resetKeys={[organizationId, loaded]}
+              onReset={reset}
+              fallback={<LoadFailed />}
+            >
+              <Suspense fallback={<EventsSkeleton tab={loadingTab} />}>
+                <EventsBody organization={organization} canManage={canManage} />
+              </Suspense>
+            </LoadErrorBoundary>
+          )}
+        </QueryErrorResetBoundary>
+      </ScrollView>
+    </VStack>
+  );
+}
+
+type EventsBodyProps = {
+  organization: OrganizationSummary;
+  canManage: boolean;
+};
+
+/**
+ * Everything under the header. Suspends until the caller's events and the
+ * service types are both in, so the first frame it draws is the finished one.
+ */
+function EventsBody({ organization, canManage }: EventsBodyProps) {
+  const theme = useTheme();
+  const router = useRouter();
+  const { userId } = useAuth();
+  const organizationId = organization.id;
+
+  // The caller's events and the service types that colour them, waited on
+  // together: a card drawn before its service type lands wears the fallback
+  // colour, then repaints. One call rather than two `useSuspenseQuery`s, which
+  // would not ask for the second until the first had landed. The All tab's
+  // list is a different request, managers only, and waits on its own.
+  const [userEvents, serviceTypes] = useSuspenseQueries({
+    queries: [
+      userEventsQuery(userId, organizationId),
+      serviceTypesQuery(organizationId),
+    ],
+  });
+  const orgEvents = useOrgEvents(organizationId, canManage);
   const saveServiceOrder = useSetServiceTypeOrder(organizationId);
   const saveServiceOrderMutate = saveServiceOrder.mutate;
   const autoFillAvailable = useSmartSchedulingAvailable(organizationId);
@@ -171,37 +311,18 @@ export default function EventsScreen() {
   /** Which card's button is mid-flight, if any. */
   const busy = respond.isPending ? respond.variables : undefined;
 
-  const refetchUserEvents = userEvents.refetch;
-  const refetchOrgEvents = orgEvents.refetch;
-  const refetchServiceTypes = serviceTypes.refetch;
-
-  const refresh = useCallback(
-    () =>
-      Promise.all([
-        refetchUserEvents(),
-        refetchServiceTypes(),
-        // Refetching by hand fires even a disabled query, and the roster-wide
-        // list is not a member's to ask for.
-        canManage ? refetchOrgEvents() : null,
-      ]),
-    [canManage, refetchOrgEvents, refetchServiceTypes, refetchUserEvents],
-  );
-
-  const pullToRefresh = usePullToRefresh(refresh);
-
   // In the viewer's own order — theirs alone, saved when they drag a pill.
-  // Memoised by hand: the early return below folds the rest of this body into
-  // one compiler block that re-runs every render, and a new array here would
-  // re-render every pill and rebuild its tap gesture each time.
-  const serviceList = serviceTypes.data ?? NO_SERVICES;
-  const serviceOrder = organization?.serviceTypeOrder ?? NO_ORDER;
+  // Memoised by hand: a new array here would re-render every pill and rebuild
+  // its tap gesture each time.
+  const serviceList = serviceTypes.data;
+  const serviceOrder = organization.serviceTypeOrder ?? NO_ORDER;
   const services = useMemo(
     () => orderServiceTypes(serviceList, serviceOrder),
     [serviceList, serviceOrder],
   );
-  // A first load and a failed one both have nothing behind them, and an empty
-  // list is what the counts and the tabs below should read in either case.
-  const myEvents = userEvents.data ?? NO_EVENTS;
+  const myEvents = userEvents.data;
+  // The All tab's list loads on its own, and until it does — or if it fails —
+  // an empty list is what its count and its tab should read.
   const allEvents = orgEvents.data ?? NO_EVENTS;
 
   const today = todayKey();
@@ -272,10 +393,8 @@ export default function EventsScreen() {
   // so they ignore the filters below them — a count that moved when you tapped
   // a chip would stop being an answer to that question.
   const counts = {
-    pending: userEvents.isPending ? undefined : invitations.length,
-    schedule: userEvents.isPending
-      ? undefined
-      : accepted.filter((event) => !isEventPast(event, today)).length,
+    pending: invitations.length,
+    schedule: accepted.filter((event) => !isEventPast(event, today)).length,
     all: orgEvents.isPending
       ? undefined
       : allEvents.filter((event) => !isEventPast(event, today)).length,
@@ -323,12 +442,6 @@ export default function EventsScreen() {
     ? undefined
     : groups.find((group) => group.key >= today)?.key;
 
-  // The tabs layout redirects when there is no organization; this is only the
-  // frame between that decision and the redirect committing.
-  if (!organization) {
-    return null;
-  }
-
   const showPeriodControls = activeTab !== "pending";
 
   /**
@@ -338,18 +451,13 @@ export default function EventsScreen() {
    */
   function content() {
     if (source.isError) {
-      return (
-        <EventsEmptyState
-          icon={ICON.error}
-          title="Couldn't load events"
-          body="Pull down to try again."
-          tone="error"
-        />
-      );
+      return <LoadFailed />;
     }
 
+    // Only the All tab's list can still be on its way: the other two tabs'
+    // are in before any of this draws.
     if (source.isPending) {
-      return activeTab === "pending" ? <PendingLoading /> : <ScheduleLoading />;
+      return <ScheduleLoading />;
     }
 
     if (activeTab === "pending") {
@@ -469,78 +577,41 @@ export default function EventsScreen() {
   }
 
   return (
-    <VStack className="flex-1 bg-grouped">
-      <AppHeader
-        actions={
-          canManage ? (
-            <Pressable
-              onPress={() => router.push("/events/create")}
-              accessibilityRole="button"
-              accessibilityLabel="New event"
-              className="data-[active=true]:opacity-60"
-            >
-              <HeaderCapsule>
-                <AppIcon icon={Plus} size={22} color={brand.orange} />
-              </HeaderCapsule>
-            </Pressable>
-          ) : undefined
-        }
-      />
-
-      <ScrollView
-        className="flex-1"
-        contentContainerStyle={{
-          paddingTop: 14,
-          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE + nowPlayingInset,
-          // Lets a short state centre itself instead of hugging the controls.
-          flexGrow: 1,
-        }}
-        // The nav bar is opaque and the list already starts below it.
-        contentInsetAdjustmentBehavior="never"
-        refreshControl={
-          <RefreshControl
-            {...pullToRefresh}
-            tintColor={theme.textMuted}
-            colors={[brand.orange]}
+    <>
+      <VStack className="gap-3">
+        <Box className="px-4">
+          <SegmentedControl
+            segments={segments}
+            value={activeTab}
+            onChange={chooseTab}
           />
-        }
-      >
-        <VStack className="gap-3">
-          <Box className="px-4">
-            <SegmentedControl
-              segments={segments}
-              value={activeTab}
-              onChange={chooseTab}
-            />
-          </Box>
+        </Box>
 
-          {showPeriodControls ? (
-            <ScopeFilter value={scope} onChange={setScope} />
-          ) : null}
+        {showPeriodControls ? (
+          <ScopeFilter value={scope} onChange={setScope} />
+        ) : null}
 
-          {showPeriodControls && scopeUsesMonth(scope) ? (
-            <MonthStepper value={month} onChange={setMonth} />
-          ) : null}
+        {showPeriodControls && scopeUsesMonth(scope) ? (
+          <MonthStepper value={month} onChange={setMonth} />
+        ) : null}
 
-          {services.length > 0 ? (
-            <ServiceFilter
-              services={services}
-              value={serviceId}
-              onChange={setServiceId}
-              onReorder={(ids) =>
-                saveServiceOrderMutate(ids, {
-                  onError: (error) =>
-                    Alert.alert("Couldn't save your order", failureMessage(error)),
-                })
-              }
-            />
-          ) : null}
+        {services.length > 0 ? (
+          <ServiceFilter
+            services={services}
+            value={serviceId}
+            onChange={setServiceId}
+            onReorder={(ids) =>
+              saveServiceOrderMutate(ids, {
+                onError: (error) =>
+                  Alert.alert("Couldn't save your order", failureMessage(error)),
+              })
+            }
+          />
+        ) : null}
+      </VStack>
 
-        </VStack>
-
-        <VStack className="flex-1 pt-4">{content()}</VStack>
-      </ScrollView>
-    </VStack>
+      <VStack className="flex-1 pt-4">{content()}</VStack>
+    </>
   );
 }
 
@@ -598,6 +669,44 @@ function emptyScheduleState({
   };
 }
 
+/**
+ * The screen while its first load is in flight, row for row: the control, the
+ * period filter on the tabs that have one, the service pills and the cards,
+ * each as tall as what replaces it, so nothing moves when the real ones land.
+ */
+function EventsSkeleton({ tab }: { tab: EventsTab }) {
+  return (
+    <VStack className="flex-1" accessible accessibilityLabel="Loading events">
+      <VStack className="gap-3">
+        <Box className="px-4">
+          <SegmentedControlSkeleton />
+        </Box>
+        {tab === "pending" ? null : <ScopeFilterSkeleton />}
+        <ServiceFilterSkeleton />
+      </VStack>
+
+      <VStack className="flex-1 pt-4">
+        {tab === "pending" ? (
+          <PendingLoading />
+        ) : (
+          <ScheduleLoading upNext={tab === "schedule"} />
+        )}
+      </VStack>
+    </VStack>
+  );
+}
+
+function LoadFailed() {
+  return (
+    <EventsEmptyState
+      icon={ICON.error}
+      title="Couldn't load events"
+      body="Pull down to try again."
+      tone="error"
+    />
+  );
+}
+
 function PendingLoading() {
   return (
     <VStack className="gap-3 px-4">
@@ -607,12 +716,16 @@ function PendingLoading() {
   );
 }
 
-function ScheduleLoading() {
+/** `upNext` leads with the hero card's placeholder, as Schedule leads with the card. */
+function ScheduleLoading({ upNext = false }: { upNext?: boolean }) {
   return (
-    <VStack className="gap-3 px-4">
-      {[0, 1, 2].map((index) => (
-        <EventCardSkeleton key={index} index={index} />
-      ))}
+    <VStack className="gap-4">
+      {upNext ? <UpNextCardSkeleton /> : null}
+      <VStack className="gap-3 px-4">
+        {[0, 1, 2].map((index) => (
+          <EventCardSkeleton key={index} index={index} />
+        ))}
+      </VStack>
     </VStack>
   );
 }

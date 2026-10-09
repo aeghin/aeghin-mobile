@@ -8,6 +8,7 @@ import { AppIcon, type AppIconName } from "@/components/app-icon";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { blendOver, brand, withAlpha } from "@/constants/branding";
 import { useTheme } from "@/hooks/use-theme";
@@ -71,6 +72,23 @@ export function ScopeFilter({ value, onChange }: ScopeFilterProps) {
         );
       })}
     </ScrollView>
+  );
+}
+
+/** {@link ScopeFilter} while the screen loads: the same labels, hidden. */
+export function ScopeFilterSkeleton() {
+  return (
+    <HStack className="justify-center gap-1 px-4">
+      {TIME_SCOPES.map((scope) => (
+        <Box key={scope.value} className="px-2.5 py-1.5">
+          <Bone
+            className="rounded-md"
+            textClassName="text-[13px] font-semibold"
+            label={scope.label}
+          />
+        </Box>
+      ))}
+    </HStack>
   );
 }
 
@@ -322,5 +340,45 @@ function ServicePill({
         </HStack>
       </Animated.View>
     </Sortable.Touchable>
+  );
+}
+
+/** Stand-ins for {@link ServiceFilterSkeleton}; only their widths show. */
+const PLACEHOLDER_PILLS = ["All", "Sunday Service", "Midweek", "Youth"];
+
+/** {@link ServiceFilter} while the screen loads: pills of the same height. */
+export function ServiceFilterSkeleton() {
+  return (
+    <HStack className="gap-2 px-4">
+      {PLACEHOLDER_PILLS.map((label) => (
+        <Bone
+          key={label}
+          className="rounded-full border border-transparent px-3 py-1.5"
+          textClassName="text-[12.5px] font-semibold"
+          label={label}
+        />
+      ))}
+    </HStack>
+  );
+}
+
+/**
+ * A placeholder sized by the text it stands in for, hidden inside it, so a
+ * loading row is exactly as tall as the real one at any text size.
+ */
+function Bone({
+  className,
+  textClassName,
+  label,
+}: {
+  className: string;
+  textClassName: string;
+  label: string;
+}) {
+  return (
+    <Box className={`overflow-hidden ${className}`}>
+      <Skeleton startColor="bg-border" className="absolute inset-0" />
+      <Text className={`opacity-0 ${textClassName}`}>{label}</Text>
+    </Box>
   );
 }

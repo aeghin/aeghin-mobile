@@ -10,10 +10,11 @@ import {
   RoleChip,
   ServiceBadge,
 } from "@/components/events/chips";
-import { DateTile } from "@/components/events/event-card";
+import { DateTile, DateTileSkeleton } from "@/components/events/event-card";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { useTheme } from "@/hooks/use-theme";
@@ -134,6 +135,37 @@ export function UpNextCard({ upNext, service, today, onPress }: UpNextCardProps)
     >
       {content}
     </Pressable>
+  );
+}
+
+/** A placeholder shaped like {@link UpNextCard}, for the first load. */
+export function UpNextCardSkeleton() {
+  return (
+    <VStack className={CARD_CLASS}>
+      <VStack className="p-4">
+        <HStack className="items-center gap-3.5">
+          <DateTileSkeleton large />
+          <Skeleton
+            startColor="bg-border"
+            className="w-[3px] self-stretch rounded-full"
+          />
+          <VStack className="flex-1 gap-2">
+            <Skeleton startColor="bg-border" style={{ width: 170, height: 18 }} />
+            <Skeleton startColor="bg-border" style={{ width: 84, height: 17 }} />
+          </VStack>
+        </HStack>
+
+        <HStack className="mt-3.5 gap-2">
+          <Skeleton startColor="bg-border" className="flex-1 rounded-xl" style={{ height: 56 }} />
+          <Skeleton startColor="bg-border" className="flex-1 rounded-xl" style={{ height: 56 }} />
+        </HStack>
+
+        <HStack className="mt-3.5 items-center justify-between border-t border-border pt-3">
+          <Skeleton startColor="bg-border" style={{ width: 88, height: 20 }} />
+          <Skeleton startColor="bg-border" style={{ width: 72, height: 13 }} />
+        </HStack>
+      </VStack>
+    </VStack>
   );
 }
 

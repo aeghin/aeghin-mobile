@@ -19,6 +19,7 @@ import {
   MonthStepper,
   ScopeFilter,
   ServiceFilter,
+  ServiceFilterSkeleton,
 } from "@/components/events/events-filter-bar";
 import {
   ExpiredInviteCard,
@@ -348,7 +349,10 @@ export default function EventsScreen() {
       );
     }
 
-    if (source.isPending) {
+    // The service types too: an event carries only its `serviceTypeId`, so a
+    // card drawn before they land wears the indigo fallback until they do. A
+    // failed load is no longer pending, and the cards fall back rather than wait.
+    if (source.isPending || serviceTypes.isPending) {
       return activeTab === "pending" ? <PendingLoading /> : <ScheduleLoading />;
     }
 
@@ -522,7 +526,9 @@ export default function EventsScreen() {
             <MonthStepper value={month} onChange={setMonth} />
           ) : null}
 
-          {services.length > 0 ? (
+          {serviceTypes.isPending ? (
+            <ServiceFilterSkeleton />
+          ) : services.length > 0 ? (
             <ServiceFilter
               services={services}
               value={serviceId}

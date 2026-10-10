@@ -8,6 +8,7 @@ import { AppIcon, type AppIconName } from "@/components/app-icon";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { blendOver, brand, withAlpha } from "@/constants/branding";
 import { useTheme } from "@/hooks/use-theme";
@@ -236,6 +237,31 @@ export function ServiceFilter({
         })}
       </Sortable.Flex>
     </Animated.ScrollView>
+  );
+}
+
+/**
+ * A pill's height at the default text size: 15pt of 12.5pt type, 6pt of
+ * padding and a 1pt border either side.
+ */
+const PILL_HEIGHT = 29;
+
+/** "All" first, then the widths service names tend to run to. */
+const PILL_SKELETON_WIDTHS = [42, 122, 78, 100];
+
+/** A placeholder for {@link ServiceFilter}, holding its row while the service types load. */
+export function ServiceFilterSkeleton() {
+  return (
+    <HStack style={{ paddingHorizontal: GUTTER, gap: 8 }}>
+      {PILL_SKELETON_WIDTHS.map((width, index) => (
+        <Skeleton
+          key={index}
+          startColor="bg-border"
+          className="rounded-full"
+          style={{ width, height: PILL_HEIGHT }}
+        />
+      ))}
+    </HStack>
   );
 }
 

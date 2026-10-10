@@ -41,6 +41,7 @@ import {
   ROW_BORDER_ALPHA,
   ROW_FILL_ALPHA,
 } from "@/lib/config/status";
+import { roleStanding, type RoleStanding } from "@/lib/events/spots";
 import { failureMessage } from "@/lib/failure";
 import { personName } from "@/lib/names";
 import type {
@@ -67,25 +68,31 @@ const DEFAULT_OPEN: Team[] = ["BAND"];
 type RoleGroup = {
   role: VolunteerRole;
   items: EventDetailsAssignment[];
+  /** The role against how many it needs. */
+  standing: RoleStanding;
 };
 
 type Category = {
   key: Team;
   label: string;
   groups: RoleGroup[];
-  /** Roles here that are filled — see {@link isFilled}. */
+  /** Spots here somebody accepted — three BGVs are three spots. */
   filled: number;
+  /** Every spot here. */
+  needed: number;
   /** At least one role here has stalled — see {@link hasStalled}. */
   stalled: boolean;
 };
 
 /**
- * A role that has stopped moving on its own.
+ * A spot that has stopped moving on its own.
  *
  * Somebody was invited, it fell through — declined, removed, or the deadline
- * passed with no answer — and there is nobody accepted and nothing in flight
- * to replace them. That is the state a manager has to *do* something about,
- * and it is the only thing the warning glyph marks.
+ * passed with no answer — and nothing is in flight to fill the spot they left.
+ * Every invite is somebody wanted there, so a second pianist letting it lapse
+ * stalls the role even with the first one confirmed. That is the state a
+ * manager has to *do* something about, and it is the only thing the warning
+ * glyph marks.
  *
  * Deliberately not "short of people": on a fresh event every category is
  * short, so a glyph on each is decoration rather than a signal, and the count
@@ -95,19 +102,11 @@ type Category = {
 const hasStalled = (groups: RoleGroup[], now: number) =>
   groups.some(
     (group) =>
-      group.items.length > 0 && !group.items.some((item) => isLive(item, now)),
+      group.standing.open > 0 && group.items.some((item) => !isLive(item, now)),
   );
 
-/**
- * Somebody accepted and nobody on the role is still deciding.
- *
- * The same test as the staffing meter on the events list and the "fully
- * staffed" notification, so the count here agrees with the card that led
- * here: one BGV in and three yet to answer is not a filled role.
- */
-const isFilled = (group: RoleGroup, now: number) =>
-  group.items.some((item) => item.status === "ACCEPTED") &&
-  !group.items.some((item) => item.status === "PENDING" && isLive(item, now));
+/** Spots somebody accepted, never more than the role needs. */
+const filledOf = ({ accepted, needed }: RoleStanding) => Math.min(accepted, needed);
 
 type EventTeamCardProps = {
   organizationId: string;
@@ -118,8 +117,11 @@ type EventTeamCardProps = {
   onRemoveRole?: (role: VolunteerRole) => void;
   /** Managers only: reopen a lapsed invitation. */
   onResendInvite?: (assignment: EventDetailsAssignment) => void;
-  /** Managers only: clear a lapsed invitation off the roster. */
-  onDeleteExpired?: (assignment: EventDetailsAssignment) => void;
+  /**
+   * Managers only: take a lapsed, declined or removed invitation off the
+   * roster, which closes the spot it left open.
+   */
+  onDeleteInvite?: (assignment: EventDetailsAssignment) => void;
 };
 
 /**
@@ -140,7 +142,7 @@ export function EventTeamCard({
   onRemoveAssignment,
   onRemoveRole,
   onResendInvite,
-  onDeleteExpired,
+  onDeleteInvite,
 }: EventTeamCardProps) {
   const theme = useTheme();
   const colors = getServiceColors(event.serviceType.color, theme);
@@ -179,29 +181,31 @@ export function EventTeamCard({
       .map((role) => ({
         role,
         items: assignments.filter((assignment) => assignment.role === role),
+        standing: roleStanding(role, event.roleSpots, assignments, now),
       }));
 
     return {
       key,
       label: roles.teamLabel(key),
       groups,
-      filled: groups.filter((group) => isFilled(group, now)).length,
+      filled: groups.reduce((count, group) => count + filledOf(group.standing), 0),
+      needed: groups.reduce((count, group) => count + group.standing.needed, 0),
       stalled: hasStalled(groups, now),
     };
   }).filter((category) => category.groups.length > 0);
 
-  const roleCount = categories.reduce((count, category) => count + category.groups.length, 0);
+  const spotCount = categories.reduce((count, category) => count + category.needed, 0);
   const filledCount = categories.reduce((count, category) => count + category.filled, 0);
 
   // The count without the events list's meter: managers saw the pills before
   // they tapped in, and past a dozen roles they stop lining up with anything
   // here. Each team below says which roles are open.
   const fillRate =
-    roleCount > 0 ? (
+    spotCount > 0 ? (
       <HStack
         className="items-baseline gap-1.5"
         accessible
-        accessibilityLabel={`${filledCount} of ${roleCount} ${roleCount === 1 ? "role" : "roles"} filled`}
+        accessibilityLabel={`${filledCount} of ${spotCount} ${spotCount === 1 ? "spot" : "spots"} filled`}
       >
         {/* The title's size and line, so the count reads as part of the
             header rather than a second headline beside it. */}
@@ -210,10 +214,10 @@ export function EventTeamCard({
           style={{ fontVariant: ["tabular-nums"] }}
         >
           {filledCount}
-          <Text className="text-muted-foreground">{`/${roleCount}`}</Text>
+          <Text className="text-muted-foreground">{`/${spotCount}`}</Text>
         </Text>
         <Text className="text-[13px] text-muted-foreground">
-          {roleCount === 1 ? "role filled" : "roles filled"}
+          {spotCount === 1 ? "spot filled" : "spots filled"}
         </Text>
       </HStack>
     ) : undefined;
@@ -302,7 +306,7 @@ export function EventTeamCard({
                   onPress={() => toggle(category.key)}
                   accessibilityRole="button"
                   accessibilityState={{ expanded: open.includes(category.key) }}
-                  accessibilityLabel={`${category.label}, ${category.filled} of ${category.groups.length} filled${
+                  accessibilityLabel={`${category.label}, ${category.filled} of ${category.needed} filled${
                     category.stalled ? ", needs attention" : ""
                   }`}
                   className="data-[active=true]:bg-border/40"
@@ -317,7 +321,7 @@ export function EventTeamCard({
                     ) : null}
 
                     <DetailCount>
-                      {`${category.filled}/${category.groups.length}`}
+                      {`${category.filled}/${category.needed}`}
                     </DetailCount>
 
                     <Chevron expanded={open.includes(category.key)} />
@@ -334,7 +338,7 @@ export function EventTeamCard({
                         onRemoveAssignment={onRemoveAssignment}
                         onRemoveRole={onRemoveRole}
                         onResendInvite={onResendInvite}
-                        onDeleteExpired={onDeleteExpired}
+                        onDeleteInvite={onDeleteInvite}
                         now={now}
                       />
                     ))}
@@ -358,6 +362,7 @@ export function EventTeamCard({
             organizationId={organizationId}
             eventId={event.id}
             rosterRoles={rosterRoles}
+            roleSpots={event.roleSpots}
             assignments={assignments}
             dates={event.dates}
             viewerId={viewer.userId}
@@ -441,7 +446,7 @@ function RoleGroupBlock({
   onRemoveAssignment,
   onRemoveRole,
   onResendInvite,
-  onDeleteExpired,
+  onDeleteInvite,
   now,
 }: {
   group: RoleGroup;
@@ -449,11 +454,12 @@ function RoleGroupBlock({
   onRemoveAssignment?: (assignment: EventDetailsAssignment) => void;
   onRemoveRole?: (role: VolunteerRole) => void;
   onResendInvite?: (assignment: EventDetailsAssignment) => void;
-  onDeleteExpired?: (assignment: EventDetailsAssignment) => void;
+  onDeleteInvite?: (assignment: EventDetailsAssignment) => void;
   now: number;
 }) {
   const theme = useTheme();
   const { label, emoji } = useRoles().get(group.role);
+  const { needed, open } = group.standing;
 
   // The server only lets a role go when nobody is live on it; offer it then.
   const removable = onRemoveRole && !group.items.some((item) => isLive(item, now));
@@ -473,7 +479,7 @@ function RoleGroupBlock({
           className="text-[11px] text-muted-foreground"
           style={{ fontVariant: ["tabular-nums"] }}
         >
-          {`· ${group.items.length}`}
+          {`· ${filledOf(group.standing)}/${needed}`}
         </Text>
 
         {removable ? (
@@ -517,8 +523,8 @@ function RoleGroupBlock({
                     : undefined
                 }
                 onDelete={
-                  onDeleteExpired && lapsed
-                    ? () => onDeleteExpired(assignment)
+                  onDeleteInvite && (lapsed || isInactiveStatus(assignment.status))
+                    ? () => onDeleteInvite(assignment)
                     : undefined
                 }
               />
@@ -526,6 +532,14 @@ function RoleGroupBlock({
           })}
         </VStack>
       )}
+
+      {/* Somebody declined, let it lapse, was removed, or the role needs more
+          than are on it: the spot is still open. */}
+      {group.items.length > 0 && open > 0 ? (
+        <Text className="px-1 text-[13px] text-muted-foreground">
+          {`${open} more needed`}
+        </Text>
+      ) : null}
     </VStack>
   );
 }
@@ -553,7 +567,18 @@ function AssignmentRow({
   const status = getStatusConfig(expired ? "EXPIRED" : assignment.status);
   const inactive = expired || isInactiveStatus(assignment.status);
 
-  const menu = expired && onResend && onDelete;
+  // A lapsed invite can go out again or come off; a declined or removed one
+  // can only come off, which closes the spot it left.
+  const menu = expired
+    ? onResend && onDelete
+      ? [
+          { icon: RefreshCw, label: "Resend Invitation", onPress: onResend },
+          { icon: Trash2, label: "Delete Expired Invite", onPress: onDelete, destructive: true },
+        ]
+      : null
+    : inactive && onDelete
+      ? [{ icon: Trash2, label: "Delete Invite", onPress: onDelete, destructive: true }]
+      : null;
 
   const fullName = personName(assignment.user);
 
@@ -631,15 +656,7 @@ function AssignmentRow({
         <ActionMenu
           label={`Actions for ${fullName || "this invitation"}`}
           heading="Action(s)"
-          items={[
-            { icon: RefreshCw, label: "Resend Invitation", onPress: onResend },
-            {
-              icon: Trash2,
-              label: "Delete Expired Invite",
-              onPress: onDelete,
-              destructive: true,
-            },
-          ]}
+          items={menu}
         />
       ) : null}
     </HStack>

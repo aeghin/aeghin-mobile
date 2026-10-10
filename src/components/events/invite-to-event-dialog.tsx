@@ -24,6 +24,7 @@ import { useMembersList } from "@/hooks/use-members-list";
 import { useRoles } from "@/hooks/use-roles";
 import { useTheme } from "@/hooks/use-theme";
 import { dayKey, formatDayMonth, formatTime } from "@/lib/events/format";
+import { roleStanding } from "@/lib/events/spots";
 import { failureMessage } from "@/lib/failure";
 import { personName } from "@/lib/names";
 import type {
@@ -31,6 +32,7 @@ import type {
   EventDetailsAssignment,
   EventTeamLead,
   NewEventDay,
+  RoleSpots,
   VolunteerRole,
 } from "@/types/event";
 import type { OrganizationMember } from "@/types/organization";
@@ -40,15 +42,6 @@ const EXPIRY_OPTIONS = [3, 5, 7] as const;
 
 /** Past this many holders the web grows a search box; below it the list reads fine. */
 const SEARCH_THRESHOLD = 5;
-
-/**
- * "Ana", "Ana and Ben", "Ana, Ben and Cy". By hand rather than through
- * `Intl.ListFormat`, which Hermes doesn't ship.
- */
-const listNames = (names: string[]) =>
-  names.length <= 1
-    ? (names[0] ?? "")
-    : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 
 /** `"09:00"` — the clock face of an instant, read in UTC like every other date here. */
 const clockOf = (iso: string) => new Date(iso).toISOString().slice(11, 16);
@@ -60,6 +53,8 @@ type InviteToEventDialogProps = {
   eventId: string;
   /** The roster — the only roles this dialog can invite into. */
   rosterRoles: VolunteerRole[];
+  /** How many each role needs, for the open spots the dialog names. */
+  roleSpots?: RoleSpots;
   assignments: EventDetailsAssignment[];
   /** The hours the event runs, which is what availability is judged against. */
   dates: EventDate[];
@@ -99,6 +94,7 @@ function InviteToEventBody({
   organizationId,
   eventId,
   rosterRoles,
+  roleSpots,
   assignments,
   dates,
   viewerId,
@@ -167,9 +163,11 @@ function InviteToEventBody({
 
   const invitableCount = holders.filter((member) => !live.has(member.id)).length;
 
-  // Who is already live on the chosen role. A second invite is sometimes
-  // right — three BGVs — and sometimes two admins filling one hole, so the
-  // dialog says who is there and asks before sending another.
+  // Who is already live on the chosen role, said so the manager knows who is
+  // there. Every invite is somebody wanted there, so one past the role's open
+  // spots simply adds a spot on the server.
+  const standing = role ? roleStanding(role, roleSpots, assignments, now) : null;
+
   const onRole = role
     ? assignments.filter(
         (assignment) =>
@@ -239,34 +237,6 @@ function InviteToEventBody({
     );
   };
 
-  const submit = () => {
-    if (!role) return;
-
-    if (onRole.length === 0) {
-      send();
-      return;
-    }
-
-    const names = listNames(
-      onRole.map((assignment) =>
-        assignment.userId === viewerId ? "You" : personName(assignment.user),
-      ),
-    );
-
-    const waiting = onRole.some((assignment) => assignment.status !== "ACCEPTED");
-
-    Alert.alert(
-      `Invite another ${catalog.get(role).label}?`,
-      `${names} ${onRole.length === 1 ? "is" : "are"} already on this role${
-        waiting ? ", and not everyone has answered yet" : ""
-      }. Send this only if the role needs more than one person.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Invite Anyway", onPress: send },
-      ],
-    );
-  };
-
   const send = () => {
     if (!role) return;
     setError(null);
@@ -293,13 +263,15 @@ function InviteToEventBody({
       icon={UserPlus}
       title="Invite volunteers"
       description={
-        role
-          ? `${userIds.length} selected · ${invitableCount} available`
+        role && standing
+          ? `${userIds.length} selected · ${invitableCount} available · ${
+              standing.open === 1 ? "1 open spot" : `${standing.open} open spots`
+            }`
           : noRoles
             ? "This event has no roles on its roster yet."
             : "Pick a role, then the members who hold it."
       }
-      action={{ label: "Invite", onPress: submit, disabled: !role || userIds.length === 0 }}
+      action={{ label: "Invite", onPress: send, disabled: !role || userIds.length === 0 }}
       submitting={invite.isPending}
       onClose={onClose}
     >

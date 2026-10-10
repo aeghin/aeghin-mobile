@@ -211,11 +211,15 @@ export type Staffing = {
 };
 
 /**
- * How many of an event's needed roles are filled, waiting on an answer, or
- * declined, when the payload says. A server without the newer counts reads as
- * nobody waiting and nobody declining.
+ * How many of an event's spots are filled, waiting on an answer, or declined —
+ * three BGVs are three. A server older than spot counts says it per role, and
+ * one without the newer counts reads as nobody waiting and nobody declining.
  */
 export function staffingFor(event: OrganizationEvent): Staffing | null {
+  if (event.staffing) {
+    return event.staffing.needed > 0 ? event.staffing : null;
+  }
+
   const needed = event.rolesNeeded.length;
   if (needed === 0 || event.filledRoleCount === undefined) return null;
   return {
@@ -229,7 +233,7 @@ export function staffingFor(event: OrganizationEvent): Staffing | null {
 /** The meter read aloud, since it carries no words of its own. */
 export function describeStaffing({ filled, awaiting, declined, needed }: Staffing): string {
   return [
-    `${filled} of ${needed} roles filled`,
+    `${filled} of ${needed} ${needed === 1 ? "spot" : "spots"} filled`,
     awaiting > 0 ? `${awaiting} pending` : null,
     declined > 0 ? `${declined} declined` : null,
   ]

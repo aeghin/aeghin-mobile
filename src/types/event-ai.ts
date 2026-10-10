@@ -38,6 +38,8 @@ export type EventDraft = {
   location: string;
   days: DraftDay[];
   rolesNeeded: VolunteerRole[];
+  /** How many each role needs, for the roles needing more than one. Absent from older servers. */
+  roleSpots?: Partial<Record<VolunteerRole, number>>;
   assignments: DraftAssignment[];
   expiresInDays: 3 | 5 | 7;
   smartSchedulingEnabled: boolean;

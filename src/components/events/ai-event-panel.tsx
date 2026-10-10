@@ -409,6 +409,7 @@ function DraftCard({
       days: draft.days,
       rehearsal: draft.rehearsal,
       rolesNeeded: draft.rolesNeeded,
+      roleSpots: draft.roleSpots,
       expiresAt: draft.expiresInDays,
       smartSchedulingEnabled: draft.smartSchedulingEnabled,
       roleAssignments,
@@ -469,6 +470,7 @@ function DraftCard({
         {draft.rolesNeeded.map((role) => {
           const people = kept.filter((assignment) => assignment.role === role);
           const { emoji, label } = roles.get(role);
+          const spots = draft.roleSpots?.[role] ?? 1;
 
           return (
             <HStack key={role} className="items-start gap-2">
@@ -476,9 +478,18 @@ function DraftCard({
               <VStack className="flex-1 gap-0.5">
                 <Text className="text-[13px] font-medium text-foreground">
                   {label}
+                  {spots > 1 ? (
+                    <Text className="text-[12px] font-normal text-muted-foreground">
+                      {` ×${spots}`}
+                    </Text>
+                  ) : null}
                   {people.length === 0 ? (
                     <Text className="text-[12px] font-normal text-muted-foreground">
                       {"  — left open"}
+                    </Text>
+                  ) : people.length < spots ? (
+                    <Text className="text-[12px] font-normal text-muted-foreground">
+                      {`  — ${spots - people.length} more open`}
                     </Text>
                   ) : null}
                 </Text>

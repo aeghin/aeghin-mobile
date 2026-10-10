@@ -18,6 +18,13 @@ import type { Team, TeamLeadPick } from "@/types/team-notifications";
 export type VolunteerRole = string;
 
 /**
+ * How many people each role needs, for the roles needing more than one —
+ * `{ BGVS: 3 }`. A role missing from it needs one. Every invite is somebody
+ * wanted there, never a backup, so inviting past a role's open spots raises it.
+ */
+export type RoleSpots = Partial<Record<VolunteerRole, number>>;
+
+/**
  * Mirrors the web's `InvitationStatus` enum.
  *
  * EXPIRED is written only by the API's hourly sweep, never by anything the app
@@ -86,6 +93,8 @@ export type OrganizationEvent = {
    */
   assignments: EventAssignment[];
   rolesNeeded: VolunteerRole[];
+  /** Absent from a server older than spot counts, which is one each. */
+  roleSpots?: RoleSpots;
   /**
    * Optional rehearsal, wall-clock like {@link EventDate}. Null when there is
    * none. Informational only — it never makes anybody unavailable.
@@ -105,6 +114,11 @@ export type OrganizationEvent = {
   awaitingRoleCount?: number;
   /** Roles somebody declined with nobody accepted or deciding in their place. */
   declinedRoleCount?: number;
+  /**
+   * The meter counted in spots — three BGVs are three — from a server that
+   * knows about spot counts. Preferred over the three role counts above.
+   */
+  staffing?: { needed: number; filled: number; awaiting: number; declined: number };
 };
 
 /**
@@ -215,6 +229,8 @@ export type EventDetails = {
   description: string;
   location: string;
   rolesNeeded: VolunteerRole[];
+  /** Absent from a server older than spot counts, which is one each. */
+  roleSpots?: RoleSpots;
   smartSchedulingEnabled: boolean;
   organizationName: string;
   serviceType: ServiceType;
@@ -307,6 +323,7 @@ export type NewEvent = {
   location: string;
   days: NewEventDay[];
   rolesNeeded: VolunteerRole[];
+  roleSpots?: RoleSpots;
   /** Days an invitee has to answer: 3, 5 or 7. */
   expiresAt: number;
   smartSchedulingEnabled: boolean;
@@ -342,6 +359,7 @@ export type EventTemplate = {
   dayOfWeek: number;
   days: EventTemplateDay[];
   rolesNeeded: VolunteerRole[];
+  roleSpots?: RoleSpots;
   /** Days an invitee gets to answer on events built from this: 3, 5 or 7. */
   expiresInDays: number;
   smartSchedulingEnabled: boolean;
@@ -365,6 +383,7 @@ export type EventTemplateInput = {
   dayOfWeek: number;
   days: EventTemplateDay[];
   rolesNeeded: VolunteerRole[];
+  roleSpots?: RoleSpots;
   expiresInDays: number;
   smartSchedulingEnabled: boolean;
   /** Null clears it. Omitted leaves whatever is stored alone. */

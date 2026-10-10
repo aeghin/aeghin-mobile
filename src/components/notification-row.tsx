@@ -38,7 +38,7 @@ function describe(item: NotificationItem): string {
   if (item.category === "FULLY_STAFFED") return "Fully staffed";
 
   if (item.category === "ROSTER_ATTENTION") {
-    return item.count === 1 ? "1 role still open" : `${item.count} roles still open`;
+    return item.count === 1 ? "1 spot still open" : `${item.count} spots still open`;
   }
 
   return "Tap for details";

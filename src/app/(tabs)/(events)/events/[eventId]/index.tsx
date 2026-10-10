@@ -28,7 +28,7 @@ import { useSmartSchedulingAvailable } from "@/hooks/use-billing";
 import {
   useCancelAssignment,
   useDeleteEvent,
-  useDeleteExpiredAssignment,
+  useDeleteInvite,
   useEventDetails,
   usePrefetchEventDetails,
   useRemoveEventRole,
@@ -41,6 +41,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { ApiError } from "@/lib/api";
 import { getServiceColors } from "@/lib/config/service-types";
 import type { Roles } from "@/lib/config/volunteer-roles";
+import { roleStanding, type RoleStanding } from "@/lib/events/spots";
 import { failureMessage } from "@/lib/failure";
 import { personName } from "@/lib/names";
 import type {
@@ -64,7 +65,12 @@ const TAB_BAR_CLEARANCE = 64;
 type Confirm =
   | { kind: "deleteEvent"; name: string }
   | { kind: "removeAssignment"; assignment: EventDetailsAssignment }
-  | { kind: "deleteExpired"; assignment: EventDetailsAssignment }
+  | {
+      kind: "deleteInvite";
+      assignment: EventDetailsAssignment;
+      /** The role as it stood when Delete was tapped, for what the dialog promises. */
+      standing: RoleStanding;
+    }
   | { kind: "removeRole"; role: VolunteerRole };
 
 /** What each one says. Every case is destructive and none of them is undoable. */
@@ -88,13 +94,24 @@ function describeConfirm(confirm: Confirm, roles: Roles) {
       };
     }
 
-    case "deleteExpired": {
-      const { user, role } = confirm.assignment;
+    case "deleteInvite": {
+      const { user, role, status } = confirm.assignment;
+      const { needed, open } = confirm.standing;
       const name = personName(user);
+      const label = roles.get(role).label;
+      const kind = status === "DECLINED" ? "declined" : status === "CANCELED" ? null : "expired";
+
+      // Their spot closes when it's still open and the role has others to keep.
+      const effect =
+        open === 0
+          ? ""
+          : needed > 1
+            ? `, and ${label} will need ${needed - 1} instead of ${needed}`
+            : ", and the role still needs someone";
 
       return {
-        title: "Delete expired invite",
-        description: `${name}'s expired ${roles.get(role).label} invitation comes off the roster, and the role reads as needing someone again.`,
+        title: kind ? `Delete ${kind} invite` : "Delete invite",
+        description: `${name}'s ${kind ? `${kind} ` : ""}${label} invitation comes off the roster${effect}.`,
         label: "Delete",
       };
     }
@@ -146,7 +163,7 @@ export default function EventDetailScreen() {
 
   const cancelAssignment = useCancelAssignment(organizationId, eventId ?? "");
   const resendInvite = useResendAssignment(organizationId, eventId ?? "");
-  const deleteExpired = useDeleteExpiredAssignment(organizationId, eventId ?? "");
+  const deleteInvite = useDeleteInvite(organizationId, eventId ?? "");
   const removeRole = useRemoveEventRole(organizationId, eventId ?? "");
   const removeEvent = useDeleteEvent(organizationId, eventId ?? "");
   const autoFillAvailable = useSmartSchedulingAvailable(organizationId);
@@ -244,8 +261,8 @@ export default function EventDetailScreen() {
         });
         return;
 
-      case "deleteExpired":
-        deleteExpired.mutate(confirm.assignment.userId, {
+      case "deleteInvite":
+        deleteInvite.mutate(confirm.assignment.userId, {
           onSuccess: () => setConfirmOpen(false),
           onError: failed,
         });
@@ -264,8 +281,8 @@ export default function EventDetailScreen() {
       ? removeEvent.isPending
       : confirm?.kind === "removeRole"
         ? removeRole.isPending
-        : confirm?.kind === "deleteExpired"
-          ? deleteExpired.isPending
+        : confirm?.kind === "deleteInvite"
+          ? deleteInvite.isPending
           : cancelAssignment.isPending;
 
   const confirmWords = confirm ? describeConfirm(confirm, roles) : null;
@@ -388,9 +405,19 @@ export default function EventDetailScreen() {
                       })
                   : undefined
               }
-              onDeleteExpired={
+              onDeleteInvite={
                 event.viewer.canManage
-                  ? (assignment) => ask({ kind: "deleteExpired", assignment })
+                  ? (assignment) =>
+                      ask({
+                        kind: "deleteInvite",
+                        assignment,
+                        standing: roleStanding(
+                          assignment.role,
+                          event.roleSpots,
+                          event.assignments,
+                          Date.now(),
+                        ),
+                      })
                   : undefined
               }
             />

@@ -362,8 +362,10 @@ export function useResendAssignment(orgId: string, eventId: string) {
 }
 
 // Removes the row outright, unlike useCancelAssignment which keeps it as
-// CANCELED. Lapsed rows only — the route refuses anything still live.
-export function useDeleteExpiredAssignment(orgId: string, eventId: string) {
+// CANCELED, and closes the spot it left open. Lapsed, declined or removed rows
+// only — the route refuses anything still live. The path still says "expired":
+// installed apps call it by that name.
+export function useDeleteInvite(orgId: string, eventId: string) {
   return useEventWrite(orgId, eventId, (memberId: string) =>
     apiDelete<{ success: true }>(
       `${eventPath(orgId, eventId)}/assignments/${memberId}/expired`,

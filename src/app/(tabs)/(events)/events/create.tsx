@@ -73,12 +73,14 @@ import {
   keyToDate,
   todayKey,
 } from "@/lib/events/format";
+import { spotsFor } from "@/lib/events/spots";
 import { failureMessage } from "@/lib/failure";
 import { capitalizeName, personName } from "@/lib/names";
 import type {
   EventTemplate,
   MemberAvailability,
   NewEventDay,
+  RoleSpots,
   ServiceType,
   VolunteerRole,
 } from "@/types/event";
@@ -110,6 +112,8 @@ type CreateSeed = {
   range: { start: string | null; end: string | null };
   times: Record<string, DayTimes>;
   rolesNeeded: VolunteerRole[];
+  /** How many each role needs, for the roles needing more than one. */
+  roleSpots: RoleSpots;
   expiresAt: number;
   smartScheduling: boolean;
   /** Optional, and never part of the availability check. */
@@ -126,6 +130,7 @@ const BLANK_SEED: CreateSeed = {
   range: { start: null, end: null },
   times: {},
   rolesNeeded: [],
+  roleSpots: {},
   expiresAt: 3,
   smartScheduling: false,
   rehearsal: null,
@@ -189,6 +194,7 @@ function seedFromTemplate(template: EventTemplate, serviceTypes: ServiceType[]):
     },
     times,
     rolesNeeded: template.rolesNeeded,
+    roleSpots: template.roleSpots ?? {},
     expiresAt: template.expiresInDays,
     smartScheduling: template.smartSchedulingEnabled,
     rehearsal,
@@ -232,6 +238,7 @@ function seedFromDraft(draft: EventDraft): CreateSeed {
     },
     times,
     rolesNeeded: draft.rolesNeeded,
+    roleSpots: draft.roleSpots ?? {},
     expiresAt: draft.expiresInDays,
     smartScheduling: draft.smartSchedulingEnabled,
     rehearsal: draft.rehearsal,
@@ -622,6 +629,11 @@ function CreateEventForm({
     add();
   };
 
+  // Everybody picked for the role, since every one of them is wanted there —
+  // or more, when an AI draft asked for more than it found.
+  const spotsOf = (role: VolunteerRole) =>
+    Math.max(spotsFor(seed.roleSpots, role), assignments[role]?.length ?? 0);
+
   const submit = () => {
     if (!serviceTypeId) return;
 
@@ -636,6 +648,7 @@ function CreateEventForm({
         days: payloadDays,
         rehearsal,
         rolesNeeded,
+        roleSpots: Object.fromEntries(rolesNeeded.map((role) => [role, spotsOf(role)])),
         expiresAt,
         smartSchedulingEnabled: autoFillAvailable && smartScheduling,
         // Roles nobody was picked for go up empty, which is what leaves an
@@ -961,6 +974,7 @@ function CreateEventForm({
                   members={roster.filter((member) => member.volunteerRoles.includes(role))}
                   loading={members.isPending}
                   selected={assignments[role] ?? []}
+                  spots={spotsOf(role)}
                   availability={busy}
                   onToggle={(member) => toggleAssignment(role, member)}
                 />
@@ -1054,6 +1068,7 @@ function RoleSection({
   members,
   loading,
   selected,
+  spots,
   availability,
   onToggle,
 }: {
@@ -1061,6 +1076,8 @@ function RoleSection({
   members: OrganizationMember[];
   loading: boolean;
   selected: string[];
+  /** How many the role needs. */
+  spots: number;
   availability: MemberAvailability | null;
   onToggle: (member: OrganizationMember) => void;
 }) {
@@ -1072,7 +1089,7 @@ function RoleSection({
       <HStack className="ml-1 items-center gap-1.5">
         <Text style={{ fontSize: 12, lineHeight: 16 }}>{emoji}</Text>
         <Text className="text-xs font-bold uppercase tracking-[0.7px] text-muted-foreground">
-          {selected.length > 0 ? `${label} · ${selected.length} invited` : label}
+          {selected.length > 0 ? `${label} · ${selected.length} of ${spots} invited` : label}
         </Text>
       </HStack>
 

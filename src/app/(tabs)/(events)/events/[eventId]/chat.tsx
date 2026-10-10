@@ -4,6 +4,7 @@ import MessagesSquare from "lucide-react-native/icons/messages-square";
 import { useCallback, useEffect, useMemo } from "react";
 import {
   Alert,
+  AppState,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -22,7 +23,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
-import { useEventChat, useInvalidateChat } from "@/hooks/use-event-chat";
+import { useEventChat, useInvalidateChat, useMarkChatRead } from "@/hooks/use-event-chat";
 import { useEventDetails } from "@/hooks/use-events";
 import { useTheme } from "@/hooks/use-theme";
 import { getServiceColors } from "@/lib/config/service-types";
@@ -52,14 +53,36 @@ export default function EventChatScreen() {
 
   const chat = useEventChat(organizationId, eventId ?? "");
   const invalidateChat = useInvalidateChat(organizationId, eventId ?? "");
+  const markRead = useMarkChatRead(organizationId, eventId ?? "");
 
   // The preview card on the event screen reads the cached first page; leaving
-  // refreshes it so the card shows what was said here.
-  useEffect(() => () => void invalidateChat(), [invalidateChat]);
+  // refreshes it so the card shows what was said here. Marked read first, so
+  // that refetch can't land ahead of the mark and bring the badge back.
+  useEffect(
+    () => () => void markRead().then(invalidateChat),
+    [markRead, invalidateChat],
+  );
 
   // Newest first for the inverted list, which is what keeps the view pinned to
   // the bottom as messages arrive.
   const rows = useMemo(() => (chat.messages ? [...chat.messages].reverse() : []), [chat.messages]);
+
+  // The newest message the server has. An optimistic send isn't one yet.
+  const newestId = rows.find((message) => !message.id.startsWith("temp-"))?.id;
+
+  // Read means on screen with the app in front: marked as each message lands,
+  // and again on coming back to the app with the chat still open.
+  useEffect(() => {
+    if (!newestId) return;
+
+    if (AppState.currentState === "active") void markRead();
+
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void markRead();
+    });
+
+    return () => subscription.remove();
+  }, [newestId, markRead]);
 
   const myId = chat.viewer?.userId;
 

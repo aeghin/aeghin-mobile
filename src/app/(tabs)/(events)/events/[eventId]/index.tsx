@@ -130,7 +130,8 @@ function describeConfirm(confirm: Confirm, roles: Roles) {
  *
  * The sections are the dashboard's, in the order its grid falls back to on a
  * narrow viewport: what this is and when and where, what auto-fill has been
- * doing, the setlist, the team, the chat.
+ * doing, the setlist, the team. The chat is the exception: one line right under
+ * the top card, with its unread count, rather than a card at the very end.
  *
  * Every manager action sits on the section it changes — the setlist's editor
  * on the setlist card, the roster's on the Team card — and the two that change
@@ -359,6 +360,13 @@ export default function EventDetailScreen() {
               }
             />
 
+            <EventChatCard
+              organizationId={organizationId}
+              eventId={event.id}
+              service={event.serviceType}
+              onOpen={() => router.push(`/events/${event.id}/chat`)}
+            />
+
             {event.viewer.canManage ? (
               <EventSmartSchedulingCard
                 enabled={event.smartSchedulingEnabled}
@@ -420,13 +428,6 @@ export default function EventDetailScreen() {
                       })
                   : undefined
               }
-            />
-
-            <EventChatCard
-              organizationId={organizationId}
-              eventId={event.id}
-              service={event.serviceType}
-              onOpen={() => router.push(`/events/${event.id}/chat`)}
             />
           </VStack>
         )}

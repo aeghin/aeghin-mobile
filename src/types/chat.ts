@@ -31,6 +31,11 @@ export type ChatPage = {
   messages: ChatMessage[];
   nextCursor: string | null;
   viewer: ChatViewer;
+  /**
+   * Messages from somebody else since the caller last had the chat on screen.
+   * On the first page only, and absent from a server that predates it.
+   */
+  unreadCount?: number;
 };
 
 export type PresenceMember = {

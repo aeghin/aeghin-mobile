@@ -269,6 +269,30 @@ export function useEventChat(orgId: string, eventId: string): UseEventChatReturn
   };
 }
 
+/**
+ * Marks the chat read up to its newest message, and zeroes the cached count so
+ * the badge on the event screen clears without waiting on a refetch. A server
+ * that predates read tracking answers 404, which leaves the badge as it was.
+ */
+export function useMarkChatRead(orgId: string, eventId: string) {
+  const { userId } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useCallback(async () => {
+    if (!orgId || !eventId) return;
+
+    try {
+      await apiPost(`${chatPath(orgId, eventId)}/read`);
+    } catch {
+      return;
+    }
+
+    queryClient.setQueryData<ChatPage>(chatKey(userId, orgId, eventId), (page) =>
+      page ? { ...page, unreadCount: 0 } : page,
+    );
+  }, [queryClient, userId, orgId, eventId]);
+}
+
 /** Expires the cached first page — for the preview card after a visit to the chat. */
 export function useInvalidateChat(orgId: string, eventId: string) {
   const { userId } = useAuth();

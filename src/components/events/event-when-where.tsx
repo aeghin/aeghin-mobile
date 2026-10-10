@@ -5,7 +5,7 @@ import { useRef } from "react";
 import { ScrollView, type LayoutChangeEvent } from "react-native";
 
 import { AppIcon, type AppIconName } from "@/components/app-icon";
-import { Divider } from "@/components/ui/divider";
+import { Center } from "@/components/ui/center";
 import { HStack } from "@/components/ui/hstack";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
@@ -30,6 +30,9 @@ const BLEED = 16;
 /** Keeps the days in a scrolling row much the same width, whatever their hours. */
 const DAY_MIN_WIDTH = 140;
 
+/** The tinted square behind a place or rehearsal line's icon. */
+const LINE_ICON_TILE = 26;
+
 type Tile = {
   key: string;
   icon: AppIconName;
@@ -47,7 +50,7 @@ type Tile = {
  * be one event, and collapsing them to "Saturday to Sunday" would lose the
  * times somebody actually has to turn up at. Past one block they get a row of
  * their own, so a week is no taller than a weekend, and the place and the
- * rehearsal share one box beneath it.
+ * rehearsal sit beneath it.
  */
 export function EventWhenWhere({
   dates,
@@ -106,55 +109,58 @@ export function EventWhenWhere({
         {/* Dated on its own line: it rarely falls on the service day. */}
         {rehearsal ? (
           <HStack>
-            <InfoTile icon={CalendarClock} label="Rehearsal" value={rehearsal} />
+            <InfoTile icon={CalendarClock} label="Rehearsal" value={rehearsal} colors={colors} />
           </HStack>
         ) : null}
       </VStack>
     );
   }
 
-  // One box for the place and the rehearsal, each label against its value:
-  // beside a row of days, a short place like "Sanctuary" left most of a box
-  // of its own empty.
+  // Lines rather than boxes: beside a row of days, a short place like
+  // "Sanctuary" left most of a box of its own empty.
   return (
-    <VStack className="gap-2">
+    <VStack className="gap-3">
       <DayRow tiles={blocks} colors={colors} />
 
-      <VStack className="rounded-xl border border-border bg-surface/60">
-        <DetailRow icon={MapPin} label="Location" value={location} />
-        {/* Date over time, so the value breaks where it reads. */}
+      <VStack className="gap-2">
+        <InfoLine icon={MapPin} colors={colors}>
+          {location}
+        </InfoLine>
         {rehearsal ? (
-          <>
-            <Divider style={{ marginHorizontal: 10 }} />
-            <DetailRow
-              icon={CalendarClock}
-              label="Rehearsal"
-              value={rehearsal.replace(" · ", "\n")}
-            />
-          </>
+          <InfoLine icon={CalendarClock} colors={colors}>
+            {`Rehearsal · ${rehearsal}`}
+          </InfoLine>
         ) : null}
       </VStack>
     </VStack>
   );
 }
 
-/** A label on the left and its value on the right, in the box under a row of days. */
-function DetailRow({ icon, label, value }: { icon: AppIconName; label: string; value: string }) {
-  const theme = useTheme();
-
+/** The place or the rehearsal under a row of days, its icon on a tinted tile like the section headers'. */
+function InfoLine({
+  icon,
+  colors,
+  children,
+}: {
+  icon: AppIconName;
+  colors: ServiceColors;
+  children: string;
+}) {
   return (
-    <HStack className="items-center gap-3 p-2.5">
-      <HStack className="items-center gap-1.5">
-        <AppIcon icon={icon} size={11} color={theme.textMuted} />
-        <Text className="text-[10px] font-semibold uppercase tracking-[0.3px] text-muted-foreground">
-          {label}
-        </Text>
-      </HStack>
-      <Text
-        className="flex-1 text-right text-[13px] font-semibold leading-[18px] text-foreground"
-        numberOfLines={3}
+    <HStack className="items-center gap-2.5">
+      <Center
+        className="rounded-lg"
+        style={{
+          width: LINE_ICON_TILE,
+          height: LINE_ICON_TILE,
+          borderCurve: "continuous",
+          backgroundColor: withAlpha(colors.base, 0.12),
+        }}
       >
-        {value}
+        <AppIcon icon={icon} size={14} color={colors.text} />
+      </Center>
+      <Text className="flex-1 text-[13.5px] leading-[18px] text-foreground" numberOfLines={2}>
+        {children}
       </Text>
     </HStack>
   );
@@ -227,7 +233,8 @@ function BlockTile({
       icon={tile.icon}
       label={tile.label}
       value={tile.value}
-      tint={tile.when === "today" ? colors : undefined}
+      colors={colors}
+      today={tile.when === "today"}
       faded={tile.when === "done"}
       lines={3}
       fill={fill}
@@ -238,14 +245,15 @@ function BlockTile({
 
 /**
  * An icon-led label over its value, drawn like the Upcoming card's boxes so the
- * page opens on the card that led to it. Today's block wears the service's
- * colours; a finished one recedes.
+ * page opens on the card that led to it. The label takes the service's colour,
+ * today's block wears it as a fill too, and a finished one recedes.
  */
 function InfoTile({
   icon,
   label,
   value,
-  tint,
+  colors,
+  today,
   faded,
   lines = 2,
   fill = true,
@@ -254,36 +262,33 @@ function InfoTile({
   icon: AppIconName;
   label: string;
   value: string;
-  tint?: ServiceColors;
+  colors: ServiceColors;
+  today?: boolean;
   faded?: boolean;
   lines?: number;
   /** Share the line with its neighbours, or size to its own words in a scrolling row. */
   fill?: boolean;
   onLayout?: (event: LayoutChangeEvent) => void;
 }) {
-  const theme = useTheme();
-
   return (
     <VStack
       className={`gap-1 rounded-xl border p-2.5 ${fill ? "flex-1" : ""} ${
-        tint ? "" : "border-border bg-surface/60"
+        today ? "" : "border-border bg-surface/60"
       }`}
       style={{
         opacity: faded ? 0.5 : 1,
         ...(fill ? null : { minWidth: DAY_MIN_WIDTH }),
-        ...(tint
-          ? { borderColor: withAlpha(tint.base, 0.45), backgroundColor: tint.surface }
+        ...(today
+          ? { borderColor: withAlpha(colors.base, 0.45), backgroundColor: colors.surface }
           : null),
       }}
       onLayout={onLayout}
     >
       <HStack className="items-center gap-1.5">
-        <AppIcon icon={icon} size={11} color={tint ? tint.text : theme.textMuted} />
+        <AppIcon icon={icon} size={11} color={colors.text} />
         <Text
-          className={`shrink text-[10px] font-semibold uppercase tracking-[0.3px] ${
-            tint ? "" : "text-muted-foreground"
-          }`}
-          style={tint ? { color: tint.text } : undefined}
+          className="shrink text-[10px] font-semibold uppercase tracking-[0.3px]"
+          style={{ color: colors.text }}
           numberOfLines={1}
         >
           {label}

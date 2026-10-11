@@ -33,7 +33,7 @@ import {
 import { useRoles } from "@/hooks/use-roles";
 import { useTheme } from "@/hooks/use-theme";
 import { canManageOrg, getRoleConfig } from "@/lib/config/roles";
-import { formatShortDate } from "@/lib/events/format";
+import { formatLocalShortDate } from "@/lib/events/format";
 import { failureMessage } from "@/lib/failure";
 import { personName } from "@/lib/names";
 import type { VolunteerRole } from "@/types/event";
@@ -175,7 +175,7 @@ export default function MemberScreen() {
                 </HStack>
               ) : null}
               <Text className="text-[12px] text-muted-foreground">
-                {`Joined ${formatShortDate(member.joinedAt)}`}
+                {`Joined ${formatLocalShortDate(member.joinedAt)}`}
               </Text>
             </VStack>
 

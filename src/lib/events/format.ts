@@ -42,6 +42,19 @@ export function todayKey(): string {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
 
+/**
+ * The device's calendar day a real instant falls on — a deadline, or when
+ * somebody joined — as a key comparable with {@link todayKey}.
+ *
+ * Not {@link dayKey}: that reads UTC because event times are wall clock written
+ * in UTC. A deadline is a moment that really happens, and its day is the
+ * reader's — 8:30pm in Chicago is already tomorrow in UTC.
+ */
+export function localDayKey(value: string | Date): string {
+  const date = toDate(value);
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
 /** The month the device is currently in, as a {@link monthKey}. */
 export function currentMonthKey(): string {
   return todayKey().slice(0, 7);
@@ -84,6 +97,18 @@ export function formatMonth(key: string): string {
 export function formatShortDate(value: string | Date): string {
   return toDate(value).toLocaleDateString("en-US", {
     timeZone: UTC,
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/**
+ * `"Sun, Aug 30"` for a real instant — when somebody joined, not when an event
+ * is — on the device's own clock, like {@link formatActivityTime}.
+ */
+export function formatLocalShortDate(value: string | Date): string {
+  return toDate(value).toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -210,14 +235,16 @@ export type ExpiryLabel = {
  * at 2pm with a three-day window dies at 2pm on the third day, not at the
  * following midnight. Comparing day keys alone reported it as "Expires today"
  * for the rest of that afternoon — beside an Accept button the server had
- * already stopped honouring.
+ * already stopped honouring. Its day is the device's ({@link localDayKey}),
+ * like `today`: one closing at 8:30pm in Chicago is 1:30am UTC the next day,
+ * and read in UTC it said "Expires tomorrow" on the day it closed.
  */
 export function formatExpiry(expiresAt: string, today: string): ExpiryLabel {
   if (new Date(expiresAt).getTime() <= Date.now()) {
     return { label: "Expired", urgent: true };
   }
 
-  const days = daysBetween(today, dayKey(expiresAt));
+  const days = daysBetween(today, localDayKey(expiresAt));
 
   if (days === 0) return { label: "Expires today", urgent: true };
   if (days === 1) return { label: "Expires tomorrow", urgent: true };

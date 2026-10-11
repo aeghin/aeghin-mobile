@@ -62,6 +62,9 @@ export function useOrganizationDetails(orgId: string) {
 /**
  * Creates an organization with the caller as owner. Answers `{ orgId }`, so
  * the picker can select it straight away.
+ *
+ * Sends this phone's zone as the organization's: event times are its wall
+ * clock, and reminders and emails go out on it. Owners can change it later.
  */
 export function useCreateOrganization() {
   const { userId } = useAuth();
@@ -69,7 +72,10 @@ export function useCreateOrganization() {
 
   return useMutation({
     mutationFn: (input: OrganizationInput) =>
-      apiPost<{ orgId: string }>("/api/mobile/v1/organizations", input),
+      apiPost<{ orgId: string }>("/api/mobile/v1/organizations", {
+        ...input,
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["organizations", userId] });
     },

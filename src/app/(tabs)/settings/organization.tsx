@@ -1,5 +1,6 @@
 import { Stack, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
+import Globe from "lucide-react-native/icons/globe";
 import ImageIcon from "lucide-react-native/icons/image";
 import LogOut from "lucide-react-native/icons/log-out";
 import Pencil from "lucide-react-native/icons/pencil";
@@ -30,7 +31,7 @@ import {
   useUpdateLogo,
   useUpdateOrganization,
 } from "@/hooks/use-organizations";
-import { formatShortDate } from "@/lib/events/format";
+import { formatLocalShortDate } from "@/lib/events/format";
 import { failureMessage } from "@/lib/failure";
 import type { OrganizationInput } from "@/types/organization";
 
@@ -44,6 +45,9 @@ const LOGO_RADIUS = LOGO_SIZE * 0.28;
 const MAX_LOGO_BYTES = 4 * 1024 * 1024;
 
 const megabytes = (bytes: number) => `${Math.round(bytes / (1024 * 1024))}MB`;
+
+/** "America/Los_Angeles" as "America/Los Angeles". */
+const zoneName = (zone: string) => zone.replace(/_/g, " ");
 
 /**
  * The dashboard's Settings tab for the organization itself: its name and
@@ -60,6 +64,7 @@ export default function OrganizationSettingsScreen() {
   const isOwner = organization?.role === "OWNER";
 
   const details = useOrganizationDetails(organizationId);
+  const update = useUpdateOrganization(organizationId);
   const leave = useLeaveOrganization(organizationId);
   const updateLogo = useUpdateLogo(organizationId);
   const removeLogo = useRemoveLogo(organizationId);
@@ -68,6 +73,30 @@ export default function OrganizationSettingsScreen() {
 
   const name = details.data?.name ?? organization?.name ?? "";
   const description = details.data?.description ?? organization?.description ?? "";
+
+  // Where the organization is, and where this phone is. They usually match;
+  // when they don't, an owner can move the organization to the phone's with
+  // one tap — choosing any other zone is the dashboard's.
+  const timeZone = details.data?.timeZone;
+  const phoneZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const canUsePhoneZone = isOwner && Boolean(timeZone) && Boolean(phoneZone) && phoneZone !== timeZone;
+
+  const confirmUsePhoneZone = () =>
+    Alert.alert(
+      "Change time zone",
+      `Set ${name} to ${zoneName(phoneZone)}? Reminders and emails go out on this clock, and events end on it.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Change",
+          onPress: () =>
+            update.mutate(
+              { name, description, timeZone: phoneZone },
+              { onError: (error) => Alert.alert("Couldn't change time zone", failureMessage(error)) },
+            ),
+        },
+      ],
+    );
 
   // After leaving or deleting, the tabs need somewhere else to stand.
   const moveOn = () => {
@@ -226,7 +255,7 @@ export default function OrganizationSettingsScreen() {
             <Text className="text-[22px] font-bold tracking-[-0.4px] text-foreground">{name}</Text>
             {details.data ? (
               <Text className="text-[12px] text-muted-foreground">
-                {`${details.data.memberCount} ${details.data.memberCount === 1 ? "member" : "members"} · since ${formatShortDate(details.data.createdAt)}`}
+                {`${details.data.memberCount} ${details.data.memberCount === 1 ? "member" : "members"} · since ${formatLocalShortDate(details.data.createdAt)}`}
               </Text>
             ) : null}
           </VStack>
@@ -251,7 +280,26 @@ export default function OrganizationSettingsScreen() {
                     {description || "No description added yet"}
                   </Text>
                 </VStack>
+                {timeZone ? (
+                  <VStack className="gap-0.5">
+                    <Text className="text-[11px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">
+                      Time zone
+                    </Text>
+                    <Text className="text-[15px] text-foreground">{zoneName(timeZone)}</Text>
+                    <Text className="text-[12px] text-muted-foreground">
+                      Reminders and emails go out on this clock, and events end on it.
+                    </Text>
+                  </VStack>
+                ) : null}
               </VStack>
+              {canUsePhoneZone ? (
+                <InsetRow
+                  icon={Globe}
+                  label={update.isPending ? "Changing time zone…" : "Use this phone's time zone"}
+                  value={update.isPending ? undefined : zoneName(phoneZone)}
+                  onPress={update.isPending ? undefined : confirmUsePhoneZone}
+                />
+              ) : null}
               {isOwner ? (
                 <InsetRow icon={Pencil} label="Edit details" onPress={() => setDialog("edit")} />
               ) : null}

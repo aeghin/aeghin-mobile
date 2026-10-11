@@ -28,6 +28,12 @@ export type OrganizationSummary = {
 
 export type OrganizationDetail = OrganizationSummary & {
   createdAt: string;
+  /**
+   * Where the organization is, as an IANA zone: "America/Chicago". Event times
+   * are its wall clock, and reminders and emails go out on it. Optional because
+   * a server from before zones leaves it out.
+   */
+  timeZone?: string;
   upcomingEventCount: number;
   songCount: number;
   pendingInvitationCount: number;
@@ -49,6 +55,8 @@ export type OrganizationMember = {
 export type OrganizationInput = {
   name: string;
   description: string;
+  /** An IANA zone. Sent when it changes; a create fills in the phone's own. */
+  timeZone?: string;
 };
 
 /** What `POST .../invitations` takes. `orgId` comes from the path. */

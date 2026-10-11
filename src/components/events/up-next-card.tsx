@@ -5,11 +5,7 @@ import Clock from "lucide-react-native/icons/clock";
 import MapPin from "lucide-react-native/icons/map-pin";
 
 import { AppIcon, type AppIconName } from "@/components/app-icon";
-import {
-  MetaLine,
-  RoleChip,
-  ServiceBadge,
-} from "@/components/events/chips";
+import { MetaLine, RoleChip, ServiceBadge } from "@/components/events/chips";
 import { DateTile } from "@/components/events/event-card";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
@@ -17,7 +13,7 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { useTheme } from "@/hooks/use-theme";
-import { getServiceColors } from "@/lib/config/service-types";
+import { getServiceColors, type ServiceColors } from "@/lib/config/service-types";
 import {
   dayKey,
   formatDateRange,
@@ -37,7 +33,8 @@ type UpNextCardProps = {
 };
 
 /** The event cards' surface, so this reads as the first of them, a size up. */
-const CARD_CLASS = "mx-4 overflow-hidden rounded-2xl border border-border bg-card";
+const CARD_CLASS =
+  "mx-4 overflow-hidden rounded-2xl border border-border bg-card";
 
 /**
  * The next thing the user has actually committed to.
@@ -48,7 +45,12 @@ const CARD_CLASS = "mx-4 overflow-hidden rounded-2xl border border-border bg-car
  * the design's time and location tiles. The list below starts after it, so
  * this event is never shown twice.
  */
-export function UpNextCard({ upNext, service, today, onPress }: UpNextCardProps) {
+export function UpNextCard({
+  upNext,
+  service,
+  today,
+  onPress,
+}: UpNextCardProps) {
   const theme = useTheme();
   const serviceColors = getServiceColors(service?.color ?? "indigo", theme);
   const { event, date } = upNext;
@@ -80,20 +82,37 @@ export function UpNextCard({ upNext, service, today, onPress }: UpNextCardProps)
               <ServiceBadge service={service} />
             </HStack>
             {isMultiDay(event.dates) ? (
-              <MetaLine icon={Calendar}>{formatDateRange(event.dates)}</MetaLine>
+              <MetaLine icon={Calendar}>
+                {formatDateRange(event.dates)}
+              </MetaLine>
             ) : null}
           </VStack>
         </HStack>
 
         <HStack className="mt-3.5 gap-2">
-          <InfoTile icon={Clock} label="Time" value={time} />
-          <InfoTile icon={MapPin} label="Location" value={event.location} />
+          <InfoTile
+            icon={Clock}
+            label="Time"
+            value={time}
+            serviceColors={serviceColors}
+          />
+          <InfoTile
+            icon={MapPin}
+            label="Location"
+            value={event.location}
+            serviceColors={serviceColors}
+          />
         </HStack>
 
         {/* Optional, and dated on its own: it rarely falls on the service day. */}
         {rehearsal ? (
           <HStack className="mt-2">
-            <InfoTile icon={CalendarClock} label="Rehearsal" value={rehearsal} />
+            <InfoTile
+              icon={CalendarClock}
+              label="Rehearsal"
+              value={rehearsal}
+              serviceColors={serviceColors}
+            />
           </HStack>
         ) : null}
 
@@ -108,7 +127,11 @@ export function UpNextCard({ upNext, service, today, onPress }: UpNextCardProps)
                 >
                   View event
                 </Text>
-                <AppIcon icon={ArrowRight} size={13} color={serviceColors.text} />
+                <AppIcon
+                  icon={ArrowRight}
+                  size={13}
+                  color={serviceColors.text}
+                />
               </HStack>
             ) : null}
           </HStack>
@@ -142,18 +165,21 @@ function InfoTile({
   icon,
   label,
   value,
+  serviceColors,
 }: {
   icon: AppIconName;
   label: string;
   value: string;
+  serviceColors: ServiceColors;
 }) {
-  const theme = useTheme();
-
   return (
     <VStack className="flex-1 gap-1 rounded-xl border border-border bg-surface/60 p-2.5">
       <HStack className="items-center gap-1.5">
-        <AppIcon icon={icon} size={11} color={theme.textMuted} />
-        <Text className="text-[10px] font-semibold uppercase tracking-[0.3px] text-muted-foreground">
+        <AppIcon icon={icon} size={11} color={serviceColors.text} />
+        <Text
+          style={{ color: serviceColors.text }}
+          className="text-[10px] font-semibold uppercase tracking-[0.3px]"
+        >
           {label}
         </Text>
       </HStack>

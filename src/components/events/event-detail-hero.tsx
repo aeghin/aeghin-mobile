@@ -11,7 +11,7 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { useTheme } from "@/hooks/use-theme";
 import { getServiceColors } from "@/lib/config/service-types";
-import { dayKey, earliestDate, todayKey } from "@/lib/events/format";
+import { dayKey, sortDates, todayKey } from "@/lib/events/format";
 import type { EventDetails } from "@/types/event";
 
 /** Room the ⋮ needs in the corner it shares with the name. */
@@ -48,8 +48,13 @@ type EventDetailHeroProps = {
 export function EventDetailHero({ event, actions, pager }: EventDetailHeroProps) {
   const theme = useTheme();
   const colors = getServiceColors(event.serviceType.color, theme);
-  const first = earliestDate(event.dates);
   const menu = actions && actions.length > 0;
+
+  const today = todayKey();
+  // The day it's on, as the Upcoming card picks it: the first block not over
+  // yet, or the first block once the whole event has been.
+  const sorted = sortDates(event.dates);
+  const shown = sorted.find((date) => dayKey(date.endTime) >= today) ?? sorted[0];
 
   return (
     <VStack className="mx-4 overflow-hidden rounded-2xl border border-border bg-card">
@@ -61,10 +66,10 @@ export function EventDetailHero({ event, actions, pager }: EventDetailHeroProps)
 
       <VStack className="gap-3.5 p-4">
         <HStack className="items-center gap-3.5">
-          {first ? (
+          {shown ? (
             <DateTile
-              dayKey={dayKey(first.startTime)}
-              today={todayKey()}
+              dayKey={dayKey(shown.startTime)}
+              today={today}
               service={event.serviceType}
               solid
               large

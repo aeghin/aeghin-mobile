@@ -28,15 +28,19 @@ export async function obtainPushToken(): Promise<string | null> {
       importance: Notifications.AndroidImportance.MAX,
     });
     // Its own channel, so chat can be turned off in Android's settings without
-    // losing everything else. The server sends chat pushes to this id.
-    await Notifications.setNotificationChannelAsync("chat", {
+    // losing everything else. High importance pops each message up on screen,
+    // like a messaging app's. The server sends chat pushes to this id.
+    await Notifications.setNotificationChannelAsync("chat-v2", {
       name: "Event chat",
       description: "New messages in your events' team chats",
-      importance: Notifications.AndroidImportance.DEFAULT,
+      importance: Notifications.AndroidImportance.HIGH,
     });
-    // The server's silent follow-ups: a message that lands within a minute of
-    // one that already rang. Same importance, so it still shows on the lock
-    // screen, just without sound or vibration.
+    // The channel chat used before: it didn't pop up, and Android lets only the
+    // person raise a channel's importance once it exists, hence the new id.
+    await Notifications.deleteNotificationChannelAsync("chat").catch(() => {});
+    // The server's silent follow-ups: a message that lands within seconds of
+    // one that already rang. It shows in the shade and on the lock screen,
+    // without popping up, sound or vibration — the first one already did.
     await Notifications.setNotificationChannelAsync("chat-quiet", {
       name: "Event chat follow-ups",
       description: "Messages that arrive right after one that already alerted you",

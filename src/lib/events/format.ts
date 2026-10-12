@@ -8,9 +8,9 @@ import type { EventDate } from "@/types/event";
  * is. Rendering one in device time would move a Sunday morning service to
  * Saturday night for anyone west of Greenwich.
  *
- * Days are compared as `"2026-08-30"` keys rather than as timestamps, which is
- * what keeps "is this past?" and "which day does it group under?" from
- * disagreeing at the edges of the day.
+ * Days are compared as `"2026-08-30"` keys. Whether something is over is not a
+ * day question: that compares times against the organization's clock, in
+ * `schedule.ts`.
  */
 
 const UTC = "UTC";
@@ -193,15 +193,20 @@ export function formatTimeRange(dates: EventDate[]): string {
 /**
  * The time a row shows for the day it stands on, so an event already under
  * way reads that day's hours rather than its first day's. A day with more
- * than one block — two services — says how many more follow.
+ * than one block — two services — says how many more follow. Given the
+ * organization's clock (`now`), a block that is over gives way to the next.
  */
-export function formatTimeOn(dates: EventDate[], key: string): string {
+export function formatTimeOn(dates: EventDate[], key: string, now?: Date): string {
   const sameDay = sortDates(dates).filter((date) => dayKey(date.startTime) === key);
-  const block = sameDay[0] ?? earliestDate(dates);
+  const ahead = now
+    ? sameDay.filter((date) => new Date(date.endTime).getTime() >= now.getTime())
+    : sameDay;
+  const showing = ahead.length > 0 ? ahead : sameDay;
+  const block = showing[0] ?? earliestDate(dates);
   if (!block) return "";
 
   const range = `${formatTime(block.startTime)} – ${formatTime(block.endTime)}`;
-  return sameDay.length > 1 ? `${range} +${sameDay.length - 1}` : range;
+  return showing.length > 1 ? `${range} +${showing.length - 1}` : range;
 }
 
 /** The heading over a day's events: relative when it's near, else dated. */

@@ -24,16 +24,17 @@ export type OrganizationSummary = {
    * `volunteerRoles`.
    */
   serviceTypeOrder?: string[];
+  /**
+   * Where the organization is, as an IANA zone: "America/Chicago". Event times
+   * are its wall clock, events end on it, and reminders and emails go out on
+   * it. Optional because a server from before zones leaves it out — read it
+   * through `zoneOrDevice`.
+   */
+  timeZone?: string;
 };
 
 export type OrganizationDetail = OrganizationSummary & {
   createdAt: string;
-  /**
-   * Where the organization is, as an IANA zone: "America/Chicago". Event times
-   * are its wall clock, and reminders and emails go out on it. Optional because
-   * a server from before zones leaves it out.
-   */
-  timeZone?: string;
   upcomingEventCount: number;
   songCount: number;
   pendingInvitationCount: number;

@@ -1,4 +1,12 @@
-import { dayKey, daysBetween, earliestDate, latestDate, monthKey } from "@/lib/events/format";
+import {
+  addDays,
+  dayKey,
+  daysBetween,
+  earliestDate,
+  keyToDate,
+  shiftMonth,
+} from "@/lib/events/format";
+import { inZone } from "@/lib/time-zone";
 import type {
   EventAssignment,
   EventDate,
@@ -11,10 +19,11 @@ import type {
  * belongs to, whether it falls inside the chosen period, and which day it
  * groups under.
  *
- * Ported from the web dashboard's `MemberEventsDashboard`, with its timestamp
- * comparisons swapped for the day keys in `format.ts` — the events are stored
- * as UTC wall-clock, so comparing them against a device-local midnight is what
- * made "past" flicker across the date line there.
+ * The web dashboard's `lib/time-scope.ts`, rule for rule, so both show
+ * the same events in the same places. `now` is the organization's clock read
+ * as floating time (`useChurchClock`), like the event times it is compared
+ * with: a block is over once its end has passed there, and an event once all
+ * of its blocks are — the moment the reminders and the bell let go of it too.
  */
 
 export type EventsTab = "pending" | "schedule" | "all";
@@ -44,93 +53,110 @@ export function assignmentFor(
   return match ?? null;
 }
 
-/** Every calendar day the event touches, earliest first. */
-export function dayKeysFor(dates: EventDate[]): string[] {
-  const first = earliestDate(dates);
-  const last = latestDate(dates);
-  if (!first || !last) return [];
+const startOf = (date: EventDate) => new Date(date.startTime).getTime();
+const endOf = (date: EventDate) => new Date(date.endTime).getTime();
 
-  const start = dayKey(first.startTime);
-  const span = daysBetween(start, dayKey(last.endTime));
-  const keys: string[] = [];
+/** Over once its end has passed on the organization's clock. */
+export function isBlockOver(date: EventDate, now: Date): boolean {
+  return endOf(date) < now.getTime();
+}
 
-  for (let offset = 0; offset <= span; offset += 1) {
-    const date = new Date(`${start}T00:00:00.000Z`);
-    date.setUTCDate(date.getUTCDate() + offset);
-    keys.push(dayKey(date));
+/** True only once every one of the event's blocks is over. */
+export function isEventPast(event: OrganizationEvent, now: Date): boolean {
+  return event.dates.length > 0 && event.dates.every((date) => isBlockOver(date, now));
+}
+
+/** Whether a block overlaps a `"2026-08"` month, its last second included. */
+function inMonth(date: EventDate, month: string): boolean {
+  const first = keyToDate(`${month}-01`).getTime();
+  const last = keyToDate(`${shiftMonth(month, 1)}-01`).getTime() - 1000;
+  return startOf(date) <= last && endOf(date) >= first;
+}
+
+/** Whether one block belongs to the chosen period. */
+function blockInScope(
+  date: EventDate,
+  scope: TimeScope,
+  month: string,
+  now: Date,
+): boolean {
+  switch (scope) {
+    case "upcoming":
+      return !isBlockOver(date, now);
+    case "week": {
+      // Up to the church's midnight a week from today.
+      const weekEnd = keyToDate(addDays(dayKey(now), 7)).getTime();
+      return startOf(date) <= weekEnd && !isBlockOver(date, now);
+    }
+    case "month":
+      return inMonth(date, month);
+    case "past":
+      return isBlockOver(date, now);
   }
-
-  return keys;
 }
 
-/** True only once every one of the event's days is behind today. */
-export function isEventPast(event: OrganizationEvent, today: string): boolean {
-  const keys = dayKeysFor(event.dates);
-  return keys.length > 0 && keys.every((key) => key < today);
-}
-
-/** True when any of the event's days falls inside the chosen period. */
+/** True when any of the event's blocks falls inside the chosen period. */
 export function isInScope(
   event: OrganizationEvent,
   scope: TimeScope,
   month: string,
-  today: string,
+  now: Date,
 ): boolean {
-  const keys = dayKeysFor(event.dates);
-  if (keys.length === 0) return false;
+  if (event.dates.length === 0) return false;
 
-  switch (scope) {
-    case "upcoming":
-      return keys.some((key) => key >= today);
-    case "week": {
-      const end = new Date(`${today}T00:00:00.000Z`);
-      end.setUTCDate(end.getUTCDate() + 7);
-      const weekEnd = dayKey(end);
-      return keys.some((key) => key >= today && key <= weekEnd);
-    }
-    case "month":
-      return keys.some((key) => monthKey(`${key}T00:00:00.000Z`) === month);
-    case "past":
-      return (
-        keys.every((key) => key < today) &&
-        keys.some((key) => monthKey(`${key}T00:00:00.000Z`) === month)
-      );
+  if (scope === "past") {
+    return isEventPast(event, now) && event.dates.some((date) => inMonth(date, month));
   }
+
+  return event.dates.some((date) => blockInScope(date, scope, month, now));
 }
 
 /**
- * The day an event files under.
- *
- * A multi-day event that starts before the period showing would otherwise
- * group above the period's first day, so the anchor is its earliest day that
- * the period actually contains — falling back to its true start.
+ * The day an event files under: the start of its earliest block that the
+ * period contains — falling back to its true start — so a multi-day event
+ * that began before the period, or whose first day is already over, groups
+ * under the day it is next on.
  */
 export function anchorDayKey(
   event: OrganizationEvent,
   scope: TimeScope,
   month: string,
-  today: string,
+  now: Date,
 ): string {
-  const keys = dayKeysFor(event.dates);
-  if (keys.length === 0) return today;
+  const inScope = event.dates.filter((date) => blockInScope(date, scope, month, now));
+  const anchor = earliestDate(inScope.length > 0 ? inScope : event.dates);
 
-  const inScope = keys.filter((key) => {
-    switch (scope) {
-      case "upcoming":
-        return key >= today;
-      case "week": {
-        const end = new Date(`${today}T00:00:00.000Z`);
-        end.setUTCDate(end.getUTCDate() + 7);
-        return key >= today && key <= dayKey(end);
-      }
-      case "month":
-        return monthKey(`${key}T00:00:00.000Z`) === month;
-      case "past":
-        return key < today;
-    }
-  });
+  return anchor ? dayKey(anchor.startTime) : dayKey(now);
+}
 
-  return inScope[0] ?? keys[0];
+/**
+ * The next real instant at which the schedule would read differently: a block
+ * ending, an invitation lapsing, or the church's midnight. `now` is the
+ * floating clock at `instant`.
+ */
+export function nextChange(
+  dates: readonly EventDate[],
+  deadlines: readonly string[],
+  timeZone: string,
+  now: Date,
+  instant: number,
+): number {
+  // The soonest block still going, found on the floating clock so that only
+  // one time needs turning into an instant. It is over a moment after its end.
+  let soonestEnd = keyToDate(addDays(dayKey(now), 1)).getTime();
+  for (const date of dates) {
+    const end = endOf(date);
+    if (end >= now.getTime() && end < soonestEnd) soonestEnd = end;
+  }
+
+  let next = inZone(new Date(soonestEnd), timeZone).getTime() + 1;
+  for (const deadline of deadlines) {
+    const at = new Date(deadline).getTime();
+    if (at > instant && at < next) next = at;
+  }
+
+  // Across a daylight-saving change a wall time can name no instant at all.
+  return next > instant ? next : instant + 60_000;
 }
 
 export type DayGroup = {
@@ -143,12 +169,12 @@ export function groupByDay(
   events: OrganizationEvent[],
   scope: TimeScope,
   month: string,
-  today: string,
+  now: Date,
 ): DayGroup[] {
   const groups = new Map<string, OrganizationEvent[]>();
 
   for (const event of events) {
-    const key = anchorDayKey(event, scope, month, today);
+    const key = anchorDayKey(event, scope, month, now);
     const bucket = groups.get(key);
     if (bucket) {
       bucket.push(event);
@@ -172,7 +198,7 @@ export function groupByDay(
 export type UpNext = {
   event: OrganizationEvent;
   date: EventDate;
-  /** Days from today to the block's start — negative never happens here. */
+  /** Days from today to the block's start; one already going is today's. */
   inDays: number;
 };
 
@@ -182,7 +208,7 @@ export type UpNext = {
  */
 export function findUpNext(
   events: OrganizationEvent[],
-  today: string,
+  now: Date,
 ): UpNext | null {
   let best: UpNext | null = null;
 
@@ -190,12 +216,12 @@ export function findUpNext(
     if (!assignmentFor(event, "ACCEPTED")) continue;
 
     for (const date of event.dates) {
-      if (dayKey(date.endTime) < today) continue;
-      if (best && date.startTime >= best.date.startTime) continue;
+      if (isBlockOver(date, now)) continue;
+      if (best && startOf(date) >= startOf(best.date)) continue;
       best = {
         event,
         date,
-        inDays: daysBetween(today, dayKey(date.startTime)),
+        inDays: Math.max(0, daysBetween(dayKey(now), dayKey(date.startTime))),
       };
     }
   }

@@ -20,8 +20,8 @@ import {
   formatTime,
   isMultiDay,
   sortDates,
-  todayKey,
 } from "@/lib/events/format";
+import { isBlockOver } from "@/lib/events/schedule";
 import type { EventDate, ServiceType } from "@/types/event";
 
 /** The hero's padding, which the row of days scrolls out under. */
@@ -40,6 +40,8 @@ type Tile = {
   value: string;
   /** Where a block sits against today, once the event is under way. */
   when?: "done" | "today";
+  /** The block a scrolling row of days opens on: the first not over, while under way. */
+  opens?: boolean;
 };
 
 /**
@@ -58,12 +60,18 @@ export function EventWhenWhere({
   service,
   rehearsalStart = null,
   rehearsalEnd = null,
+  now,
+  today,
 }: {
   dates: EventDate[];
   location: string;
   service: ServiceType;
   rehearsalStart?: string | null;
   rehearsalEnd?: string | null;
+  /** The organization's clock, floating like event times. */
+  now: Date;
+  /** The organization's calendar day. */
+  today: string;
 }) {
   const theme = useTheme();
   const colors = getServiceColors(service.color, theme);
@@ -75,12 +83,14 @@ export function EventWhenWhere({
   const spansDays = isMultiDay(dates);
 
   // Only an event under way marks its blocks: a finished one would fade every
-  // tile, and an upcoming one has nothing behind it yet.
-  const today = todayKey();
+  // tile, and an upcoming one has nothing behind it yet. A block is done once
+  // it is over on the church's clock, even on the day it was on.
   const keys = sorted.map((date) => dayKey(date.startTime));
-  const underWay = keys.some((key) => key < today) && keys.some((key) => key >= today);
-  const stateOf = (key: string): Tile["when"] =>
-    key === today ? "today" : underWay && key < today ? "done" : undefined;
+  const over = sorted.map((date) => isBlockOver(date, now));
+  const underWay = over.some(Boolean) && !over.every(Boolean);
+  const firstAhead = over.indexOf(false);
+  const stateOf = (index: number): Tile["when"] =>
+    underWay && over[index] ? "done" : keys[index] === today ? "today" : undefined;
 
   const blocks: Tile[] = sorted.map((date, index) => ({
     key: date.id,
@@ -91,7 +101,8 @@ export function EventWhenWhere({
         ? "Today"
         : "Time",
     value: `${formatTime(date.startTime)} – ${formatTime(date.endTime)}`,
-    when: stateOf(keys[index]),
+    when: stateOf(index),
+    opens: underWay && index === firstAhead,
   }));
 
   const where: Tile = { key: "where", icon: MapPin, label: "Location", value: location };
@@ -185,8 +196,9 @@ function DayRow({ tiles, colors }: { tiles: Tile[]; colors: ServiceColors }) {
     );
   }
 
-  // While the event is under way the row opens on today, not its first day.
-  const showToday = (event: LayoutChangeEvent) => {
+  // While the event is under way the row opens on the block that's next, not
+  // on its first day.
+  const showNext = (event: LayoutChangeEvent) => {
     if (placed.current) return;
     placed.current = true;
     scrollRef.current?.scrollTo({
@@ -209,7 +221,7 @@ function DayRow({ tiles, colors }: { tiles: Tile[]; colors: ServiceColors }) {
           tile={tile}
           colors={colors}
           fill={false}
-          onLayout={tile.when === "today" ? showToday : undefined}
+          onLayout={tile.opens ? showNext : undefined}
         />
       ))}
     </ScrollView>

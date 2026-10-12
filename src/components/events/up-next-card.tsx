@@ -29,6 +29,8 @@ type UpNextCardProps = {
   upNext: UpNext;
   service: ServiceType | undefined;
   today: string;
+  /** The organization's clock, floating like event times. */
+  now: Date;
   onPress?: () => void;
 };
 
@@ -49,6 +51,7 @@ export function UpNextCard({
   upNext,
   service,
   today,
+  now,
   onPress,
 }: UpNextCardProps) {
   const theme = useTheme();
@@ -56,7 +59,7 @@ export function UpNextCard({
   const { event, date } = upNext;
 
   const key = dayKey(date.startTime);
-  const time = formatTimeOn(event.dates, key);
+  const time = formatTimeOn(event.dates, key, now);
   const role = assignmentFor(event, "ACCEPTED")?.role ?? null;
   const rehearsal = formatRehearsal(event.rehearsalStart, event.rehearsalEnd);
 

@@ -41,11 +41,13 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
 import { useSmartSchedulingAvailable } from "@/hooks/use-billing";
+import { useChurchClock } from "@/hooks/use-church-clock";
 import {
   useOrgEvents,
   useRespondToInvitation,
   useUserEvents,
 } from "@/hooks/use-events";
+import { useOrganizations } from "@/hooks/use-organizations";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useServiceTypes, useSetServiceTypeOrder } from "@/hooks/use-service-types";
 import { useTheme } from "@/hooks/use-theme";
@@ -105,15 +107,14 @@ export default function EventsScreen() {
   const userEvents = useUserEvents(organizationId);
   const orgEvents = useOrgEvents(organizationId, canManage);
   const serviceTypes = useServiceTypes(organizationId);
+  // The provider's own list, which carries the organization's time zone.
+  const organizations = useOrganizations();
   const saveServiceOrder = useSetServiceTypeOrder(organizationId);
   const saveServiceOrderMutate = saveServiceOrder.mutate;
   const autoFillAvailable = useSmartSchedulingAvailable(organizationId);
 
   // ── View state ────────────────────────────────────────────────────────
   // A null tab means the viewer has not chosen one; the screen picks below.
-  // Read once per mount, like EventTeamCard: "has this invitation lapsed" must
-  // not flip between renders, and Date.now() during render is impure.
-  const [now] = useState(() => Date.now());
   const [tab, setTab] = useState<EventsTab | null>(null);
   // A notification can land here asking for a tab: Pending for "waiting on
   // your answer", All for a manager told about several events at once. The
@@ -175,17 +176,27 @@ export default function EventsScreen() {
   const refetchUserEvents = userEvents.refetch;
   const refetchOrgEvents = orgEvents.refetch;
   const refetchServiceTypes = serviceTypes.refetch;
+  const refetchOrganizations = organizations.refetch;
 
   const refresh = useCallback(
     () =>
       Promise.all([
         refetchUserEvents(),
         refetchServiceTypes(),
+        // Its time zone decides what is over, and an owner can move it from
+        // the dashboard.
+        refetchOrganizations(),
         // Refetching by hand fires even a disabled query, and the roster-wide
         // list is not a member's to ask for.
         canManage ? refetchOrgEvents() : null,
       ]),
-    [canManage, refetchOrgEvents, refetchServiceTypes, refetchUserEvents],
+    [
+      canManage,
+      refetchOrgEvents,
+      refetchOrganizations,
+      refetchServiceTypes,
+      refetchUserEvents,
+    ],
   );
 
   const pullToRefresh = usePullToRefresh(refresh);
@@ -205,15 +216,27 @@ export default function EventsScreen() {
   const myEvents = userEvents.data ?? NO_EVENTS;
   const allEvents = orgEvents.data ?? NO_EVENTS;
 
-  const today = todayKey();
+  // The organization's clock, which the lists below are worked out against.
+  // It moves on by itself when a block on screen ends or an invitation lapses,
+  // so a finished service leaves Upcoming at its end time, as on the web.
+  const { instant, now, today } = useChurchClock(
+    [...myEvents, ...allEvents].flatMap((event) => event.dates),
+    myEvents.flatMap((event) =>
+      event.assignments
+        .filter((assignment) => assignment.status === "PENDING")
+        .map((assignment) => assignment.expiresAt),
+    ),
+  );
+  // An invitation's deadline is a real instant, so its day is the reader's.
+  const readerToday = todayKey();
   const serviceById = new Map(services.map((service) => [service.id, service]));
 
   const matchesService = (event: OrganizationEvent) =>
     !serviceId || event.serviceTypeId === serviceId;
 
   const inPeriod = (event: OrganizationEvent) =>
-    isInScope(event, scope, month, today) &&
-    (scope === "past" || !isEventPast(event, today));
+    isInScope(event, scope, month, now) &&
+    (scope === "past" || !isEventPast(event, now));
 
   // An invitation nobody answered in time is not one you can answer now: the
   // server refuses it the moment it lapses.
@@ -228,8 +251,8 @@ export default function EventsScreen() {
     const assignment = assignmentFor(event, "PENDING");
     return (
       assignment !== null &&
-      new Date(assignment.expiresAt).getTime() > now &&
-      !isEventPast(event, today)
+      new Date(assignment.expiresAt).getTime() > instant &&
+      !isEventPast(event, now)
     );
   };
 
@@ -242,8 +265,8 @@ export default function EventsScreen() {
       (assignment) =>
         assignment.status === "EXPIRED" ||
         (assignment.status === "PENDING" &&
-          new Date(assignment.expiresAt).getTime() <= now),
-    ) && !isEventPast(event, today);
+          new Date(assignment.expiresAt).getTime() <= instant),
+    ) && !isEventPast(event, now);
 
   const invitations = myEvents.filter(isInvitation);
   const lapsed = myEvents.filter(isLapsedInvitation);
@@ -276,10 +299,10 @@ export default function EventsScreen() {
     pending: userEvents.isPending ? undefined : invitations.length,
     schedule: userEvents.isPending
       ? undefined
-      : accepted.filter((event) => !isEventPast(event, today)).length,
+      : accepted.filter((event) => !isEventPast(event, now)).length,
     all: orgEvents.isPending
       ? undefined
-      : allEvents.filter((event) => !isEventPast(event, today)).length,
+      : allEvents.filter((event) => !isEventPast(event, now)).length,
   };
 
   const segments: Segment<EventsTab>[] = [
@@ -301,13 +324,13 @@ export default function EventsScreen() {
   const scheduled = (activeTab === "all" ? allEvents : accepted)
     .filter(matchesService)
     .filter(inPeriod);
-  const groups = groupByDay(scheduled, scope, month, today);
+  const groups = groupByDay(scheduled, scope, month, now);
 
   // Only on the default period. Narrowed to a week or a month, a hero
   // announcing something outside that window contradicts the list under it.
   const upNext =
     activeTab === "schedule" && scope === "upcoming"
-      ? findUpNext(accepted.filter(matchesService), today)
+      ? findUpNext(accepted.filter(matchesService), now)
       : null;
 
   // The card is the list's first event, so the list picks up after it. The
@@ -385,7 +408,7 @@ export default function EventsScreen() {
               key={event.id}
               event={event}
               service={serviceById.get(event.serviceTypeId)}
-              today={today}
+              today={readerToday}
               busy={busy?.eventId === event.id ? busy.action : undefined}
               onAccept={() => answer(event.id, "accept")}
               onDecline={() => answer(event.id, "decline")}
@@ -422,6 +445,7 @@ export default function EventsScreen() {
             upNext={upNext}
             service={serviceById.get(upNext.event.serviceTypeId)}
             today={today}
+            now={now}
             onPress={() => openEvent(upNext.event.id)}
           />
         ) : null}
@@ -456,6 +480,7 @@ export default function EventsScreen() {
                   service={serviceById.get(event.serviceTypeId)}
                   dayKey={group.key}
                   today={today}
+                  now={now}
                   highlight={group.key === nextKey}
                   showStaffing={activeTab === "all"}
                   autoFillAvailable={autoFillAvailable}

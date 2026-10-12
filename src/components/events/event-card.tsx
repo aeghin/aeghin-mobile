@@ -59,6 +59,8 @@ type EventCardProps = {
   /** The `"2026-08-30"` day the card files under, which its date tile shows. */
   dayKey: string;
   today: string;
+  /** The organization's clock, floating like event times. */
+  now: Date;
   /** The first day still to come, whose tile goes solid in the service's colour. */
   highlight?: boolean;
   /**
@@ -83,6 +85,7 @@ export function EventCard({
   service,
   dayKey,
   today,
+  now,
   highlight,
   showStaffing,
   autoFillAvailable = true,
@@ -90,7 +93,7 @@ export function EventCard({
 }: EventCardProps) {
   const theme = useTheme();
 
-  const time = formatTimeOn(event.dates, dayKey);
+  const time = formatTimeOn(event.dates, dayKey, now);
   // An accepted role outranks a pending one; a declined one never shows.
   const assignment =
     assignmentFor(event, "ACCEPTED") ?? assignmentFor(event, "PENDING");

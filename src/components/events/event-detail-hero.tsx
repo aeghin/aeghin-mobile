@@ -9,9 +9,11 @@ import { HStack } from "@/components/ui/hstack";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
+import { useChurchClock } from "@/hooks/use-church-clock";
 import { useTheme } from "@/hooks/use-theme";
 import { getServiceColors } from "@/lib/config/service-types";
-import { dayKey, sortDates, todayKey } from "@/lib/events/format";
+import { dayKey, sortDates } from "@/lib/events/format";
+import { isBlockOver } from "@/lib/events/schedule";
 import type { EventDetails } from "@/types/event";
 
 /** Room the ⋮ needs in the corner it shares with the name. */
@@ -50,11 +52,12 @@ export function EventDetailHero({ event, actions, pager }: EventDetailHeroProps)
   const colors = getServiceColors(event.serviceType.color, theme);
   const menu = actions && actions.length > 0;
 
-  const today = todayKey();
+  // Moves on by itself as each block ends, on the organization's clock.
+  const { now, today } = useChurchClock(event.dates);
   // The day it's on, as the Upcoming card picks it: the first block not over
   // yet, or the first block once the whole event has been.
   const sorted = sortDates(event.dates);
-  const shown = sorted.find((date) => dayKey(date.endTime) >= today) ?? sorted[0];
+  const shown = sorted.find((date) => !isBlockOver(date, now)) ?? sorted[0];
 
   return (
     <VStack className="mx-4 overflow-hidden rounded-2xl border border-border bg-card">
@@ -107,6 +110,8 @@ export function EventDetailHero({ event, actions, pager }: EventDetailHeroProps)
           service={event.serviceType}
           rehearsalStart={event.rehearsalStart}
           rehearsalEnd={event.rehearsalEnd}
+          now={now}
+          today={today}
         />
 
         {pager}

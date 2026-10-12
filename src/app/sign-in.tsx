@@ -27,6 +27,7 @@ import {
   fieldMessage,
   globalMessage,
   isPhoneIdentifier,
+  isUnsafePassword,
   toIdentifier,
 } from "@/lib/auth";
 
@@ -38,7 +39,8 @@ type Step =
   | { name: "code"; channel: Channel; destination: string }
   /** What Clerk can ask for after the first factor: two-factor, or a new device. */
   | { name: "verify"; strategy: "email_code" | "phone_code" | "totp"; destination?: string }
-  | { name: "reset"; channel: Channel; destination: string }
+  /** `breached`: sent unasked, because Clerk refused the right password as unsafe. */
+  | { name: "reset"; channel: Channel; destination: string; breached?: boolean }
   | { name: "new-password"; channel: Channel };
 
 type Action = "password" | "code" | "reset";
@@ -154,6 +156,10 @@ export default function SignInScreen() {
     run("password", async (id) => {
       const { error } = await signIn.password({ identifier: id, password });
       if (!error) await advance();
+      // Clerk's advice for an unsafe password is to sign in another way and
+      // reset afterwards, a step this screen can't show; resetting first ends
+      // in an ordinary session.
+      else if (isUnsafePassword(error)) await startReset(id, true);
     });
 
   const signInWithCode = () =>
@@ -171,23 +177,55 @@ export default function SignInScreen() {
       }
     });
 
-  const resetPassword = () =>
-    run("reset", async (id) => {
-      const created = await signIn.create({ identifier: id });
-      if (created.error) return;
+  // Clerk resets only through the email or number that was typed.
+  const startReset = async (id: string, breached = false) => {
+    const created = await signIn.create({ identifier: id });
+    if (created.error) return;
 
-      const phone = isPhoneIdentifier(id);
-      const { error } = phone
-        ? await signIn.resetPasswordPhoneCode.sendCode()
-        : await signIn.resetPasswordEmailCode.sendCode();
-      if (!error) {
-        go({
-          name: "reset",
-          channel: phone ? "phone" : "email",
-          destination: displayIdentifier(id),
-        });
-      }
-    });
+    const phone = isPhoneIdentifier(id);
+    const { error } = phone
+      ? await signIn.resetPasswordPhoneCode.sendCode()
+      : await signIn.resetPasswordEmailCode.sendCode();
+    if (!error) {
+      go({
+        name: "reset",
+        channel: phone ? "phone" : "email",
+        destination: displayIdentifier(id),
+        breached,
+      });
+    }
+  };
+
+  const resetPassword = () => run("reset", (id) => startReset(id));
+
+  // Once a code sign-in exists, Clerk lists the account's other ways to get
+  // one: a text when the email was typed, an email when the number was.
+  const otherChannel = step.name === "code" ? (step.channel === "email" ? "phone" : "email") : null;
+  const otherCode = otherChannel
+    ? signIn.supportedFirstFactors.find(
+        (factor): factor is Extract<typeof factor, { strategy: `${Channel}_code` }> =>
+          factor.strategy === `${otherChannel}_code`,
+      )
+    : undefined;
+
+  const sendCodeElsewhere = async () => {
+    if (!otherChannel || !otherCode) return;
+
+    setProblem(null);
+    setAction("code");
+    const { error } =
+      otherChannel === "phone"
+        ? await signIn.phoneCode.sendCode()
+        : await signIn.emailCode.sendCode();
+    setAction(null);
+    if (!error) {
+      go({
+        name: "code",
+        channel: otherChannel,
+        destination: displayIdentifier(otherCode.safeIdentifier),
+      });
+    }
+  };
 
   const submitCode = (code: string) => {
     switch (step.name) {
@@ -278,7 +316,7 @@ export default function SignInScreen() {
 
   return (
     <AuthShell
-      stepKey={step.name}
+      stepKey={step.name === "code" ? `code-${step.channel}` : step.name}
       direction={direction}
       onBack={step.name === "credentials" ? undefined : backToStart}
       footer={
@@ -391,6 +429,11 @@ export default function SignInScreen() {
           icon={codeScreen.icon}
           title={codeScreen.title}
           destination={step.destination}
+          reason={
+            step.name === "reset" && step.breached
+              ? "That password may have been exposed in a data breach, so it needs replacing."
+              : undefined
+          }
           description={
             step.name === "verify" && step.strategy === "totp"
               ? "Enter the 6-digit code from your authenticator app."
@@ -402,7 +445,17 @@ export default function SignInScreen() {
           onResend={step.name === "verify" && step.strategy === "totp" ? undefined : resendCode}
         >
           {step.name === "code" ? (
-            <TextLink label="Use your password instead" muted onPress={backToStart} />
+            <>
+              {otherCode ? (
+                <TextLink
+                  label={otherChannel === "phone" ? "Text me instead" : "Email me instead"}
+                  muted
+                  onPress={sendCodeElsewhere}
+                  disabled={busy}
+                />
+              ) : null}
+              <TextLink label="Use your password instead" muted onPress={backToStart} />
+            </>
           ) : null}
         </CodeStep>
       )}

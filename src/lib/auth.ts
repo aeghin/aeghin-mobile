@@ -38,9 +38,15 @@ export function isPhoneIdentifier(identifier: string): boolean {
   return identifier.startsWith("+");
 }
 
-/** An identifier the way the person would recognise it: a US number back in dashes. */
+/**
+ * An identifier the way the person would recognise it: a US number back in
+ * dashes, including the masked `+*********42` Clerk gives for an account's
+ * other number.
+ */
 export function displayIdentifier(identifier: string): string {
-  return /^\+1\d{10}$/.test(identifier) ? formatUsPhone(identifier.slice(2)) : identifier;
+  if (/^\+1\d{10}$/.test(identifier)) return formatUsPhone(identifier.slice(2));
+  if (/^\+\*[\d*]{10}$/.test(identifier)) return formatUsPhone(identifier.slice(2)).replace(/\*/g, "•");
+  return identifier;
 }
 
 type FieldError = { message: string; longMessage?: string } | null | undefined;
@@ -54,6 +60,20 @@ export function fieldMessage(error: FieldError): string | undefined {
 export function globalMessage(errors: readonly unknown[] | null): string | undefined {
   const [first] = errors ?? [];
   return first ? clerkMessage(first) : undefined;
+}
+
+/**
+ * The right password, refused because it turned up in a data breach or was
+ * marked unsafe from the Clerk dashboard. Clerk only says so once the
+ * password matches; a reset is the way back in.
+ */
+export function isUnsafePassword(error: unknown): boolean {
+  return (
+    isClerkAPIResponseError(error) &&
+    error.errors.some(
+      (e) => e.code === "form_password_pwned" || e.code === "form_password_compromised",
+    )
+  );
 }
 
 /** What to show when a call fails without naming a field. */

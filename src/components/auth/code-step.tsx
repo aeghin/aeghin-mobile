@@ -18,6 +18,8 @@ type CodeStepProps = {
   title: string;
   /** Where the code went, set in bold inside the default line. */
   destination?: string;
+  /** Why a code was sent unasked, ahead of the default line. */
+  reason?: string;
   /** Replaces the default line — an authenticator code was not sent anywhere. */
   description?: string;
   error?: string;
@@ -35,6 +37,7 @@ export function CodeStep({
   icon,
   title,
   destination,
+  reason,
   description,
   error,
   busy,
@@ -77,7 +80,7 @@ export function CodeStep({
         subtitle={
           description ?? (
             <>
-              Enter the 6-digit code we sent to{" "}
+              {reason ? `${reason} ` : null}Enter the 6-digit code we sent to{" "}
               <Text className="font-semibold text-foreground">{destination}</Text>.
             </>
           )

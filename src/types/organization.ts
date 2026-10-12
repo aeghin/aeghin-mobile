@@ -100,6 +100,11 @@ export type PendingInvitation = {
   volunteerRoles: VolunteerRole[];
   expiresAt: string;
   createdAt: string;
+  /**
+   * Opened from the bell, which shows it as read from then on. Optional: a
+   * server from before the bell carried invitations leaves it out.
+   */
+  seen?: boolean;
   invitedBy: { firstName: string; lastName: string };
   organization: {
     id: string;

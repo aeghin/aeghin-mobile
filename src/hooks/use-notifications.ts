@@ -1,8 +1,10 @@
 import { useAuth } from "@clerk/expo";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { myInvitationsKey } from "@/hooks/use-my-invitations";
 import { apiGet, apiPost } from "@/lib/api";
 import type { NotificationFeed, NotificationItem } from "@/types/notification";
+import type { PendingInvitation } from "@/types/organization";
 
 /**
  * Under `["organizations", userId]`, so membership writes already expire it.
@@ -48,36 +50,54 @@ function markRead(
 
 /**
  * Optimistic, so the badge drops on tap. The refetch afterwards restores the
- * server's unread-first order.
+ * server's unread-first order. The organization invitations at the top of the
+ * bell are marked by the same calls, so `marks` says which of them this one
+ * clears.
  */
 function useMarkRead<TVariables>(
   mutationFn: (variables: TVariables) => Promise<unknown>,
   apply: (feed: NotificationFeed, variables: TVariables) => NotificationFeed,
+  marks: (invitation: PendingInvitation, variables: TVariables) => boolean,
 ) {
   const { userId } = useAuth();
   const queryClient = useQueryClient();
   const key = notificationsKey(userId);
+  const invitationsKey = myInvitationsKey(userId);
 
   return useMutation({
     mutationFn,
     onMutate: async (variables: TVariables) => {
-      await queryClient.cancelQueries({ queryKey: key });
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: key }),
+        queryClient.cancelQueries({ queryKey: invitationsKey }),
+      ]);
 
       const previous = queryClient.getQueryData<NotificationFeed>(key);
+      const previousInvitations =
+        queryClient.getQueryData<PendingInvitation[]>(invitationsKey);
 
       queryClient.setQueryData<NotificationFeed>(key, (feed) =>
         feed ? apply(feed, variables) : feed,
       );
+      queryClient.setQueryData<PendingInvitation[]>(invitationsKey, (list) =>
+        list?.map((invitation) =>
+          marks(invitation, variables) ? { ...invitation, seen: true } : invitation,
+        ),
+      );
 
-      return { previous };
+      return { previous, previousInvitations };
     },
     onError: (_error, _variables, context) => {
       if (context?.previous) {
         queryClient.setQueryData(key, context.previous);
       }
+      if (context?.previousInvitations) {
+        queryClient.setQueryData(invitationsKey, context.previousInvitations);
+      }
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: key });
+      queryClient.invalidateQueries({ queryKey: invitationsKey });
     },
   });
 }
@@ -90,6 +110,8 @@ export function useMarkNotificationRead() {
       ),
     (feed, notificationId) =>
       markRead(feed, (item) => item.id === notificationId),
+    // The same route marks one of those: ids are unique across both.
+    (invitation, notificationId) => invitation.id === notificationId,
   );
 }
 
@@ -98,5 +120,6 @@ export function useMarkAllNotificationsRead() {
     () => apiPost<{ success: true }>("/api/mobile/v1/notifications/read"),
     // Includes rows past the feed's cap, which only the count knows about.
     (feed) => ({ ...markRead(feed, () => true), unreadCount: 0 }),
+    () => true,
   );
 }

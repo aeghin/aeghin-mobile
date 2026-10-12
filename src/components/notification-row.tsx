@@ -1,4 +1,5 @@
 import Bell from "lucide-react-native/icons/bell";
+import Building2 from "lucide-react-native/icons/building-2";
 import CircleCheck from "lucide-react-native/icons/circle-check";
 import Inbox from "lucide-react-native/icons/inbox";
 import TriangleAlert from "lucide-react-native/icons/triangle-alert";
@@ -13,7 +14,9 @@ import { VStack } from "@/components/ui/vstack";
 import { brand, withAlpha, type Palette } from "@/constants/branding";
 import { useTheme } from "@/hooks/use-theme";
 import { formatActivityTime } from "@/lib/events/format";
+import { personName } from "@/lib/names";
 import type { NotificationCategory, NotificationItem } from "@/types/notification";
+import type { PendingInvitation } from "@/types/organization";
 
 type RowStyle = {
   icon: AppIconName;
@@ -53,25 +56,84 @@ export function NotificationRow({
 }) {
   const theme = useTheme();
   const style = ROW_STYLES[item.category] ?? FALLBACK_STYLE;
-  const color = style.color(theme);
   const when = formatActivityTime(item.updatedAt);
 
+  return (
+    <BellRow
+      icon={style.icon}
+      color={style.color(theme)}
+      tint={style.tint}
+      title={item.eventName}
+      line={describe(item)}
+      meta={`${item.organizationName} · ${when}`}
+      unread={item.unread}
+      onPress={onPress}
+    />
+  );
+}
+
+/**
+ * An organization asking to have you, at the top of the bell. It asks for an
+ * answer, so it wears the colour of the rows that do.
+ */
+export function InvitationNoticeRow({
+  invitation,
+  onPress,
+}: {
+  invitation: PendingInvitation;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  const inviter = personName(invitation.invitedBy);
+
+  return (
+    <BellRow
+      icon={Building2}
+      color={theme.sky}
+      tint={0.1}
+      title={invitation.organization.name}
+      line={inviter ? `${inviter} invited you to join` : "You've been invited to join"}
+      meta={formatActivityTime(invitation.createdAt)}
+      unread={!invitation.seen}
+      onPress={onPress}
+    />
+  );
+}
+
+/** One row of the bell, whatever it points at. */
+function BellRow({
+  icon,
+  color,
+  tint,
+  title,
+  line,
+  meta,
+  unread,
+  onPress,
+}: {
+  icon: AppIconName;
+  color: string;
+  tint: number;
+  title: string;
+  line: string;
+  meta: string;
+  unread: boolean;
+  onPress: () => void;
+}) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       // The dot is the only visual cue for unread, so the label says it.
-      accessibilityLabel={`${item.eventName}. ${describe(item)}. ${item.organizationName}, ${when}.${
-        item.unread ? " Unread." : ""
-      }`}
+      accessibilityLabel={`${title}. ${line}. ${meta}.${unread ? " Unread." : ""}`}
       className="data-[active=true]:opacity-60"
     >
       <HStack className="items-start gap-3 px-3.5 py-3">
         <Center
           className="mt-0.5 h-9 w-9 rounded-full"
-          style={{ backgroundColor: withAlpha(color, style.tint) }}
+          style={{ backgroundColor: withAlpha(color, tint) }}
         >
-          <AppIcon icon={style.icon} size={16} color={color} />
+          <AppIcon icon={icon} size={16} color={color} />
         </Center>
 
         <VStack className="flex-1 gap-0.5">
@@ -80,17 +142,15 @@ export function NotificationRow({
               className="flex-1 text-[15px] font-medium leading-[20px] text-foreground"
               numberOfLines={1}
             >
-              {item.eventName}
+              {title}
             </Text>
-            {item.unread ? <Box className="h-2 w-2 rounded-full bg-brand" /> : null}
+            {unread ? <Box className="h-2 w-2 rounded-full bg-brand" /> : null}
           </HStack>
 
-          <Text className="text-[13px] leading-[18px] text-muted-foreground">
-            {describe(item)}
-          </Text>
+          <Text className="text-[13px] leading-[18px] text-muted-foreground">{line}</Text>
 
           <Text className="text-[12px] text-muted-foreground" numberOfLines={1}>
-            {item.organizationName} · {when}
+            {meta}
           </Text>
         </VStack>
       </HStack>

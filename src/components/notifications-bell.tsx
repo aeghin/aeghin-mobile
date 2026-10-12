@@ -16,6 +16,7 @@ import { NotificationsMenu } from "@/components/notifications-menu";
 import { Center } from "@/components/ui/center";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
+import { useMyInvitations } from "@/hooks/use-my-invitations";
 import { useNotifications } from "@/hooks/use-notifications";
 import { useTheme } from "@/hooks/use-theme";
 
@@ -47,6 +48,7 @@ export function NotificationsBell() {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const { data, isStale, refetch } = useNotifications();
+  const invitations = useMyInvitations();
 
   const triggerRef = useRef<View>(null);
   const [anchor, setAnchor] = useState<Anchor | null>(null);
@@ -70,12 +72,15 @@ export function NotificationsBell() {
     }).start();
   }, [open, scale]);
 
-  const unreadCount = data?.unreadCount ?? 0;
+  const unreadCount =
+    (data?.unreadCount ?? 0) +
+    (invitations.data ?? []).filter((invitation) => !invitation.seen).length;
 
   const show = () =>
     triggerRef.current?.measureInWindow((x, y, w, h) => {
       // Opening the old sheet mounted the query afresh; the bell already has.
       if (isStale) refetch();
+      if (invitations.isStale) invitations.refetch();
       setAnchor({ x, y, width: w, height: h });
       setFading(true);
       setOpen(true);

@@ -42,7 +42,7 @@ export function InvitationCard({
 
   return (
     <VStack className="gap-3 rounded-2xl border border-border bg-card p-3.5">
-      <HStack className="items-center gap-3">
+      <HStack className="items-start gap-3">
         <OrgAvatar
           name={organization.name}
           logoUrl={organization.logoUrl}
@@ -59,6 +59,11 @@ export function InvitationCard({
           <Text className="text-[13px] text-muted-foreground" numberOfLines={1}>
             {inviter ? `Invited by ${inviter}` : "You've been invited"}
           </Text>
+          {organization.description ? (
+            <Text className="text-[12.5px] text-muted-foreground" numberOfLines={2}>
+              {organization.description}
+            </Text>
+          ) : null}
         </VStack>
 
         <Pill label={expiry.label} tone={expiry.urgent ? "warning" : "neutral"} />
@@ -97,16 +102,6 @@ export function InvitationCard({
           accent={brand.orange}
         />
       </HStack>
-
-      {organization.description ? (
-        <Text className="text-[12.5px] text-muted-foreground" numberOfLines={2}>
-          {organization.description}
-        </Text>
-      ) : null}
-
-      <Text className="text-[11.5px] text-muted-foreground">
-        {`${organization.memberCount} ${organization.memberCount === 1 ? "member" : "members"}`}
-      </Text>
     </VStack>
   );
 }

@@ -3,7 +3,7 @@ import Bell from "lucide-react-native/icons/bell";
 import { Alert, ScrollView } from "react-native";
 
 import { AppIcon } from "@/components/app-icon";
-import { NotificationRow } from "@/components/notification-row";
+import { InvitationNoticeRow, NotificationRow } from "@/components/notification-row";
 import { useCurrentOrganization } from "@/components/organization-provider";
 import { Center } from "@/components/ui/center";
 import { Divider } from "@/components/ui/divider";
@@ -14,6 +14,7 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
 import { useExpireUserEvents } from "@/hooks/use-events";
+import { useMyInvitations } from "@/hooks/use-my-invitations";
 import {
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
@@ -23,7 +24,7 @@ import { useOrganizations } from "@/hooks/use-organizations";
 import { useTheme } from "@/hooks/use-theme";
 import { failureMessage } from "@/lib/failure";
 import type { NotificationItem } from "@/types/notification";
-import type { OrganizationSummary } from "@/types/organization";
+import type { OrganizationSummary, PendingInvitation } from "@/types/organization";
 
 /**
  * The bell, opened: the dashboard's dropdown, part for part. Rows span every
@@ -49,13 +50,23 @@ export function NotificationsMenu({
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
 
+  // Organizations asking to have you head the list, as on the dashboard.
+  const invitations = useMyInvitations().data ?? [];
+
   const items = feed.data?.items ?? [];
-  const unreadCount = feed.data?.unreadCount ?? 0;
+  const unreadCount =
+    (feed.data?.unreadCount ?? 0) + invitations.filter((invitation) => !invitation.seen).length;
 
   const onMarkAllRead = () => {
     markAllRead.mutate(undefined, {
       onError: (error) => Alert.alert("Couldn't mark as read", failureMessage(error)),
     });
+  };
+
+  // Answered on the picker, which lists every invitation waiting on you.
+  const openInvitation = (invitation: PendingInvitation) => {
+    if (!invitation.seen) markRead.mutate(invitation.id);
+    router.push("/organizations");
   };
 
   const open = async (item: NotificationItem) => {
@@ -108,11 +119,22 @@ export function NotificationsMenu({
 
       <Divider />
 
-      {items.length > 0 ? (
+      {items.length > 0 || invitations.length > 0 ? (
         <ScrollView style={{ maxHeight: maxListHeight }} bounces={false}>
+          {invitations.map((invitation, index) => (
+            <VStack key={invitation.id}>
+              {index > 0 ? <Divider style={{ marginLeft: 62 }} /> : null}
+              <InvitationNoticeRow
+                invitation={invitation}
+                onPress={() => onSelect(() => openInvitation(invitation))}
+              />
+            </VStack>
+          ))}
           {items.map((item, index) => (
             <VStack key={item.id}>
-              {index > 0 ? <Divider style={{ marginLeft: 62 }} /> : null}
+              {index > 0 || invitations.length > 0 ? (
+                <Divider style={{ marginLeft: 62 }} />
+              ) : null}
               <NotificationRow item={item} onPress={() => onSelect(() => open(item))} />
             </VStack>
           ))}

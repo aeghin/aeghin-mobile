@@ -5,7 +5,7 @@ import { apiGet, apiPost } from "@/lib/api";
 import type { InvitationDetail, PendingInvitation } from "@/types/organization";
 
 /** Keyed on the account, not an organization: this is what is waiting on *you*. */
-const myInvitationsKey = (userId: string | null | undefined) => [
+export const myInvitationsKey = (userId: string | null | undefined) => [
   "my-invitations",
   userId,
 ];

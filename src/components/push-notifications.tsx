@@ -1,7 +1,7 @@
 import { useAuth } from "@clerk/expo";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import * as Notifications from "expo-notifications";
-import { useRouter } from "expo-router";
+import { usePathname, useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
 import { Alert } from "react-native";
 
@@ -86,6 +86,7 @@ export function PushNotifications({ ready }: { ready: boolean }) {
   const { isSignedIn, userId } = useAuth();
   const queryClient = useQueryClient();
   const router = useRouter();
+  const pathname = usePathname();
   const { organizations, isPending, select } = useCurrentOrganization();
   const refetchOrganizations = useOrganizations().refetch;
 
@@ -168,8 +169,10 @@ export function PushNotifications({ ready }: { ready: boolean }) {
 
     refreshFor(queryClient, userId, data);
 
+    // Answered on the picker, which lists every invitation waiting on this
+    // account. Somebody with no organization is already looking at it.
     if (data.type === "organization-invite") {
-      router.push(`/invite/${data.token}`);
+      if (pathname !== "/organizations") router.push("/organizations");
       return;
     }
 
@@ -208,6 +211,7 @@ export function PushNotifications({ ready }: { ready: boolean }) {
     userId,
     queryClient,
     router,
+    pathname,
     organizations,
     refetchOrganizations,
     select,

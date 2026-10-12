@@ -1,5 +1,4 @@
-import { ClerkProvider } from "@clerk/expo";
-import { useAuthViewState } from "@clerk/expo/native";
+import { ClerkProvider, useAuth } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
 import {
   DarkTheme,
@@ -10,13 +9,13 @@ import {
 } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import {
   configureReanimatedLogger,
   ReanimatedLogLevel,
 } from "react-native-reanimated";
 
+import { BrandSplash } from "@/components/brand-splash";
 import { OrganizationProvider } from "@/components/organization-provider";
 import { PushNotifications } from "@/components/push-notifications";
 import { QueryProvider } from "@/components/query-provider";
@@ -36,9 +35,10 @@ import "../polyfills";
  * mode warns about. Every `animate-pulse` skeleton in the app fires it, so a
  * loading list logs the warning on every render.
  *
- * Nothing in `src/` uses Reanimated directly, so there is no app-side misuse
- * to find and nothing lost by turning the advisories off. Real Reanimated
- * warnings and errors still log — `strict` only governs the strict-mode ones.
+ * The app's own Reanimated code writes shared values only from effects and
+ * callbacks, so there is no app-side misuse to find and nothing lost by turning
+ * the advisories off. Real Reanimated warnings and errors still log — `strict`
+ * only governs the strict-mode ones.
  *
  * Revisit when NativeWind updates: this belongs to css-interop 0.2.6, and the
  * fix is theirs to make.
@@ -46,7 +46,9 @@ import "../polyfills";
 configureReanimatedLogger({ level: ReanimatedLogLevel.warn, strict: false });
 
 SplashScreen.preventAutoHideAsync();
-SplashScreen.setOptions({ duration: 300, fade: true });
+// `BrandSplash` draws the same frame and hides this one beneath it, so a fade
+// would only dim its animation.
+SplashScreen.setOptions({ fade: false });
 
 /**
  * The nav bar is drawn natively and takes its colours from React Navigation's
@@ -111,23 +113,25 @@ export default function RootLayout() {
 }
 
 function RootNavigator() {
-  const { isLoaded, isAuthFlowComplete } = useAuthViewState();
+  const { isLoaded, isSignedIn = false } = useAuth();
+
+  return (
+    <>
+      {isLoaded ? <Navigator isSignedIn={isSignedIn} /> : null}
+      {/* Over everything, from the first frame: it is what replaces the native
+          splash, and it waits for Clerk before uncovering the app. */}
+      <BrandSplash ready={isLoaded} />
+    </>
+  );
+}
+
+function Navigator({ isSignedIn }: { isSignedIn: boolean }) {
   const { scheme } = useTheme();
-
-  useEffect(() => {
-    if (isLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [isLoaded]);
-
-  if (!isLoaded) {
-    return null;
-  }
 
   return (
     <ThemeProvider value={navigationTheme[scheme]}>
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Protected guard={isAuthFlowComplete}>
+        <Stack.Protected guard={isSignedIn}>
           <Stack.Screen name="(tabs)" />
           {/* Its own in-screen header, because with no organization chosen there
               are no tabs and this is the whole app — including the only way to
@@ -138,12 +142,15 @@ function RootNavigator() {
           <Stack.Screen name="invite/[token]" />
         </Stack.Protected>
 
-        <Stack.Protected guard={!isAuthFlowComplete}>
+        {/* Sign-in first: the first declared screen is where a signed-out
+            launch lands. */}
+        <Stack.Protected guard={!isSignedIn}>
           <Stack.Screen name="sign-in" />
+          <Stack.Screen name="sign-up" />
         </Stack.Protected>
       </Stack>
 
-      <PushNotifications ready={isAuthFlowComplete} />
+      <PushNotifications ready={isSignedIn} />
     </ThemeProvider>
   );
 }

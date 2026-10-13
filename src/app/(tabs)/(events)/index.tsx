@@ -275,13 +275,15 @@ export default function EventsScreen() {
   );
 
   // Until the viewer picks a tab, the screen opens on the one that wants
-  // something from them. Derived rather than set from an effect, so the frame
-  // the data arrives on is already right instead of correcting itself a render
-  // later. Answering pins the tab, so this can read the live list without
-  // moving anyone off the invitation they just answered.
+  // something from them: Pending while an invitation can be answered, else All
+  // for a manager, else Schedule. Derived rather than set from an effect, so
+  // the frame the data arrives on is already right instead of correcting itself
+  // a render later. Answering pins the tab, so this can read the live list
+  // without moving anyone off the invitation they just answered.
+  const asked =
+    requestedTab === "pending" || requestedTab === "all" ? requestedTab : tab;
   const chosenTab =
-    (requestedTab === "pending" || requestedTab === "all" ? requestedTab : tab) ??
-    (invitations.length > 0 ? "pending" : "schedule");
+    asked ?? (invitations.length > 0 ? "pending" : canManage ? "all" : "schedule");
 
   // A tab can vanish under you when the role changes; derive rather than
   // correct after the fact, so there is never a frame pointing at nothing.
@@ -289,8 +291,12 @@ export default function EventsScreen() {
     chosenTab === "all" && !canManage ? "schedule" : chosenTab;
 
   // The All tab is a different request from the two beside it, so each waits
-  // on its own: neither should hold the other's skeleton on the screen.
-  const source = activeTab === "all" ? orgEvents : userEvents;
+  // on its own: neither should hold the other's skeleton on the screen. Except
+  // while the screen is still choosing for the viewer: Pending can't be ruled
+  // out until their own events are in, so a manager holds the skeleton rather
+  // than drawing the All list and jumping off it when an invitation turns up.
+  const settling = asked === null && userEvents.isPending;
+  const source = activeTab === "all" && !settling ? orgEvents : userEvents;
 
   // The counts on the control answer "is there anything for me here at all",
   // so they ignore the filters below them — a count that moved when you tapped

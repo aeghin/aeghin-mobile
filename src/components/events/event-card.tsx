@@ -147,9 +147,12 @@ export function EventCard({
         ) : null}
       </VStack>
 
-      {/* The chevron is a promise. It appears once there is somewhere to go. */}
+      {/* The chevron is a promise. It appears once there is somewhere to go.
+          Centred on the card, as on the web, however tall the details run. */}
       {onPress ? (
-        <AppIcon icon={ChevronRight} size={13} color={theme.textMuted} />
+        <Box className="self-center">
+          <AppIcon icon={ChevronRight} size={15} color={theme.textMuted} />
+        </Box>
       ) : null}
     </HStack>
   );

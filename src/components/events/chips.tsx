@@ -156,20 +156,27 @@ const FILLED = getStatusConfig("ACCEPTED").color;
 const PENDING = getStatusConfig("PENDING").color;
 const DECLINED = getStatusConfig("DECLINED").color;
 
-/** Eight roles' worth of bar. A longer roster gets thinner segments instead. */
-const METER_MAX_WIDTH = 109;
+/**
+ * One role's pill, the size they had when rosters were short. A bigger roster
+ * runs the bar longer instead of squeezing every pill into a dot, as on the
+ * web: the meter has its own line, and all fifteen catalog roles come to 207pt,
+ * inside the card on the narrowest phone.
+ */
+const SEGMENT_WIDTH = 11;
 
 /**
- * How close an event is to being fully staffed.
+ * Where each role on an event stands.
  *
  * Only the All Events tab shows it: it answers a question owners and admins
  * have and volunteers do not.
  *
- * One segment per role, in the roster's own status colours so a segment matches
- * the badge it leads to: green filled, amber invited, red declined with nobody
- * in their place, grey nobody asked. Always in that order, so position still
- * reads where red and green look alike. There is no label — the colours are the
- * status — so VoiceOver hears {@link describeStaffing} instead.
+ * One segment per role, however many spots it has, in the roster's own status
+ * colours so a segment matches the badges it leads to: green when every spot
+ * accepted, amber while somebody's deciding, red when a decline, cancel or
+ * expiry left a spot open — whoever else accepted — grey nobody asked. Always
+ * in that order, so position still reads where red and green look alike. The
+ * event screen keeps the per-person roster. There is no label — the colours are
+ * the status — so VoiceOver hears {@link describeStaffing} instead.
  */
 export function StaffingMeter(staffing: Staffing) {
   const theme = useTheme();
@@ -178,15 +185,15 @@ export function StaffingMeter(staffing: Staffing) {
   return (
     <HStack
       className="gap-[3px]"
-      style={{ width: Math.min(needed * 14 - 3, METER_MAX_WIDTH) }}
       accessible
       accessibilityLabel={describeStaffing(staffing)}
     >
       {Array.from({ length: needed }, (_, index) => (
         <Box
           key={index}
-          className="h-[6px] flex-1 rounded-full"
+          className="h-[6px] rounded-full"
           style={{
+            width: SEGMENT_WIDTH,
             backgroundColor:
               index < filled
                 ? FILLED

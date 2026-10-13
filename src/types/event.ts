@@ -119,6 +119,12 @@ export type OrganizationEvent = {
    * knows about spot counts. Preferred over the three role counts above.
    */
   staffing?: { needed: number; filled: number; awaiting: number; declined: number };
+  /**
+   * The card's meter one segment per role, worst first: a spot left open by a
+   * decline, cancel or expiry is red however many others accepted. From a
+   * server since 2026-10-13; preferred over everything above.
+   */
+  roleMeter?: { roles: number; filled: number; awaiting: number; needsAttention: number };
 };
 
 /**

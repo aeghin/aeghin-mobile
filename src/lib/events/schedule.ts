@@ -229,21 +229,35 @@ export function findUpNext(
   return best;
 }
 
+/**
+ * The card's meter: segments of green, amber, red, then grey, and what one
+ * segment stands for — a role, or a spot from a server that predates role
+ * meters.
+ */
 export type Staffing = {
   filled: number;
   awaiting: number;
+  /** Red: a role with a spot left open by a problem, or a declined spot. */
   declined: number;
   needed: number;
+  unit: "role" | "spot";
 };
 
 /**
- * How many of an event's spots are filled, waiting on an answer, or declined —
- * three BGVs are three. A server older than spot counts says it per role, and
- * one without the newer counts reads as nobody waiting and nobody declining.
+ * Where an event's roster stands, for its card: one segment per role from a
+ * current server, worst first. An older one sends spot counts, and one older
+ * still the three role counts; both still draw rather than leaving the card bare.
  */
 export function staffingFor(event: OrganizationEvent): Staffing | null {
+  if (event.roleMeter) {
+    const { roles, filled, awaiting, needsAttention } = event.roleMeter;
+    return roles > 0
+      ? { filled, awaiting, declined: needsAttention, needed: roles, unit: "role" }
+      : null;
+  }
+
   if (event.staffing) {
-    return event.staffing.needed > 0 ? event.staffing : null;
+    return event.staffing.needed > 0 ? { ...event.staffing, unit: "spot" } : null;
   }
 
   const needed = event.rolesNeeded.length;
@@ -253,15 +267,20 @@ export function staffingFor(event: OrganizationEvent): Staffing | null {
     awaiting: event.awaitingRoleCount ?? 0,
     declined: event.declinedRoleCount ?? 0,
     needed,
+    unit: "role",
   };
 }
 
 /** The meter read aloud, since it carries no words of its own. */
-export function describeStaffing({ filled, awaiting, declined, needed }: Staffing): string {
+export function describeStaffing({ filled, awaiting, declined, needed, unit }: Staffing): string {
   return [
-    `${filled} of ${needed} ${needed === 1 ? "spot" : "spots"} filled`,
+    `${filled} of ${needed} ${unit}${needed === 1 ? "" : "s"} filled`,
     awaiting > 0 ? `${awaiting} pending` : null,
-    declined > 0 ? `${declined} declined` : null,
+    declined > 0
+      ? unit === "role"
+        ? `${declined} need${declined === 1 ? "s" : ""} attention`
+        : `${declined} declined`
+      : null,
   ]
     .filter(Boolean)
     .join(", ");

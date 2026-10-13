@@ -40,7 +40,6 @@ export const ROW_FILL_ALPHA = 0.02;
 const EMERALD_500 = "#00BC7D";
 const AMBER_500 = "#FE9A00";
 const RED_500 = "#FB2C36";
-const SLATE_500 = "#62748E";
 
 export function getStatusConfig(status: InvitationStatus): StatusConfig {
   switch (status) {
@@ -60,15 +59,15 @@ export function getStatusConfig(status: InvitationStatus): StatusConfig {
       };
     case "DECLINED":
       return { label: "Declined", color: RED_500, icon: X, ringAlpha: 0.6 };
-    // Slate rather than red: a lapse is an absence of an answer, not a
-    // refusal, and reading it as loudly as DECLINED misreports what happened.
+    // Red like a decline or a cancel, as on the web since 2026-10-13: either
+    // way the spot is open again and somebody has to act on it. The hourglass
+    // and the word still say it lapsed rather than was refused.
     //
     // This case has to exist before the API can return the status. Without it
-    // the `default` below caught EXPIRED and rendered it as a red "Canceled"
-    // X — a lapsed invitation reported as one somebody withdrew, which is the
-    // kind of wrong that gets acted on.
+    // the `default` below caught EXPIRED and rendered it as a "Canceled" X — a
+    // lapsed invitation reported as one somebody withdrew.
     case "EXPIRED":
-      return { label: "Expired", color: SLATE_500, icon: Hourglass, ringAlpha: 0.6 };
+      return { label: "Expired", color: RED_500, icon: Hourglass, ringAlpha: 0.6 };
     default:
       return { label: "Canceled", color: RED_500, icon: X, ringAlpha: 0.6 };
   }

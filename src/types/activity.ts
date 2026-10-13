@@ -34,6 +34,13 @@ export type ActivityItem = {
   createdAt: string;
 };
 
+/**
+ * One of the dashboard's filter chips, sent as `?filter=`. The web's
+ * `lib/activity-feed.ts` decides which types each one covers; anything it
+ * doesn't know reads as "all".
+ */
+export type ActivityFilter = "all" | "smart" | "invites" | "members" | "events";
+
 export type ActivityPage = {
   items: ActivityItem[];
   page: number;

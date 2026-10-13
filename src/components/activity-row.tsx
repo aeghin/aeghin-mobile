@@ -20,7 +20,6 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { withAlpha, type Palette } from "@/constants/branding";
 import { useTheme } from "@/hooks/use-theme";
-import { formatActivityTime } from "@/lib/events/format";
 import { capitalizeName } from "@/lib/names";
 import type { ActivityItem, ActivityType } from "@/types/activity";
 
@@ -100,7 +99,13 @@ function describe(item: ActivityItem): Part[] {
   }
 }
 
-export function ActivityRow({ item }: { item: ActivityItem }) {
+type ActivityRowProps = {
+  item: ActivityItem;
+  /** When it happened, worded for the day heading above it — see `formatActivityStamp`. */
+  stamp: string;
+};
+
+export function ActivityRow({ item, stamp }: ActivityRowProps) {
   const theme = useTheme();
   const style = ROW_STYLES[item.type];
   const color = style.color(theme);
@@ -136,7 +141,7 @@ export function ActivityRow({ item }: { item: ActivityItem }) {
         ) : null}
 
         <Text className="text-[11px] text-muted-foreground">
-          {formatActivityTime(item.createdAt)}
+          {stamp}
         </Text>
       </VStack>
     </HStack>

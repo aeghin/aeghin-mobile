@@ -89,7 +89,7 @@ export type Blockout = {
 
 /**
  * One stretch of days and everybody away for exactly that stretch, as
- * `GET .../blockouts/team` carries it — owners and admins only. Mirrors
+ * `GET .../blockouts/team` carries it — owners only. Mirrors
  * `TeamBlockout` in the NHC mobile route.
  */
 export type TeamBlockout = {

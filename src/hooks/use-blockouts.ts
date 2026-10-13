@@ -31,15 +31,15 @@ export function useBlockouts(orgId: string) {
 const teamKey = (orgId: string) => ["organizations", orgId, "blockouts", "team"];
 
 /**
- * Who's away in the next 60 days — owners and admins only; `enabled` keeps a
+ * Who's away in the next 60 days — owners only; `enabled` keeps an admin's or
  * member's copy from firing into a 403.
  */
-export function useTeamBlockouts(orgId: string, canManage: boolean) {
+export function useTeamBlockouts(orgId: string, isOwner: boolean) {
   const { userId } = useAuth();
 
   return useQuery({
     queryKey: teamKey(orgId),
-    enabled: Boolean(userId && orgId && canManage),
+    enabled: Boolean(userId && orgId && isOwner),
     queryFn: async () => {
       const { team } = await apiGet<{ team: TeamBlockout[] }>(`${blockoutsPath(orgId)}/team`);
       return team;

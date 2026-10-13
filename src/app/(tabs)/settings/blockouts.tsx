@@ -39,7 +39,6 @@ import { useUserEvents } from "@/hooks/use-events";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useTheme } from "@/hooks/use-theme";
 import { blockoutDays, eventBlockDays } from "@/lib/blockouts";
-import { canManageOrg } from "@/lib/config/roles";
 import { dayKey, daysBetween, formatShortDate, shiftMonth } from "@/lib/events/format";
 import { failureMessage } from "@/lib/failure";
 import { capitalizeName } from "@/lib/names";
@@ -75,7 +74,7 @@ function SectionHeading({ children }: { children: string }) {
 
 /**
  * The dashboard's Blockouts tab: days you cannot be scheduled, on a calendar
- * beside the days you are. Owners and admins get a second pane for who else is
+ * beside the days you are. Owners get a second pane for who else is
  * away — split rather than stacked, so neither needs a long scroll, the way
  * Songs gives vocalists a Keys pane. Smart scheduling and the invite picker
  * both refuse to book across a blockout.
@@ -87,23 +86,24 @@ export default function BlockoutsScreen() {
 
   const { organization } = useCurrentOrganization();
   const organizationId = organization?.id ?? "";
-  const canManage = canManageOrg(organization?.role);
+  // Who else is away is the owners' to see, not every admin's.
+  const isOwner = organization?.role === "OWNER";
 
   const blockouts = useBlockouts(organizationId);
-  const team = useTeamBlockouts(organizationId, canManage);
+  const team = useTeamBlockouts(organizationId, isOwner);
   // The Events screen's own request, so the dots usually cost nothing.
   const userEvents = useUserEvents(organizationId);
   const remove = useDeleteBlockout(organizationId);
   const [adding, setAdding] = useState(false);
   const [pane, setPane] = useState<Pane>("mine");
   // A member has only their own; a role change mid-visit falls back to it.
-  const activePane: Pane = canManage ? pane : "mine";
+  const activePane: Pane = isOwner ? pane : "mine";
 
   const refetchBlockouts = blockouts.refetch;
   const refetchTeam = team.refetch;
   const refetchUserEvents = userEvents.refetch;
   const pullToRefresh = usePullToRefresh(() =>
-    Promise.all([refetchBlockouts(), refetchUserEvents(), canManage ? refetchTeam() : null]),
+    Promise.all([refetchBlockouts(), refetchUserEvents(), isOwner ? refetchTeam() : null]),
   );
 
   // The church's today, which outlines a day and dims the ones before it.
@@ -168,7 +168,7 @@ export default function BlockoutsScreen() {
         }
       >
         <VStack className="gap-4">
-          {canManage ? <SegmentedControl segments={panes} value={activePane} onChange={setPane} /> : null}
+          {isOwner ? <SegmentedControl segments={panes} value={activePane} onChange={setPane} /> : null}
 
           {activePane === "team" ? (
             <VStack className="gap-2">

@@ -88,6 +88,26 @@ export type Blockout = {
 };
 
 /**
+ * One stretch of days and everybody away for exactly that stretch, as
+ * `GET .../blockouts/team` carries it — owners and admins only. Mirrors
+ * `TeamBlockout` in the NHC mobile route.
+ */
+export type TeamBlockout = {
+  /** First and last day, inclusive, at UTC midnight. */
+  startDate: string;
+  endDate: string;
+  people: {
+    userId: string;
+    firstName: string;
+    lastName: string;
+    userImageUrl: string | null;
+    isYou: boolean;
+  }[];
+  /** Events this stretch leaves with an open spot nobody free can take. */
+  gaps: { eventId: string; text: string }[];
+};
+
+/**
  * An invitation waiting on the signed-in person, as `GET /invitations`
  * carries it. The phone asks what is waiting rather than following a token
  * out of an email, because unlike a browser it already knows who is asking.

@@ -56,15 +56,6 @@ const AVATAR = 32;
 /** Half a line less the gap, so the four roster actions sit two by two. */
 const HALF = { flexBasis: "48%", flexGrow: 1 } as const;
 
-/**
- * The one section that opens by itself.
- *
- * The web accordion defaults to the band and the phone follows: every
- * section open is a screen of scrolling before the setlist, and the band is
- * the group whose gaps are noticed first.
- */
-const DEFAULT_OPEN: Team[] = ["BAND"];
-
 type RoleGroup = {
   role: VolunteerRole;
   items: EventDetailsAssignment[];
@@ -147,7 +138,11 @@ export function EventTeamCard({
   const theme = useTheme();
   const colors = getServiceColors(event.serviceType.color, theme);
   const roles = useRoles();
-  const [open, setOpen] = useState<Team[]>(DEFAULT_OPEN);
+  // Every team starts open, so the whole roster reads at a glance. Team is the
+  // last card on the screen, so opening everything pushes nothing out of reach.
+  // Tracking what was closed rather than what is open means a team that joins
+  // later, when a role is added, opens too.
+  const [collapsed, setCollapsed] = useState<Team[]>([]);
   // Read once per mount: "has this invitation lapsed" must not flip mid-render.
   const [now] = useState(() => Date.now());
 
@@ -223,7 +218,7 @@ export function EventTeamCard({
     ) : undefined;
 
   const toggle = (key: Team) =>
-    setOpen((current) =>
+    setCollapsed((current) =>
       current.includes(key)
         ? current.filter((entry) => entry !== key)
         : [...current, key],
@@ -305,7 +300,7 @@ export function EventTeamCard({
                 <Pressable
                   onPress={() => toggle(category.key)}
                   accessibilityRole="button"
-                  accessibilityState={{ expanded: open.includes(category.key) }}
+                  accessibilityState={{ expanded: !collapsed.includes(category.key) }}
                   accessibilityLabel={`${category.label}, ${category.filled} of ${category.needed} filled${
                     category.stalled ? ", needs attention" : ""
                   }`}
@@ -324,11 +319,11 @@ export function EventTeamCard({
                       {`${category.filled}/${category.needed}`}
                     </DetailCount>
 
-                    <Chevron expanded={open.includes(category.key)} />
+                    <Chevron expanded={!collapsed.includes(category.key)} />
                   </HStack>
                 </Pressable>
 
-                {open.includes(category.key) ? (
+                {!collapsed.includes(category.key) ? (
                   <VStack className="gap-4 px-4 pb-4 pt-0.5">
                     {category.groups.map((group) => (
                       <RoleGroupBlock

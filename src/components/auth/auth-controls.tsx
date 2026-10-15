@@ -25,6 +25,8 @@ const RADIUS = 14;
 
 type AuthInputProps = TextInputProps & {
   label: string;
+  /** Opposite the label — sign-in's switch between email and phone. */
+  labelAction?: ReactNode;
   icon?: AppIconName;
   /** Drawn ahead of the text, after the icon — the phone field's country code. */
   prefix?: ReactNode;
@@ -37,6 +39,7 @@ type AuthInputProps = TextInputProps & {
 
 export function AuthInput({
   label,
+  labelAction,
   icon,
   prefix,
   trailing,
@@ -55,7 +58,10 @@ export function AuthInput({
 
   return (
     <VStack>
-      <Text className="mb-1.5 ml-0.5 text-[13px] font-semibold text-foreground">{label}</Text>
+      <HStack className="mb-1.5 ml-0.5 items-center justify-between">
+        <Text className="text-[13px] font-semibold text-foreground">{label}</Text>
+        {labelAction}
+      </HStack>
 
       <HStack
         className="items-center"
@@ -232,9 +238,11 @@ type TextLinkProps = {
   disabled?: boolean;
   /** Muted rather than orange, for a secondary way out. */
   muted?: boolean;
+  /** Label-sized, for a link that sits beside a field's label. */
+  small?: boolean;
 };
 
-export function TextLink({ label, onPress, disabled, muted }: TextLinkProps) {
+export function TextLink({ label, onPress, disabled, muted, small }: TextLinkProps) {
   const theme = useTheme();
 
   return (
@@ -246,24 +254,12 @@ export function TextLink({ label, onPress, disabled, muted }: TextLinkProps) {
       className="data-[active=true]:opacity-60"
     >
       <Text
-        className="text-[14.5px] font-semibold"
+        className={`${small ? "text-[13px]" : "text-[14.5px]"} font-semibold`}
         style={{ color: muted ? theme.textMuted : brand.orange }}
       >
         {label}
       </Text>
     </Pressable>
-  );
-}
-
-export function OrDivider() {
-  const theme = useTheme();
-
-  return (
-    <HStack className="items-center gap-3">
-      <View style={{ flex: 1, height: 1, backgroundColor: theme.border }} />
-      <Text className="text-[13px] text-muted-foreground">or</Text>
-      <View style={{ flex: 1, height: 1, backgroundColor: theme.border }} />
-    </HStack>
   );
 }
 

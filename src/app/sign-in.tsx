@@ -5,16 +5,15 @@ import Lock from "lucide-react-native/icons/lock";
 import Mail from "lucide-react-native/icons/mail";
 import MessageSquareText from "lucide-react-native/icons/message-square-text";
 import ShieldCheck from "lucide-react-native/icons/shield-check";
-import User from "lucide-react-native/icons/user";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { BackHandler, View, type TextInput } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { BackHandler, TextInput, View } from "react-native";
 
 import {
   AuthButton,
   AuthError,
   AuthInput,
-  OrDivider,
   PasswordInput,
+  PhoneInput,
   TextLink,
 } from "@/components/auth/auth-controls";
 import { AuthHeader, AuthShell } from "@/components/auth/auth-shell";
@@ -29,12 +28,16 @@ import {
   isPhoneIdentifier,
   isUnsafePassword,
   toIdentifier,
+  usPhoneE164,
 } from "@/lib/auth";
+import { useTheme } from "@/hooks/use-theme";
 
 type Channel = "email" | "phone";
 
 type Step =
+  /** Who is signing in, on its own so the field and its button clear the keyboard. */
   | { name: "credentials" }
+  | { name: "password" }
   /** A one-time code instead of the password. */
   | { name: "code"; channel: Channel; destination: string }
   /** What Clerk can ask for after the first factor: two-factor, or a new device. */
@@ -47,28 +50,35 @@ type Action = "password" | "code" | "reset";
 
 /**
  * Signing in, on Clerk's custom-flow API. Production takes a password or a
- * one-time code to the account's email or phone, so both start here; the later
- * steps cover a forgotten password and any second check Clerk asks for.
+ * one-time code to the account's email or phone: the first step asks who, the
+ * second offers both; the later steps cover a forgotten password and any
+ * second check Clerk asks for.
  * Finishing needs no navigation: the root layout's guard swaps this screen for
  * the app the moment the session is active.
  */
 export default function SignInScreen() {
   const router = useRouter();
+  const theme = useTheme();
   const { signIn, errors, fetchStatus } = useSignIn();
 
   const [step, setStep] = useState<Step>({ name: "credentials" });
   const [direction, setDirection] = useState<1 | -1>(1);
+  const [mode, setMode] = useState<Channel>("email");
+  // Focus follows a switch between email and phone, but not the first render,
+  // where it would raise the keyboard over the entrance.
+  const [switched, setSwitched] = useState(false);
   const [identifier, setIdentifier] = useState("");
+  const [phoneDigits, setPhoneDigits] = useState("");
+  const [checked, setChecked] = useState(false);
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [action, setAction] = useState<Action | null>(null);
   const [attempted, setAttempted] = useState<Action | null>(null);
-  // What the last request carried. Clerk's error for a field shows only while
-  // the field still holds it, so correcting the value clears the message.
-  const [sent, setSent] = useState({ identifier: "", password: "" });
+  // What the last request carried. Clerk's error for the password shows only
+  // while the field still holds it, so correcting it clears the message.
+  const [sentPassword, setSentPassword] = useState("");
   const [problem, setProblem] = useState<string | null>(null);
 
-  const passwordInput = useRef<TextInput>(null);
   const busy = action !== null || fetchStatus === "fetching";
 
   const go = (next: Step) => {
@@ -77,22 +87,54 @@ export default function SignInScreen() {
     setStep(next);
   };
 
-  const backToStart = useCallback(() => {
-    signIn.reset();
-    setDirection(-1);
-    setProblem(null);
-    setStep({ name: "credentials" });
-  }, [signIn]);
+  const back = useCallback(
+    (to: "credentials" | "password") => {
+      signIn.reset();
+      setDirection(-1);
+      setProblem(null);
+      setAttempted(null);
+      setStep(to === "password" ? { name: "password" } : { name: "credentials" });
+    },
+    [signIn],
+  );
+
+  // A code or a reset was asked for from the password step, so back is there.
+  const backTo =
+    step.name === "credentials"
+      ? null
+      : step.name === "code" || step.name === "reset"
+        ? "password"
+        : "credentials";
 
   // Android's back button steps back through the flow instead of leaving the app.
   useEffect(() => {
-    if (step.name === "credentials") return;
+    if (!backTo) return;
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      backToStart();
+      back(backTo);
       return true;
     });
     return () => subscription.remove();
-  }, [step.name, backToStart]);
+  }, [backTo, back]);
+
+  const typedId =
+    mode === "phone"
+      ? phoneDigits.length === 10
+        ? usPhoneE164(phoneDigits)
+        : ""
+      : toIdentifier(identifier);
+
+  const switchMode = () => {
+    setMode((current) => (current === "email" ? "phone" : "email"));
+    setSwitched(true);
+    setChecked(false);
+  };
+
+  const proceed = () => {
+    setChecked(true);
+    if (!typedId) return;
+    setAttempted(null);
+    go({ name: "password" });
+  };
 
   /** Wherever a request leaves the sign-in, its status says what comes next. */
   const advance = async () => {
@@ -142,10 +184,10 @@ export default function SignInScreen() {
   /** One of the first screen's three requests, with the spinner on its own button. */
   const run = async (kind: Action, request: (id: string) => Promise<void>) => {
     setAttempted(kind);
-    const id = toIdentifier(identifier);
+    const id = typedId;
     if (!id || (kind === "password" && !password)) return;
 
-    setSent({ identifier, password });
+    setSentPassword(password);
     setProblem(null);
     setAction(kind);
     await request(id);
@@ -289,21 +331,26 @@ export default function SignInScreen() {
   // screen mounted, so they wait for a request made here.
   const banner = problem ?? (attempted ? globalMessage(errors.global) : undefined);
 
+  // Typed on the first step, but Clerk only judges it on the second.
+  const passwordBanner =
+    problem ??
+    (attempted ? (fieldMessage(errors.fields.identifier) ?? globalMessage(errors.global)) : undefined);
+
   const identifierError =
-    attempted && !identifier.trim()
-      ? "Enter your email or phone number."
-      : attempted && identifier === sent.identifier
-        ? fieldMessage(errors.fields.identifier)
-        : undefined;
+    checked && !typedId
+      ? mode === "phone"
+        ? "Enter your 10-digit phone number."
+        : "Enter your email address."
+      : undefined;
 
   const passwordError =
     attempted === "password" && !password
       ? "Enter your password."
-      : attempted && password === sent.password
+      : attempted && password === sentPassword
         ? fieldMessage(errors.fields.password)
         : undefined;
 
-  const viaPhone = isPhoneIdentifier(toIdentifier(identifier));
+  const viaPhone = isPhoneIdentifier(typedId);
 
   const codeScreen =
     step.name === "verify"
@@ -318,7 +365,7 @@ export default function SignInScreen() {
     <AuthShell
       stepKey={step.name === "code" ? `code-${step.channel}` : step.name}
       direction={direction}
-      onBack={step.name === "credentials" ? undefined : backToStart}
+      onBack={backTo ? () => back(backTo) : undefined}
       footer={
         step.name === "credentials" ? (
           <HStack className="items-center justify-center gap-1.5">
@@ -330,29 +377,63 @@ export default function SignInScreen() {
     >
       {step.name === "credentials" ? (
         <View>
-          <AuthHeader title="Welcome back" subtitle="Your worship team, scheduled." />
+          <AuthHeader title="Sign in to Aeghin" subtitle="Your worship team, scheduled." />
 
           <View style={{ gap: 16 }}>
-            <AuthInput
-              label="Email or phone"
-              icon={User}
-              value={identifier}
-              onChangeText={setIdentifier}
-              placeholder="you@church.org"
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              textContentType="username"
-              autoComplete="username"
-              returnKeyType="next"
-              submitBehavior="submit"
-              onSubmitEditing={() => passwordInput.current?.focus()}
-              error={identifierError}
-            />
+            {mode === "phone" ? (
+              <PhoneInput
+                label="Phone number"
+                labelAction={<TextLink label="Use email" small onPress={switchMode} />}
+                digits={phoneDigits}
+                onChangeDigits={setPhoneDigits}
+                placeholder="555-123-4567"
+                autoFocus={switched}
+                error={identifierError}
+              />
+            ) : (
+              <AuthInput
+                label="Email address"
+                labelAction={<TextLink label="Use phone" small onPress={switchMode} />}
+                icon={Mail}
+                value={identifier}
+                onChangeText={setIdentifier}
+                placeholder="you@church.org"
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                textContentType="username"
+                autoComplete="username"
+                autoFocus={switched}
+                returnKeyType="next"
+                submitBehavior="submit"
+                onSubmitEditing={proceed}
+                error={identifierError}
+              />
+            )}
+
+            <AuthButton label="Continue" onPress={proceed} />
+          </View>
+        </View>
+      ) : step.name === "password" ? (
+        <View>
+          <AuthHeader icon={Lock} title="Enter your password" />
+
+          <View style={{ gap: 16 }}>
+            {/* Who this is, as a field the password manager can read, since
+                the one they typed it into is a step behind. */}
+            <HStack className="-mt-4 items-center justify-between gap-3">
+              <TextInput
+                value={displayIdentifier(typedId)}
+                editable={false}
+                textContentType="username"
+                autoComplete="username"
+                style={{ flex: 1, fontSize: 15.5, color: theme.textMuted, paddingVertical: 0 }}
+              />
+              <TextLink label="Change" small onPress={() => back("credentials")} />
+            </HStack>
 
             <View>
               <PasswordInput
-                ref={passwordInput}
                 label="Password"
                 icon={Lock}
                 value={password}
@@ -360,32 +441,27 @@ export default function SignInScreen() {
                 placeholder="Your password"
                 textContentType="password"
                 autoComplete="current-password"
+                autoFocus
                 returnKeyType="go"
                 onSubmitEditing={signInWithPassword}
                 error={passwordError}
               />
-              <View style={{ alignSelf: "flex-end", marginTop: 12 }}>
-                <TextLink label="Forgot password?" onPress={resetPassword} disabled={busy} />
-              </View>
+              <HStack className="mt-3 items-center justify-between">
+                <TextLink
+                  label={viaPhone ? "Text me a code" : "Email me a code"}
+                  onPress={signInWithCode}
+                  disabled={busy}
+                />
+                <TextLink label="Forgot password?" muted onPress={resetPassword} disabled={busy} />
+              </HStack>
             </View>
 
-            <AuthError message={banner} />
+            <AuthError message={passwordBanner} />
 
             <AuthButton
               label="Sign in"
               onPress={signInWithPassword}
               busy={action === "password"}
-              disabled={busy}
-            />
-
-            <OrDivider />
-
-            <AuthButton
-              variant="secondary"
-              icon={viaPhone ? MessageSquareText : Mail}
-              label={viaPhone ? "Text me a code" : "Email me a code"}
-              onPress={signInWithCode}
-              busy={action === "code"}
               disabled={busy}
             />
           </View>
@@ -454,7 +530,7 @@ export default function SignInScreen() {
                   disabled={busy}
                 />
               ) : null}
-              <TextLink label="Use your password instead" muted onPress={backToStart} />
+              <TextLink label="Use your password instead" muted onPress={() => back("password")} />
             </>
           ) : null}
         </CodeStep>

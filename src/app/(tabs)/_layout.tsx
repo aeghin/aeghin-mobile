@@ -60,6 +60,7 @@ function Tabs() {
           tintColor={brand.orange}
           badgeBackgroundColor={brand.orange}
           minimizeBehavior="onScrollDown"
+          labelVisibilityMode="unlabeled"
           disableTransparentOnScrollEdge
         >
           {track && HAS_TAB_ACCESSORY ? (
@@ -68,31 +69,31 @@ function Tabs() {
             </NativeTabs.BottomAccessory>
           ) : null}
 
-          <NativeTabs.Trigger name="(events)">
+          <NativeTabs.Trigger name="(events)" accessibilityLabel="Events">
             <NativeTabs.Trigger.Icon sf="calendar" md="calendar_month" />
-            <NativeTabs.Trigger.Label>Events</NativeTabs.Trigger.Label>
+            <NativeTabs.Trigger.Label hidden>Events</NativeTabs.Trigger.Label>
           </NativeTabs.Trigger>
 
-          <NativeTabs.Trigger name="songs">
+          <NativeTabs.Trigger name="songs" accessibilityLabel="Songs">
             <NativeTabs.Trigger.Icon sf="music.note.list" md="queue_music" />
-            <NativeTabs.Trigger.Label>Songs</NativeTabs.Trigger.Label>
+            <NativeTabs.Trigger.Label hidden>Songs</NativeTabs.Trigger.Label>
           </NativeTabs.Trigger>
 
-          <NativeTabs.Trigger name="members">
+          <NativeTabs.Trigger name="members" accessibilityLabel="Members">
             <NativeTabs.Trigger.Icon
               sf={{ default: "person.2", selected: "person.2.fill" }}
               md={{ default: "group", selected: "groups" }}
             />
-            <NativeTabs.Trigger.Label>Members</NativeTabs.Trigger.Label>
+            <NativeTabs.Trigger.Label hidden>Members</NativeTabs.Trigger.Label>
           </NativeTabs.Trigger>
 
           {/* Settings lives in the sidebar, as on the web; the bell took its place. */}
-          <NativeTabs.Trigger name="notifications">
+          <NativeTabs.Trigger name="notifications" accessibilityLabel="Notifications">
             <NativeTabs.Trigger.Icon
               sf={{ default: "bell", selected: "bell.fill" }}
               md="notifications"
             />
-            <NativeTabs.Trigger.Label>Notifications</NativeTabs.Trigger.Label>
+            <NativeTabs.Trigger.Label hidden>Notifications</NativeTabs.Trigger.Label>
             {unread > 0 ? (
               <NativeTabs.Trigger.Badge>{unread > 99 ? "99+" : String(unread)}</NativeTabs.Trigger.Badge>
             ) : null}

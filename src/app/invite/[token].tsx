@@ -25,6 +25,7 @@ import {
   useInvitationByToken,
   useRespondToOrgInvitation,
 } from "@/hooks/use-my-invitations";
+import { useOpenInTabs } from "@/hooks/use-open-in-tabs";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { useTheme } from "@/hooks/use-theme";
 import { ApiError } from "@/lib/api";
@@ -50,15 +51,18 @@ export default function InviteScreen() {
   const respond = useRespondToOrgInvitation();
   const organizations = useOrganizations();
   const { select } = useCurrentOrganization();
+  const openInTabs = useOpenInTabs();
 
   const leave = () => {
     if (router.canGoBack()) router.back();
     else router.replace("/organizations");
   };
 
+  // Down to the tabs when they're behind this page — a replace from here put
+  // a second copy of them on top — and in their place when nothing is.
   const enter = (organizationId: string) => {
     select(organizationId);
-    router.replace("/");
+    openInTabs.list();
   };
 
   const answer = async (action: "accept" | "decline") => {

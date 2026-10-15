@@ -19,7 +19,6 @@ import { SegmentedControl, type Segment } from "@/components/events/segmented-co
 import { ErrorBanner, Field } from "@/components/form-fields";
 import { InsetCard, InsetRow } from "@/components/inset-list";
 import { useCurrentOrganization } from "@/components/organization-provider";
-import { useNowPlayingInset } from "@/components/track-player-provider";
 import { Button, ButtonText } from "@/components/ui/button";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
@@ -43,8 +42,6 @@ import { dayKey, daysBetween, formatShortDate, shiftMonth } from "@/lib/events/f
 import { failureMessage } from "@/lib/failure";
 import { capitalizeName } from "@/lib/names";
 import type { Blockout, TeamBlockout } from "@/types/organization";
-
-const TAB_BAR_CLEARANCE = 64;
 
 /** How far ahead the calendar steps: a blockout can run up to a year out. */
 const MONTHS_AHEAD = 12;
@@ -82,7 +79,6 @@ function SectionHeading({ children }: { children: string }) {
 export default function BlockoutsScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const nowPlayingInset = useNowPlayingInset();
 
   const { organization } = useCurrentOrganization();
   const organizationId = organization?.id ?? "";
@@ -149,13 +145,13 @@ export default function BlockoutsScreen() {
 
   return (
     <VStack className="flex-1 bg-grouped">
-      <Stack.Screen options={{ title: "Blockouts", headerBackTitle: "Settings" }} />
+      <Stack.Screen options={{ title: "Blockouts" }} />
 
       <ScrollView
         contentContainerStyle={{
           paddingHorizontal: 16,
           paddingTop: 18,
-          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE + nowPlayingInset,
+          paddingBottom: insets.bottom + 24,
           flexGrow: 1,
         }}
         contentInsetAdjustmentBehavior="never"
@@ -337,7 +333,10 @@ function TeamSection({
                 {group.gaps.map((gap) => (
                   <Pressable
                     key={gap.text}
-                    onPress={() => router.push(`/events/${gap.eventId}`)}
+                    // This screen sits over the tabs, so the event is reached
+                    // by going back down to them; a push would stack a second
+                    // copy of the tabs on top.
+                    onPress={() => router.dismissTo(`/events/${gap.eventId}`)}
                     accessibilityRole="link"
                     accessibilityLabel={`${gap.text}. Opens the event.`}
                     className="data-[active=true]:opacity-60"

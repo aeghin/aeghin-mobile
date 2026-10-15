@@ -7,7 +7,7 @@ import { VStack } from "@/components/ui/vstack";
 export default function AccountScreen() {
   return (
     <VStack className="flex-1 bg-background">
-      <Stack.Screen options={{ title: "Account", headerBackTitle: "Settings" }} />
+      <Stack.Screen options={{ title: "Account" }} />
       <UserProfileView style={{ flex: 1 }} isDismissible={false} />
     </VStack>
   );

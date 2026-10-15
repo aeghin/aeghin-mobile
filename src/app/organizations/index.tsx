@@ -37,7 +37,7 @@ import { capitalizeName } from "@/lib/names";
  * Two ways in, and they need different exits. The tabs layout redirects here
  * when nothing is selected — first launch, or the remembered organization is
  * one this account has left — and there is nothing behind it to go back to.
- * The header menu and the Settings row push it to switch, and those do.
+ * The sidebar pushes it to switch, and that does.
  * `canGoBack` is what tells them apart.
  *
  * Its own header rather than the stack's: with no organization there are no

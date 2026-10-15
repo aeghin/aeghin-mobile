@@ -22,6 +22,7 @@ import { QueryProvider } from "@/components/query-provider";
 import { GluestackUIProvider } from "@/components/ui/gluestack-ui-provider";
 import { brand, palette, type Palette } from "@/constants/branding";
 import { useTheme } from "@/hooks/use-theme";
+import { readColorScheme } from "@/lib/color-scheme";
 
 import "../globals.css";
 import "../polyfills";
@@ -91,12 +92,27 @@ function requirePublishableKey(): string {
 
 const publishableKey = requirePublishableKey();
 
+/** Light or dark if one was picked in the sidebar; otherwise the phone decides. */
+const savedColorScheme = readColorScheme();
+
+/**
+ * What the sidebar opens: whole screens over the tabs, each with a way back to
+ * wherever the sidebar was opened from.
+ */
+const SIDEBAR_SCREEN = {
+  headerShown: true,
+  headerBackButtonDisplayMode: "minimal",
+} as const;
+
+/** Settings' own pages, a step past it, whose back buttons say "Settings". */
+const SETTINGS_PAGE = { headerShown: true } as const;
+
 export default function RootLayout() {
   return (
     // The drag on the Events service pills is a gesture-handler gesture, and
     // those only run under this root.
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <GluestackUIProvider mode="system">
+      <GluestackUIProvider mode={savedColorScheme ?? "system"}>
         <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
           <QueryProvider>
             {/* Inside QueryProvider and ClerkProvider: it reads the membership
@@ -140,6 +156,15 @@ function Navigator({ isSignedIn }: { isSignedIn: boolean }) {
           {/* Its own header too: an invitation link can land here before the
               person belongs to any organization, so there are no tabs behind it. */}
           <Stack.Screen name="invite/[token]" />
+          <Stack.Screen name="blockouts" options={SIDEBAR_SCREEN} />
+          <Stack.Screen name="templates" options={SIDEBAR_SCREEN} />
+          <Stack.Screen name="activity" options={SIDEBAR_SCREEN} />
+          <Stack.Screen name="account" options={SIDEBAR_SCREEN} />
+          <Stack.Screen name="settings/index" options={SIDEBAR_SCREEN} />
+          <Stack.Screen name="settings/organization" options={SETTINGS_PAGE} />
+          <Stack.Screen name="settings/service-types" options={SIDEBAR_SCREEN} />
+          <Stack.Screen name="settings/notifications" options={SIDEBAR_SCREEN} />
+          <Stack.Screen name="settings/billing" options={SETTINGS_PAGE} />
         </Stack.Protected>
 
         {/* Sign-in first: the first declared screen is where a signed-out

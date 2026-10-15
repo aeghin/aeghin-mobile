@@ -7,6 +7,7 @@ import { Alert } from "react-native";
 
 import { useCurrentOrganization } from "@/components/organization-provider";
 import { chatKey } from "@/hooks/use-event-chat";
+import { useOpenInTabs } from "@/hooks/use-open-in-tabs";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { obtainPushToken, registerPushToken, unregisterPushToken } from "@/lib/push";
 import type { OrganizationSummary } from "@/types/organization";
@@ -87,6 +88,7 @@ export function PushNotifications({ ready }: { ready: boolean }) {
   const queryClient = useQueryClient();
   const router = useRouter();
   const pathname = usePathname();
+  const openInTabs = useOpenInTabs();
   const { organizations, isPending, select } = useCurrentOrganization();
   const refetchOrganizations = useOrganizations().refetch;
 
@@ -188,18 +190,15 @@ export function PushNotifications({ ready }: { ready: boolean }) {
 
       select(data.organizationId);
 
-      // The same moves the bell makes: an event page pushes, and the list is
-      // dismissed back to, so an open event page doesn't stack another.
+      // The same moves the Notifications tab makes, from wherever the app is.
       if (data.type === "event") {
-        router.push(`/events/${data.eventId}`);
+        openInTabs.event(`/events/${data.eventId}`);
       } else if (data.type === "chat") {
-        router.push(`/events/${data.eventId}/chat`);
+        openInTabs.event(`/events/${data.eventId}/chat`);
       } else if (data.type === "invitation") {
-        router.dismissTo({ pathname: "/", params: { tab: "pending" } });
-      } else if (data.tab) {
-        router.dismissTo({ pathname: "/", params: { tab: data.tab } });
+        openInTabs.list("pending");
       } else {
-        router.dismissTo("/");
+        openInTabs.list(data.tab);
       }
     };
 
@@ -212,6 +211,7 @@ export function PushNotifications({ ready }: { ready: boolean }) {
     queryClient,
     router,
     pathname,
+    openInTabs,
     organizations,
     refetchOrganizations,
     select,

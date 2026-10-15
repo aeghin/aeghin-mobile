@@ -16,7 +16,6 @@ import { ErrorBanner, Field, FormInput } from "@/components/form-fields";
 import { InsetCard, InsetRow, SectionLabel } from "@/components/inset-list";
 import { OrgAvatar } from "@/components/org-avatar";
 import { useCurrentOrganization } from "@/components/organization-provider";
-import { useNowPlayingInset } from "@/components/track-player-provider";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Spinner } from "@/components/ui/spinner";
@@ -34,8 +33,6 @@ import {
 import { formatLocalShortDate } from "@/lib/events/format";
 import { failureMessage } from "@/lib/failure";
 import type { OrganizationInput } from "@/types/organization";
-
-const TAB_BAR_CLEARANCE = 64;
 
 /** The hero avatar, and the squircle radius `OrgAvatar` derives from that size. */
 const LOGO_SIZE = 84;
@@ -56,7 +53,6 @@ const zoneName = (zone: string) => zone.replace(/_/g, " ");
  */
 export default function OrganizationSettingsScreen() {
   const insets = useSafeAreaInsets();
-  const nowPlayingInset = useNowPlayingInset();
   const router = useRouter();
 
   const { organization, organizations, select } = useCurrentOrganization();
@@ -102,6 +98,10 @@ export default function OrganizationSettingsScreen() {
   const moveOn = () => {
     const next = organizations.find((candidate) => candidate.id !== organizationId);
     if (next) select(next.id);
+    // Down to the tabs first, then swap them for the picker: with nothing
+    // behind it, choosing there opens fresh tabs instead of backing into
+    // Settings for an organization that's gone.
+    router.dismissAll();
     router.replace("/organizations");
   };
 
@@ -218,7 +218,7 @@ export default function OrganizationSettingsScreen() {
         contentContainerStyle={{
           paddingHorizontal: 16,
           paddingTop: 18,
-          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE + nowPlayingInset,
+          paddingBottom: insets.bottom + 24,
         }}
         contentInsetAdjustmentBehavior="never"
       >

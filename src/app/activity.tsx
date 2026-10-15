@@ -9,7 +9,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ActivityRow } from "@/components/activity-row";
 import { EventsEmptyState } from "@/components/events/events-empty-state";
 import { useCurrentOrganization } from "@/components/organization-provider";
-import { useNowPlayingInset } from "@/components/track-player-provider";
 import { Box } from "@/components/ui/box";
 import { Divider } from "@/components/ui/divider";
 import { Pressable } from "@/components/ui/pressable";
@@ -28,8 +27,6 @@ import {
 } from "@/lib/activity";
 import { canManageOrg } from "@/lib/config/roles";
 import type { ActivityFilter, ActivityItem } from "@/types/activity";
-
-const TAB_BAR_CLEARANCE = 64;
 
 /** The list's side padding, which the chip row bleeds past to scroll edge to edge. */
 const GUTTER = 16;
@@ -60,7 +57,6 @@ function groupByDay(items: ActivityItem[], now: Date): DaySection[] {
 export default function ActivityScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const nowPlayingInset = useNowPlayingInset();
 
   const { organization } = useCurrentOrganization();
   const organizationId = organization?.id ?? "";
@@ -96,7 +92,7 @@ export default function ActivityScreen() {
 
   return (
     <VStack className="flex-1 bg-grouped">
-      <Stack.Screen options={{ title: "Activity", headerBackTitle: "Settings" }} />
+      <Stack.Screen options={{ title: "Activity" }} />
 
       <SectionList<Row, DaySection>
         sections={sections}
@@ -105,7 +101,7 @@ export default function ActivityScreen() {
         contentContainerStyle={{
           paddingHorizontal: GUTTER,
           paddingTop: 14,
-          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE + nowPlayingInset,
+          paddingBottom: insets.bottom + 24,
           flexGrow: 1,
         }}
         contentInsetAdjustmentBehavior="never"

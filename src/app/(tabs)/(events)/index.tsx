@@ -1,9 +1,9 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Calendar from "lucide-react-native/icons/calendar";
+import CalendarPlus from "lucide-react-native/icons/calendar-plus";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
 import CircleCheckBig from "lucide-react-native/icons/circle-check-big";
 import ListFilter from "lucide-react-native/icons/list-filter";
-import Plus from "lucide-react-native/icons/plus";
 import { useCallback, useMemo, useState } from "react";
 import { Alert, RefreshControl, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -511,11 +511,12 @@ export default function EventsScreen() {
             <Pressable
               onPress={() => router.push("/events/create")}
               accessibilityRole="button"
-              accessibilityLabel="New event"
+              accessibilityLabel="Create event"
               className="data-[active=true]:opacity-60"
             >
+              {/* The web's Create event glyph, in the menu button's ink. */}
               <HeaderCapsule>
-                <AppIcon icon={Plus} size={22} color={brand.orange} />
+                <AppIcon icon={CalendarPlus} size={21} color={theme.text} />
               </HeaderCapsule>
             </Pressable>
           ) : undefined

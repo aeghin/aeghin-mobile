@@ -14,7 +14,6 @@ import { Dialog } from "@/components/dialog";
 import { EventsEmptyState } from "@/components/events/events-empty-state";
 import { InsetCard, InsetRow, SectionLabel } from "@/components/inset-list";
 import { useCurrentOrganization } from "@/components/organization-provider";
-import { useNowPlayingInset } from "@/components/track-player-provider";
 import { Box } from "@/components/ui/box";
 import { Divider } from "@/components/ui/divider";
 import { HStack } from "@/components/ui/hstack";
@@ -41,8 +40,6 @@ import type {
   TeamSettings,
 } from "@/types/team-notifications";
 
-const TAB_BAR_CLEARANCE = 64;
-
 const fullName = (person: TeamPerson) => `${person.firstName} ${person.lastName}`;
 
 /** "Ben", "Ben, Mike", "Ben, Mike +2" — whatever fits beside the row's label. */
@@ -67,7 +64,6 @@ type Picking = { team: Team; kind: "lead" | "watchers" };
 export default function StaffingAlertsScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const nowPlayingInset = useNowPlayingInset();
 
   const { organization } = useCurrentOrganization();
   const organizationId = organization?.id ?? "";
@@ -98,13 +94,13 @@ export default function StaffingAlertsScreen() {
 
   return (
     <VStack className="flex-1 bg-grouped">
-      <Stack.Screen options={{ title: "Staffing alerts", headerBackTitle: "Settings" }} />
+      <Stack.Screen options={{ title: "Staffing alerts" }} />
 
       <ScrollView
         contentContainerStyle={{
           paddingHorizontal: 16,
           paddingTop: 18,
-          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE + nowPlayingInset,
+          paddingBottom: insets.bottom + 24,
           flexGrow: 1,
         }}
         contentInsetAdjustmentBehavior="never"

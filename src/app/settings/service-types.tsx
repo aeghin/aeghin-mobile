@@ -12,7 +12,6 @@ import { InsetCard } from "@/components/inset-list";
 import { useCurrentOrganization } from "@/components/organization-provider";
 import { PlanLimitDialog } from "@/components/plan-limit-dialog";
 import { ServiceTypeDialog } from "@/components/service-type-dialog";
-import { useNowPlayingInset } from "@/components/track-player-provider";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
 import { HStack } from "@/components/ui/hstack";
@@ -31,14 +30,10 @@ import { getServiceColors } from "@/lib/config/service-types";
 import { failureMessage } from "@/lib/failure";
 import type { ServiceType } from "@/types/event";
 
-const TAB_BAR_CLEARANCE = 64;
-
-
 /** The dashboard's service-type settings: what kinds of service the organization runs. */
 export default function ServiceTypesScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const nowPlayingInset = useNowPlayingInset();
 
   const { organization } = useCurrentOrganization();
   const organizationId = organization?.id ?? "";
@@ -88,13 +83,13 @@ export default function ServiceTypesScreen() {
 
   return (
     <VStack className="flex-1 bg-grouped">
-      <Stack.Screen options={{ title: "Service types", headerBackTitle: "Settings" }} />
+      <Stack.Screen options={{ title: "Service types" }} />
 
       <ScrollView
         contentContainerStyle={{
           paddingHorizontal: 16,
           paddingTop: 18,
-          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE + nowPlayingInset,
+          paddingBottom: insets.bottom + 24,
           flexGrow: 1,
         }}
         contentInsetAdjustmentBehavior="never"

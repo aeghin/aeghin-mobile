@@ -13,7 +13,6 @@ import { EventsEmptyState } from "@/components/events/events-empty-state";
 import { TemplateFormDialog } from "@/components/events/template-form-dialog";
 import { InsetCard } from "@/components/inset-list";
 import { useCurrentOrganization } from "@/components/organization-provider";
-import { useNowPlayingInset } from "@/components/track-player-provider";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
 import { HStack } from "@/components/ui/hstack";
@@ -40,8 +39,6 @@ import { formatClock } from "@/components/events/time-field";
 import { failureMessage } from "@/lib/failure";
 import type { EventTemplate, EventTemplateInput } from "@/types/event";
 
-const TAB_BAR_CLEARANCE = 64;
-
 /**
  * The dashboard's Templates tab.
  *
@@ -53,7 +50,6 @@ const TAB_BAR_CLEARANCE = 64;
 export default function TemplatesScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const nowPlayingInset = useNowPlayingInset();
   const router = useRouter();
 
   const { organization } = useCurrentOrganization();
@@ -112,7 +108,9 @@ export default function TemplatesScreen() {
     Alert.alert(template.name, undefined, [
       {
         text: "Create event from this",
-        onPress: () => router.push(`/events/create?templateId=${template.id}`),
+        // Down to the Events tab rather than a push: this screen sits over
+        // the tabs, and a push would stack a second copy of them.
+        onPress: () => router.dismissTo(`/events/create?templateId=${template.id}`),
       },
       { text: "Edit", onPress: () => setEditing(template) },
       { text: "Delete", style: "destructive", onPress: () => confirmDelete(template) },
@@ -122,7 +120,7 @@ export default function TemplatesScreen() {
   if (!canManage) {
     return (
       <VStack className="flex-1 items-center justify-center gap-2 bg-grouped px-8">
-        <Stack.Screen options={{ title: "Templates", headerBackTitle: "Settings" }} />
+        <Stack.Screen options={{ title: "Templates" }} />
         <AppIcon icon={CircleAlert} size={30} color={theme.textMuted} />
         <Text className="text-[15px] font-semibold text-foreground">Not available</Text>
         <Text className="text-center text-[13px] text-muted-foreground">
@@ -134,13 +132,13 @@ export default function TemplatesScreen() {
 
   return (
     <VStack className="flex-1 bg-grouped">
-      <Stack.Screen options={{ title: "Templates", headerBackTitle: "Settings" }} />
+      <Stack.Screen options={{ title: "Templates" }} />
 
       <ScrollView
         contentContainerStyle={{
           paddingHorizontal: 16,
           paddingTop: 18,
-          paddingBottom: insets.bottom + TAB_BAR_CLEARANCE + nowPlayingInset,
+          paddingBottom: insets.bottom + 24,
           flexGrow: 1,
         }}
         contentInsetAdjustmentBehavior="never"

@@ -169,9 +169,25 @@ export default function MemberScreen() {
                 {fullName}
               </Text>
               {role ? (
-                <HStack className="items-center gap-1">
-                  <AppIcon icon={role.icon} size={13} color={role.tint} />
-                  <Text className={`text-[13px] font-semibold ${role.textClass}`}>{role.label}</Text>
+                <HStack className="items-center gap-1.5">
+                  <AppIcon icon={role.icon} size={16} color={role.tint} />
+                  <Text className={`text-[15px] font-semibold ${role.textClass}`}>{role.label}</Text>
+                </HStack>
+              ) : null}
+              {member.volunteerRoles.length > 0 ? (
+                <HStack className="flex-wrap justify-center gap-1.5 px-2 pt-1">
+                  {member.volunteerRoles.map((volunteerRole) => {
+                    const { emoji, label } = roles.get(volunteerRole);
+                    return (
+                      <HStack
+                        key={volunteerRole}
+                        className="items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1"
+                      >
+                        <Text style={{ fontSize: 13, lineHeight: 17 }}>{emoji}</Text>
+                        <Text className="text-[12px] font-medium text-foreground">{label}</Text>
+                      </HStack>
+                    );
+                  })}
                 </HStack>
               ) : null}
               <Text className="text-[12px] text-muted-foreground">
@@ -179,9 +195,9 @@ export default function MemberScreen() {
               </Text>
             </VStack>
 
-            <VStack>
-              <SectionLabel>Contact</SectionLabel>
-              {member.email || member.phoneNumber ? (
+            {member.email || member.phoneNumber ? (
+              <VStack>
+                <SectionLabel>Contact</SectionLabel>
                 <InsetCard elevated>
                   {member.email ? (
                     <InsetRow
@@ -198,15 +214,8 @@ export default function MemberScreen() {
                     />
                   ) : null}
                 </InsetCard>
-              ) : (
-                // The server withholds addresses and numbers from plain
-                // members, so there is nothing to draw. Said plainly rather
-                // than left blank: a missing section reads as a bug.
-                <Text className="ml-1 text-[13px] text-muted-foreground">
-                  Owners and admins can see email addresses and phone numbers.
-                </Text>
-              )}
-            </VStack>
+              </VStack>
+            ) : null}
 
             <VStack>
               <SectionLabel>Serving record</SectionLabel>
@@ -226,9 +235,9 @@ export default function MemberScreen() {
               )}
             </VStack>
 
-            <VStack>
-              <SectionLabel>Volunteer roles</SectionLabel>
-              {canManage && (viewerRole === "OWNER" || member.role !== "OWNER") ? (
+            {canManage && (viewerRole === "OWNER" || member.role !== "OWNER") ? (
+              <VStack>
+                <SectionLabel>Edit volunteer roles</SectionLabel>
                 <VStack className="gap-2">
                   <VolunteerRolePicker
                     selected={member.volunteerRoles}
@@ -238,25 +247,8 @@ export default function MemberScreen() {
                     Tap a role to add or remove it.
                   </Text>
                 </VStack>
-              ) : member.volunteerRoles.length > 0 ? (
-                <HStack className="flex-wrap gap-1.5">
-                  {member.volunteerRoles.map((volunteerRole) => {
-                    const { emoji, label } = roles.get(volunteerRole);
-                    return (
-                      <HStack
-                        key={volunteerRole}
-                        className="items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1"
-                      >
-                        <Text style={{ fontSize: 13, lineHeight: 17 }}>{emoji}</Text>
-                        <Text className="text-[12px] font-medium text-foreground">{label}</Text>
-                      </HStack>
-                    );
-                  })}
-                </HStack>
-              ) : (
-                <Text className="ml-1 text-[13px] text-muted-foreground">No volunteer roles yet.</Text>
-              )}
-            </VStack>
+              </VStack>
+            ) : null}
 
             {canAct ? (
               <VStack>

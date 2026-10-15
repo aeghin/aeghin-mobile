@@ -319,11 +319,11 @@ export default function OrganizationSettingsScreen() {
                 />
               ) : null}
             </InsetCard>
-            <Text className="ml-1 mt-2 text-[12px] text-muted-foreground">
-              {isOwner
-                ? "Deleting removes every event, song and member. It can't be undone."
-                : "The only owner can't leave; they'd need to transfer ownership or delete the organization."}
-            </Text>
+            {isOwner ? (
+              <Text className="ml-1 mt-2 text-[12px] text-muted-foreground">
+                Deleting removes every event, song and member. It can&apos;t be undone.
+              </Text>
+            ) : null}
           </VStack>
         </VStack>
       </ScrollView>

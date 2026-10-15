@@ -1,13 +1,15 @@
 import Check from "lucide-react-native/icons/check";
 import MicVocal from "lucide-react-native/icons/mic-vocal";
 import Search from "lucide-react-native/icons/search";
+import Trash2 from "lucide-react-native/icons/trash-2";
 import X from "lucide-react-native/icons/x";
 import { useMemo, useState } from "react";
-import { ScrollView, TextInput } from "react-native";
+import { Alert, ScrollView, TextInput } from "react-native";
 
 import { AppIcon } from "@/components/app-icon";
 import { Dialog } from "@/components/dialog";
-import { Choice, ErrorBanner, Field, FormInput } from "@/components/form-fields";
+import { ErrorBanner, Field, FormInput } from "@/components/form-fields";
+import { KeyPicker } from "@/components/songs/key-picker";
 import { Box } from "@/components/ui/box";
 import { Divider } from "@/components/ui/divider";
 import { HStack } from "@/components/ui/hstack";
@@ -15,8 +17,10 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand, withAlpha } from "@/constants/branding";
+import { useDeleteSongKey, useSaveSongKey, useUpdateSongKey } from "@/hooks/use-song-keys";
 import { useTheme } from "@/hooks/use-theme";
-import { KEY_OPTIONS, MAX_KEY_NOTE_LENGTH, formatKey } from "@/lib/config/keys";
+import { MAX_KEY_NOTE_LENGTH, formatKey } from "@/lib/config/keys";
+import { failureMessage } from "@/lib/failure";
 import type {
   KeyQuality,
   LibrarySong,
@@ -27,7 +31,7 @@ import type {
 
 /**
  * The journal's one form, as both the dashboard's "Add to my keys" dialog and
- * the inline editor its rows open.
+ * the editor its rows open.
  *
  * The web edits a row in place — a key dropdown and a notes box appearing
  * inside the list. A phone row has no room for either, so editing opens the
@@ -52,6 +56,8 @@ type SongKeyDialogProps = {
   /** Whatever the server said, when it refused the save. */
   submitError: string | null;
   onSubmit: (input: SongKeyInput) => void;
+  /** Editing only: takes the entry off your keys, after asking. */
+  onRemove?: () => void;
   onClose: () => void;
   /**
    * Changed by the opener on every open. It is the form's key, so each open
@@ -61,7 +67,12 @@ type SongKeyDialogProps = {
 };
 
 export function SongKeyDialog(props: SongKeyDialogProps) {
-  return <SongKeyForm key={`${props.entry?.id ?? "add"}-${props.openToken}`} {...props} />;
+  return (
+    <SongKeyForm
+      key={`${props.entry?.id ?? "add"}-${props.openToken}`}
+      {...props}
+    />
+  );
 }
 
 function SongKeyForm({
@@ -72,6 +83,7 @@ function SongKeyForm({
   submitting,
   submitError,
   onSubmit,
+  onRemove,
   onClose,
 }: SongKeyDialogProps) {
   const theme = useTheme();
@@ -90,9 +102,9 @@ function SongKeyForm({
     const needle = query.trim().toLowerCase();
     const matched = needle
       ? catalog.filter(
-          (song) =>
-            song.title.toLowerCase().includes(needle) ||
-            song.artist.toLowerCase().includes(needle),
+          (option) =>
+            option.title.toLowerCase().includes(needle) ||
+            option.artist.toLowerCase().includes(needle),
         )
       : catalog;
     return [...matched].sort((a, b) => a.title.localeCompare(b.title));
@@ -102,14 +114,32 @@ function SongKeyForm({
   // wrote down for it — this dialog is how you change that, and re-typing a
   // note to keep it would be a fine way to lose one. Anything else seeds from
   // the library default, which most of the time is already the right answer.
-  const pick = (song: LibrarySong) => {
-    const saved = journal.get(song.id);
+  const pick = (option: LibrarySong) => {
+    const saved = journal.get(option.id);
 
-    setSelected(song);
-    setPitch(saved?.pitch ?? song.defaultPitch);
-    setQuality(saved?.keyQuality ?? song.defaultKeyQuality);
+    setSelected(option);
+    setPitch(saved?.pitch ?? option.defaultPitch);
+    setQuality(saved?.keyQuality ?? option.defaultKeyQuality);
     setNotes(saved?.notes ?? "");
   };
+
+  // The song is fixed when editing; only Add searches.
+  const fixed = editing ? { title: entry.title, artist: entry.artist } : null;
+
+  const library: { pitch: Pitch; quality: KeyQuality } | null = editing
+    ? entry.libraryPitch && entry.libraryKeyQuality
+      ? { pitch: entry.libraryPitch, quality: entry.libraryKeyQuality }
+      : null
+    : selected
+      ? { pitch: selected.defaultPitch, quality: selected.defaultKeyQuality }
+      : null;
+
+  // Plain words, and only when yours differs: no step counts to decode.
+  const keyHint = (() => {
+    if (!pitch || !quality || !library) return undefined;
+    const theirs = formatKey(library.pitch, library.quality);
+    return theirs === formatKey(pitch, quality) ? undefined : `The library has it in ${theirs}`;
+  })();
 
   const alreadySaved = selected !== null && journal.has(selected.id);
   const ready = (editing || selected !== null) && pitch !== null && quality !== null;
@@ -165,13 +195,13 @@ function SongKeyForm({
     >
       <ErrorBanner message={submitError} />
 
-      {editing ? (
+      {fixed ? (
         <VStack className="rounded-xl border border-border bg-surface px-3 py-2.5">
           <Text className="text-[15px] font-semibold text-foreground" numberOfLines={1}>
-            {entry.title}
+            {fixed.title}
           </Text>
           <Text className="text-[13px] text-muted-foreground" numberOfLines={1}>
-            {entry.artist}
+            {fixed.artist}
           </Text>
         </VStack>
       ) : (
@@ -218,14 +248,14 @@ function SongKeyForm({
               keyboardShouldPersistTaps="handled"
               className="overflow-hidden rounded-xl border border-border bg-surface"
             >
-              {filtered.map((song, index) => (
-                <VStack key={song.id}>
+              {filtered.map((option, index) => (
+                <VStack key={option.id}>
                   {index > 0 ? <Divider style={{ marginLeft: 12 }} /> : null}
                   <CatalogRow
-                    song={song}
-                    selected={selected?.id === song.id}
-                    alreadySaved={journal.has(song.id)}
-                    onPress={() => pick(song)}
+                    song={option}
+                    selected={selected?.id === option.id}
+                    alreadySaved={journal.has(option.id)}
+                    onPress={() => pick(option)}
                   />
                 </VStack>
               ))}
@@ -234,32 +264,20 @@ function SongKeyForm({
         </VStack>
       )}
 
-      {editing || selected ? (
+      {pitch && quality && (editing || selected) ? (
         <>
-          <Field
-            label="Your key"
-            hint={
-              pitch && quality
-                ? `You sing it in ${formatKey(pitch, quality)}`
-                : undefined
-            }
-          >
-            <HStack className="flex-wrap gap-1.5">
-              {KEY_OPTIONS.map((option) => (
-                <Choice
-                  key={option.label}
-                  label={option.label}
-                  selected={pitch === option.pitch && quality === option.quality}
-                  onPress={() => {
-                    setPitch(option.pitch);
-                    setQuality(option.quality);
-                  }}
-                />
-              ))}
-            </HStack>
+          <Field label="Your key" hint={keyHint}>
+            <KeyPicker
+              pitch={pitch}
+              quality={quality}
+              onChange={(nextPitch, nextQuality) => {
+                setPitch(nextPitch);
+                setQuality(nextQuality);
+              }}
+            />
           </Field>
 
-          <Field label="Notes" hint={`${notes.length}/${MAX_KEY_NOTE_LENGTH}`}>
+          <Field label="Comments" hint={`${notes.length}/${MAX_KEY_NOTE_LENGTH}`}>
             <FormInput
               value={notes}
               onChangeText={setNotes}
@@ -270,6 +288,22 @@ function SongKeyForm({
             />
           </Field>
         </>
+      ) : null}
+
+      {editing && onRemove ? (
+        <Pressable
+          onPress={onRemove}
+          disabled={submitting}
+          accessibilityRole="button"
+          className="self-center rounded-lg px-3 py-2 data-[active=true]:opacity-60"
+        >
+          <HStack className="items-center gap-1.5">
+            <AppIcon icon={Trash2} size={14} color={theme.destructive} />
+            <Text className="text-[14px] font-semibold" style={{ color: theme.destructive }}>
+              Remove from my keys
+            </Text>
+          </HStack>
+        </Pressable>
       ) : null}
     </Dialog>
   );
@@ -315,4 +349,108 @@ function CatalogRow({ song, selected, alreadySaved, onPress }: CatalogRowProps) 
       </HStack>
     </Pressable>
   );
+}
+
+/** Stable identity for a journal that hasn't loaded. */
+const NO_KEYS: SongKey[] = [];
+
+type EditorTarget = { entry: SongKey | null; token: number };
+
+/** The dialog with its saving wired up, for My keys' Add button and its rows. */
+export function useSongKeyEditor(
+  organizationId: string,
+  catalog: LibrarySong[],
+  entries: SongKey[] = NO_KEYS,
+) {
+  const save = useSaveSongKey(organizationId);
+  const update = useUpdateSongKey(organizationId);
+  const remove = useDeleteSongKey(organizationId);
+
+  // What the dialog shows and whether it is showing are separate: leaving the
+  // contents in place through the closing fade is what stops the card turning
+  // back into an empty picker on its way out.
+  const [target, setTarget] = useState<EditorTarget | null>(null);
+  const [visible, setVisible] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const journal = useMemo(
+    () =>
+      new Map(
+        entries.flatMap((entry) =>
+          entry.songId === null ? [] : [[entry.songId, entry] as const],
+        ),
+      ),
+    [entries],
+  );
+
+  const open = (entry: SongKey | null) => {
+    setFormError(null);
+    setTarget((current) => ({ entry, token: (current?.token ?? 0) + 1 }));
+    setVisible(true);
+  };
+
+  const close = () => {
+    setVisible(false);
+    setFormError(null);
+  };
+
+  const submit = (input: SongKeyInput) => {
+    setFormError(null);
+
+    const onError = (error: unknown) => setFormError(failureMessage(error));
+    const onSuccess = () => close();
+
+    const editing = target?.entry;
+
+    if (editing) {
+      update.mutate({ entryId: editing.id, entry: input }, { onError, onSuccess });
+    } else {
+      save.mutate(input, { onError, onSuccess });
+    }
+  };
+
+  // The web deletes on one click. A phone has no undo, so it asks first — the
+  // same confirm blockouts and the library use.
+  const confirmRemove = (entry: SongKey) =>
+    Alert.alert(
+      "Remove from my keys",
+      `${entry.title} will come off your keys. The song stays in the library.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => {
+            close();
+            remove.mutate(entry.id, {
+              onError: (error) => Alert.alert("Couldn't remove", failureMessage(error)),
+            });
+          },
+        },
+      ],
+    );
+
+  const editingEntry = target?.entry ?? null;
+
+  const dialog = (
+    <SongKeyDialog
+      visible={visible}
+      entry={editingEntry}
+      openToken={target?.token ?? 0}
+      catalog={catalog}
+      journal={journal}
+      submitting={save.isPending || update.isPending}
+      submitError={formError}
+      onSubmit={submit}
+      onRemove={editingEntry ? () => confirmRemove(editingEntry) : undefined}
+      onClose={close}
+    />
+  );
+
+  return {
+    /** A new entry, picked from the library. */
+    openAdd: () => open(null),
+    openEdit: (entry: SongKey) => open(entry),
+    dialog,
+  };
 }

@@ -51,8 +51,8 @@ export function useSongKeys(orgId: string, options?: { enabled?: boolean }) {
  * The journal with one save already applied.
  *
  * An upsert on (you, song), mirroring the server: an entry for the same song
- * is rewritten rather than doubled, which is what lets the setlist's one-tap
- * save double as "update this to the key we're doing it tonight". A freehand
+ * is rewritten rather than doubled, which is what lets the setlist's key card
+ * double as "update this to the key this event is in". A freehand
  * entry carries no songId and so can never match — it is always an append.
  *
  * A rewrite keeps everything the input does not carry, the library key
@@ -77,7 +77,15 @@ function applySave(entries: SongKey[], input: SongKeyInput): SongKey[] {
     return next;
   }
 
-  const pending: SongKey = {
+  // The route hands these back ordered by title, and My Keys renders them in
+  // the order it is given — so an append has to land where the refetch will
+  // put it, or the new row jumps once the real one arrives.
+  return [...entries, pendingEntry(input)].sort((a, b) => a.title.localeCompare(b.title));
+}
+
+/** A row for a save still in flight. */
+function pendingEntry(input: SongKeyInput): SongKey {
+  return {
     id: `pending-${Date.now()}`,
     songId: input.songId,
     title: input.title,
@@ -90,12 +98,8 @@ function applySave(entries: SongKey[], input: SongKeyInput): SongKey[] {
     libraryKeyQuality: null,
     spotifyUrl: null,
     youtubeUrl: null,
+    themes: [],
   };
-
-  // The route hands these back ordered by title, and My Keys renders them in
-  // the order it is given — so an append has to land where the refetch will
-  // put it, or the new row jumps once the real one arrives.
-  return [...entries, pending].sort((a, b) => a.title.localeCompare(b.title));
 }
 
 /**
@@ -103,13 +107,12 @@ function applySave(entries: SongKey[], input: SongKeyInput): SongKey[] {
  *
  * An upsert, not an insert: the server keys a linked entry on (you, song), so
  * saving a song already in the journal rewrites it rather than doubling it.
- * That is what lets the setlist's one-tap save double as "update this to the
- * key we're doing it in tonight".
+ * That is what lets the setlist's key card double as "update this to the key
+ * this event is in".
  *
- * Optimistic, because the setlist's bookmark is the whole feedback for the
- * tap — waiting for the write and then a refetch left it looking like nothing
- * had happened. The dashboard has a toast to cover that gap and a phone does
- * not, so the icon has to carry it, which means it has to flip now.
+ * Optimistic, because the key card is the whole feedback for the tap — it
+ * stays open and turns into the saved state, so it has to turn now rather
+ * than after the write and a refetch.
  */
 export function useSaveSongKey(orgId: string) {
   const { userId } = useAuth();

@@ -81,11 +81,13 @@ export type SongKey = {
   keyQuality: KeyQuality;
   notes: string | null;
   updatedAt: string;
-  /** What the library files it under, for the "library Bb" line when they differ. */
+  /** What the library files it under, for the key dialog's "The library has it in Bb". */
   libraryPitch: Pitch | null;
   libraryKeyQuality: KeyQuality | null;
   spotifyUrl: string | null;
   youtubeUrl: string | null;
+  /** The library song's themes, for My keys' search and Theme filter. Empty once the song is gone. */
+  themes: string[];
 };
 
 /**

@@ -7,6 +7,7 @@ import Check from "lucide-react-native/icons/check";
 import ChevronsUpDown from "lucide-react-native/icons/chevrons-up-down";
 import LayoutGrid from "lucide-react-native/icons/layout-grid";
 import LayoutTemplate from "lucide-react-native/icons/layout-template";
+import MicVocal from "lucide-react-native/icons/mic-vocal";
 import Moon from "lucide-react-native/icons/moon";
 import Settings from "lucide-react-native/icons/settings";
 import Sparkles from "lucide-react-native/icons/sparkles";
@@ -41,8 +42,9 @@ import type { PaidPlan } from "@/types/billing";
 /**
  * What the sidebar holds: the web dashboard's sidebar, less everything the tab
  * bar already has. Events, Songs, Members and notifications live in the tabs,
- * My keys in Songs, Invitations on Members, and creating an event or inviting
- * someone on the screen each one changes — so none of them appear here.
+ * Invitations on Members, and creating an event or inviting someone on the
+ * screen each one changes — so none of them appear here. My keys sits under
+ * Blockouts for lead vocalists and BGVs, as it does on the web.
  * Service types and Staffing alerts join the web's Manage group. The foot is
  * you, then Settings and the light/dark switch as two icons; the plan sits by
  * the brand, where the web's top bar badges it.
@@ -197,6 +199,9 @@ export function OrgSidebar() {
 
         <VStack className="mt-4 gap-0.5">
           <SidebarRow icon={CalendarOff} label="Blockouts" onPress={() => go("/blockouts")} />
+          {roles.sings(organization.volunteerRoles) ? (
+            <SidebarRow icon={MicVocal} label="My keys" onPress={() => go("/keys")} />
+          ) : null}
         </VStack>
 
         {canManageOrg(organization.role) ? (

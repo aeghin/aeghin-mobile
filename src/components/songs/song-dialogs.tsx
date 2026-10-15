@@ -46,7 +46,7 @@ type OptionRowProps = {
   capitalize?: boolean;
 };
 
-function OptionRow({
+export function OptionRow({
   label,
   count,
   selected,
@@ -91,7 +91,7 @@ function OptionRow({
 }
 
 /** The small uppercase caption above each group of options. */
-function GroupLabel({ children }: { children: string }) {
+export function GroupLabel({ children }: { children: string }) {
   return (
     <Text className="mb-1 ml-3 mt-3 text-xs font-bold uppercase tracking-[0.7px] text-muted-foreground">
       {children}
@@ -221,23 +221,33 @@ export function FilterDialog({
   );
 }
 
-type SortDialogProps = DialogProps & {
-  sort: SortKey;
-  onSelect: (sort: SortKey) => void;
+type SortDialogProps<T extends string> = DialogProps & {
+  sort: T;
+  onSelect: (sort: T) => void;
+  /** The orders on offer. The library's own unless a list brings its own, as My keys does. */
+  options?: { value: T; label: string }[];
+  description?: string;
 };
 
-/** The three orders the web offers, in its order. */
-export function SortDialog({ visible, onClose, sort, onSelect }: SortDialogProps) {
+/** The orders the web offers, in its order. */
+export function SortDialog<T extends string = SortKey>({
+  visible,
+  onClose,
+  sort,
+  onSelect,
+  options = SORT_OPTIONS as { value: T; label: string }[],
+  description = "How the library is ordered.",
+}: SortDialogProps<T>) {
   return (
     <Dialog
       visible={visible}
       icon={ArrowUpDown}
       title="Sort by"
-      description="How the library is ordered."
+      description={description}
       onClose={onClose}
     >
       <VStack>
-        {SORT_OPTIONS.map((option) => (
+        {options.map((option) => (
           <Pressable
             key={option.value}
             onPress={() => {

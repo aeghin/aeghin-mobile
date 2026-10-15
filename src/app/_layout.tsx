@@ -157,6 +157,7 @@ function Navigator({ isSignedIn }: { isSignedIn: boolean }) {
               person belongs to any organization, so there are no tabs behind it. */}
           <Stack.Screen name="invite/[token]" />
           <Stack.Screen name="blockouts" options={SIDEBAR_SCREEN} />
+          <Stack.Screen name="keys" options={SIDEBAR_SCREEN} />
           <Stack.Screen name="templates" options={SIDEBAR_SCREEN} />
           <Stack.Screen name="activity" options={SIDEBAR_SCREEN} />
           <Stack.Screen name="account" options={SIDEBAR_SCREEN} />

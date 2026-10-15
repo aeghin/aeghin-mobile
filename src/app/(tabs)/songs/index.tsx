@@ -12,7 +12,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppHeader } from "@/components/app-header";
 import { AppIcon, type AppIconName } from "@/components/app-icon";
-import { SegmentedControl, type Segment } from "@/components/events/segmented-control";
 import { InsetCard } from "@/components/inset-list";
 import { useCurrentOrganization } from "@/components/organization-provider";
 import { PlanLimitDialog } from "@/components/plan-limit-dialog";
@@ -21,22 +20,19 @@ import {
   SongRow,
   SongRowSkeleton,
 } from "@/components/songs/song-row";
-import { SongKeysPane } from "@/components/songs/song-keys-pane";
 import { SongAttachmentsDialog } from "@/components/songs/song-attachments-dialog";
 import { SongFormDialog } from "@/components/songs/song-form-dialog";
 import { FilterDialog, SortDialog } from "@/components/songs/song-dialogs";
+import { RemovableChip, ToolbarChip } from "@/components/songs/list-toolbar";
 import { useNowPlayingInset, useTrackPlayer } from "@/components/track-player-provider";
-import { Box } from "@/components/ui/box";
 import { Button, ButtonText } from "@/components/ui/button";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
-import { brand, withAlpha } from "@/constants/branding";
+import { brand } from "@/constants/branding";
 import { useBillingStatus } from "@/hooks/use-billing";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
-import { useSongKeys } from "@/hooks/use-song-keys";
-import { useRoles } from "@/hooks/use-roles";
 import { useTheme } from "@/hooks/use-theme";
 import {
   useAddSong,
@@ -55,27 +51,16 @@ import {
   toggle,
   type SortKey,
 } from "@/lib/songs/library";
-import type { LibrarySong, SongInput, SongKey } from "@/types/song";
+import type { LibrarySong, SongInput } from "@/types/song";
 
 /** Stable identity, so an empty library does not remake the array each render. */
 const NO_SONGS: LibrarySong[] = [];
-
-/** The same, for a journal that hasn't loaded or has nothing in it. */
-const NO_KEYS: SongKey[] = [];
-
-/**
- * The screen's two halves: the organization's library, and the caller's own
- * key journal. The journal is the dashboard's My Keys tab, which only lead
- * vocalists and BGVs are offered — so only they see the control at all.
- */
-type Pane = "library" | "keys";
 
 /** How much page the tab bar covers once the list has scrolled under it. */
 const TAB_BAR_CLEARANCE = 64;
 
 export default function SongsScreen() {
   const theme = useTheme();
-  const roles = useRoles();
   const insets = useSafeAreaInsets();
 
   const { organization } = useCurrentOrganization();
@@ -84,11 +69,6 @@ export default function SongsScreen() {
 
   const songs = useSongs(organizationId);
   const billing = useBillingStatus(organizationId);
-
-  // Gated on the caller's volunteer roles, the way the dashboard gates its own
-  // tab. Somebody who doesn't sing never asks for a journal they cannot open.
-  const canSeeKeys = roles.sings(organization?.volunteerRoles);
-  const songKeys = useSongKeys(organizationId, { enabled: canSeeKeys });
 
   const addSong = useAddSong(organizationId);
   const updateSong = useUpdateSong(organizationId);
@@ -103,18 +83,7 @@ export default function SongsScreen() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
 
-  const [pane, setPane] = useState<Pane>("library");
-
-  // Resolved rather than stored: switching to an organization this person does
-  // not sing in takes the control away, and a remembered "keys" would strand
-  // the screen on a pane with no way back.
-  const activePane = canSeeKeys ? pane : "library";
-
-  // The pull refreshes whichever pane is showing. `refetch` is stable per
-  // query, so swapping the two here costs the control nothing.
-  const pullToRefresh = usePullToRefresh(
-    activePane === "library" ? songs.refetch : songKeys.refetch,
-  );
+  const pullToRefresh = usePullToRefresh(songs.refetch);
 
   // `undefined` while closed, `null` for a new song, a song when editing one.
   const [editing, setEditing] = useState<LibrarySong | null | undefined>(
@@ -242,13 +211,6 @@ export default function SongsScreen() {
       : `${library.length} song${library.length === 1 ? "" : "s"}`;
   const countWarning = songLimitReached && !narrowed;
 
-  // Only the journal carries a count: the library prints its own under the
-  // toolbar, and printing it twice on one screen says nothing new.
-  const panes: Segment<Pane>[] = [
-    { value: "library", label: "Library" },
-    { value: "keys", label: "My Keys", count: songKeys.data?.length || undefined },
-  ];
-
   return (
     <VStack className="flex-1 bg-grouped">
       <AppHeader />
@@ -263,10 +225,8 @@ export default function SongsScreen() {
         }}
         contentInsetAdjustmentBehavior="never"
         keyboardDismissMode="on-drag"
-        // The My Keys dialog renders inside this scroll view, and a touch
-        // reaches it before the dialog. Without this, the first tap on its
-        // buttons while typing only put the keyboard away; it also lets a row
-        // open on the first tap while the search keyboard is up.
+        // Lets a row's buttons work on the first tap while the search keyboard
+        // is up, instead of that tap only putting the keyboard away.
         keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
@@ -276,144 +236,126 @@ export default function SongsScreen() {
           />
         }
       >
-        {canSeeKeys ? (
-          <Box className="mb-3">
-            <SegmentedControl segments={panes} value={activePane} onChange={setPane} />
-          </Box>
-        ) : null}
+        {/* ── Toolbar ──────────────────────────────────────────────────── */}
+        <HStack
+          className="mb-2.5 items-center gap-2 rounded-xl border px-3"
+          style={{ borderColor: theme.border, backgroundColor: theme.card }}
+        >
+          <AppIcon icon={Search} size={16} color={theme.textMuted} />
 
-        {activePane === "keys" ? (
-          <SongKeysPane
-            organizationId={organizationId}
-            entries={songKeys.data ?? NO_KEYS}
-            isPending={songKeys.isPending}
-            isError={songKeys.isError}
-            catalog={library}
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search songs, artists or themes"
+            placeholderTextColor={theme.textMuted}
+            style={{ flex: 1, fontSize: 15, paddingVertical: 10, color: theme.text }}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="search"
+          />
+
+          {query ? (
+            <Pressable
+              onPress={() => setQuery("")}
+              accessibilityRole="button"
+              accessibilityLabel="Clear search"
+              hitSlop={8}
+            >
+              <AppIcon icon={X} size={14} color={theme.textMuted} />
+            </Pressable>
+          ) : null}
+        </HStack>
+
+        <HStack className="mb-3 gap-2">
+          <ToolbarChip
+            icon={SlidersHorizontal}
+            label="Filters"
+            count={activeFilters}
+            onPress={() => setFiltersOpen(true)}
+          />
+          <ToolbarChip
+            icon={ArrowUpDown}
+            label={sortLabel}
+            onPress={() => setSortOpen(true)}
+          />
+
+          {canManage ? (
+            <AddSongButton
+              // A full library gets the limit, not a form it can't save.
+              onPress={() => (songLimitReached ? setLimitOpen(true) : setEditing(null))}
+            />
+          ) : null}
+        </HStack>
+
+        {/* ── How much of the library is showing ───────────────────────── */}
+        {songs.isPending || songs.isError ? null : (
+          <HStack className="mb-3 flex-wrap items-center gap-1.5">
+            <Text
+              className={`text-[12px] font-medium ${countWarning ? "" : "text-muted-foreground"}`}
+              style={countWarning ? { color: theme.warning } : undefined}
+            >
+              {countLabel}
+            </Text>
+
+            {Array.from(selectedThemes).map((value) => (
+              <RemovableChip
+                key={`theme-${value}`}
+                label={value}
+                capitalize
+                onPress={() =>
+                  setSelectedThemes((current) => toggle(current, value))
+                }
+              />
+            ))}
+
+            {Array.from(selectedArtists).map((value) => (
+              <RemovableChip
+                key={`artist-${value}`}
+                label={value}
+                onPress={() =>
+                  setSelectedArtists((current) => toggle(current, value))
+                }
+              />
+            ))}
+
+            {narrowed ? (
+              <Pressable
+                onPress={clearFilters}
+                accessibilityRole="button"
+                hitSlop={6}
+              >
+                <Text className="text-[12px] font-medium text-muted-foreground underline">
+                  Clear all
+                </Text>
+              </Pressable>
+            ) : null}
+          </HStack>
+        )}
+
+        {/* ── The library ──────────────────────────────────────────────── */}
+        {songs.isPending ? (
+          <InsetCard elevated separatorInset={SONG_SEPARATOR_INSET}>
+            {Array.from({ length: 6 }, (_, index) => (
+              <SongRowSkeleton key={index} index={index} />
+            ))}
+          </InsetCard>
+        ) : visible.length === 0 ? (
+          <EmptyState
+            {...emptyStateFor({ isError: songs.isError, narrowed })}
+            onClear={narrowed ? clearFilters : undefined}
           />
         ) : (
-          <>
-            {/* ── Toolbar ──────────────────────────────────────────────────── */}
-            <HStack
-              className="mb-2.5 items-center gap-2 rounded-xl border px-3"
-              style={{ borderColor: theme.border, backgroundColor: theme.card }}
-            >
-              <AppIcon icon={Search} size={16} color={theme.textMuted} />
-
-              <TextInput
-                value={query}
-                onChangeText={setQuery}
-                placeholder="Search songs, artists or themes"
-                placeholderTextColor={theme.textMuted}
-                style={{ flex: 1, fontSize: 15, paddingVertical: 10, color: theme.text }}
-                autoCapitalize="none"
-                autoCorrect={false}
-                returnKeyType="search"
+          <InsetCard elevated separatorInset={SONG_SEPARATOR_INSET}>
+            {visible.map((song) => (
+              <SongRow
+                key={song.id}
+                song={song}
+                canManage={canManage}
+                onActions={() => openActions(song)}
+                onPlayTrack={playTrack}
               />
-
-              {query ? (
-                <Pressable
-                  onPress={() => setQuery("")}
-                  accessibilityRole="button"
-                  accessibilityLabel="Clear search"
-                  hitSlop={8}
-                >
-                  <AppIcon icon={X} size={14} color={theme.textMuted} />
-                </Pressable>
-              ) : null}
-            </HStack>
-
-            <HStack className="mb-3 gap-2">
-              <ToolbarChip
-                icon={SlidersHorizontal}
-                label="Filters"
-                count={activeFilters}
-                onPress={() => setFiltersOpen(true)}
-              />
-              <ToolbarChip
-                icon={ArrowUpDown}
-                label={sortLabel}
-                onPress={() => setSortOpen(true)}
-              />
-
-              {canManage ? (
-                <AddSongButton
-                  // A full library gets the limit, not a form it can't save.
-                  onPress={() => (songLimitReached ? setLimitOpen(true) : setEditing(null))}
-                />
-              ) : null}
-            </HStack>
-
-            {/* ── How much of the library is showing ───────────────────────── */}
-            {songs.isPending || songs.isError ? null : (
-              <HStack className="mb-3 flex-wrap items-center gap-1.5">
-                <Text
-                  className={`text-[12px] font-medium ${countWarning ? "" : "text-muted-foreground"}`}
-                  style={countWarning ? { color: theme.warning } : undefined}
-                >
-                  {countLabel}
-                </Text>
-
-                {Array.from(selectedThemes).map((value) => (
-                  <RemovableChip
-                    key={`theme-${value}`}
-                    label={value}
-                    capitalize
-                    onPress={() =>
-                      setSelectedThemes((current) => toggle(current, value))
-                    }
-                  />
-                ))}
-
-                {Array.from(selectedArtists).map((value) => (
-                  <RemovableChip
-                    key={`artist-${value}`}
-                    label={value}
-                    onPress={() =>
-                      setSelectedArtists((current) => toggle(current, value))
-                    }
-                  />
-                ))}
-
-                {narrowed ? (
-                  <Pressable
-                    onPress={clearFilters}
-                    accessibilityRole="button"
-                    hitSlop={6}
-                  >
-                    <Text className="text-[12px] font-medium text-muted-foreground underline">
-                      Clear all
-                    </Text>
-                  </Pressable>
-                ) : null}
-              </HStack>
-            )}
-
-            {/* ── The library ──────────────────────────────────────────────── */}
-            {songs.isPending ? (
-              <InsetCard elevated separatorInset={SONG_SEPARATOR_INSET}>
-                {Array.from({ length: 6 }, (_, index) => (
-                  <SongRowSkeleton key={index} index={index} />
-                ))}
-              </InsetCard>
-            ) : visible.length === 0 ? (
-              <EmptyState
-                {...emptyStateFor({ isError: songs.isError, narrowed })}
-                onClear={narrowed ? clearFilters : undefined}
-              />
-            ) : (
-              <InsetCard elevated separatorInset={SONG_SEPARATOR_INSET}>
-                {visible.map((song) => (
-                  <SongRow
-                    key={song.id}
-                    song={song}
-                    canManage={canManage}
-                    onActions={() => openActions(song)}
-                    onPlayTrack={playTrack}
-                  />
-                ))}
-              </InsetCard>
-            )}
-          </>
+            ))}
+          </InsetCard>
         )}
       </ScrollView>
 
@@ -494,53 +436,6 @@ function writeFailure(error: unknown): string {
   return "Couldn't reach the server. Try again in a moment.";
 }
 
-type ToolbarChipProps = {
-  icon: AppIconName;
-  label: string;
-  count?: number;
-  onPress: () => void;
-};
-
-function ToolbarChip({ icon, label, count, onPress }: ToolbarChipProps) {
-  const theme = useTheme();
-  const active = (count ?? 0) > 0;
-
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      className="flex-1 rounded-xl border px-3 py-2"
-      style={{
-        borderColor: active ? brand.orange : theme.border,
-        backgroundColor: active ? withAlpha(brand.orange, 0.1) : theme.card,
-      }}
-    >
-      <HStack className="items-center justify-center gap-1.5">
-        <AppIcon
-          icon={icon}
-          size={13}
-          color={active ? brand.orange : theme.textMuted}
-        />
-        <Text
-          className="text-[13px] font-medium"
-          numberOfLines={1}
-          style={{ color: active ? brand.orange : theme.text }}
-        >
-          {label}
-        </Text>
-        {active ? (
-          <Box
-            className="min-w-[17px] items-center rounded-full px-1"
-            style={{ backgroundColor: brand.orange }}
-          >
-            <Text className="text-[11px] font-bold text-white">{count}</Text>
-          </Box>
-        ) : null}
-      </HStack>
-    </Pressable>
-  );
-}
-
 /**
  * Adds a song, from the top of the page.
  *
@@ -559,38 +454,6 @@ function AddSongButton({ onPress }: { onPress: () => void }) {
       style={{ backgroundColor: brand.orange }}
     >
       <AppIcon icon={Plus} size={17} color="#FFFFFF" />
-    </Pressable>
-  );
-}
-
-type RemovableChipProps = {
-  label: string;
-  capitalize?: boolean;
-  onPress: () => void;
-};
-
-/** An active filter, and the tap that takes it off again. */
-function RemovableChip({ label, capitalize, onPress }: RemovableChipProps) {
-  const theme = useTheme();
-
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`Remove filter ${label}`}
-      className="rounded-full border px-2.5 py-0.5"
-      style={{ borderColor: theme.border, backgroundColor: theme.surface }}
-    >
-      <HStack className="items-center gap-1">
-        <Text
-          className={`text-[12px] font-medium text-foreground ${
-            capitalize ? "capitalize" : ""
-          }`}
-        >
-          {label}
-        </Text>
-        <AppIcon icon={X} size={10} color={theme.textMuted} />
-      </HStack>
     </Pressable>
   );
 }

@@ -12,7 +12,7 @@ import {
   DetailCardHeader,
   DetailEmpty,
 } from "@/components/events/event-detail-parts";
-import { SongKeySaveButton } from "@/components/events/song-key-save-button";
+import { SongKeyCard } from "@/components/events/song-key-card";
 import { SpotifyIcon, YoutubeIcon } from "@/components/icons/brand-icons";
 import { OpenButton } from "@/components/open-button";
 import type { Track } from "@/components/track-player-provider";
@@ -26,7 +26,7 @@ import { VStack } from "@/components/ui/vstack";
 import { mediaTint, withAlpha } from "@/constants/branding";
 import { useTheme } from "@/hooks/use-theme";
 import { formatKey } from "@/lib/config/keys";
-import { getServiceColors } from "@/lib/config/service-types";
+import { getServiceColors, type ServiceColors } from "@/lib/config/service-types";
 import type { EventSetlistSong, ServiceType } from "@/types/event";
 import type { SongAttachment, SongKey } from "@/types/song";
 
@@ -38,9 +38,6 @@ const SEPARATOR_INSET = 16 + NUMBER + 10;
 const VOCALIST = 22;
 /** Half the gap between a 28pt `OpenButton` and the 17pt glyph it centres. */
 const LINK_SLACK = 5.5;
-/** The same, for the 17pt bookmark in its 26pt square. Only the ⊕ is already
- *  flush: it is drawn to its own edge, so the circle *is* the alignment. */
-const BOOKMARK_SLACK = 4.5;
 
 type EventSetlistCardProps = {
   setlist: EventSetlistSong[];
@@ -52,7 +49,7 @@ type EventSetlistCardProps = {
   /** Opens the player on one of a song's tracks. */
   onPlayTrack: (track: Track) => void;
   organizationId: string;
-  /** The caller sings on this event, so each row offers a one-tap save. */
+  /** The caller sings on this event, so each row gets a ⋮ with its key card. */
   canSaveKeys?: boolean;
   /** Their key journal, for telling the three save states apart. */
   myKeys?: SongKey[];
@@ -141,6 +138,7 @@ export function EventSetlistCard({
                 organizationId={organizationId}
                 canSaveKey={canSaveKeys}
                 savedEntry={myKeyBySongId.get(song.songId) ?? null}
+                service={colors}
               />
             </VStack>
           ))}
@@ -158,6 +156,7 @@ function SetlistRow({
   organizationId,
   canSaveKey,
   savedEntry,
+  service,
 }: {
   song: EventSetlistSong;
   position: number;
@@ -166,6 +165,7 @@ function SetlistRow({
   organizationId: string;
   canSaveKey: boolean;
   savedEntry: SongKey | null;
+  service: ServiceColors;
 }) {
   const theme = useTheme();
 
@@ -178,9 +178,9 @@ function SetlistRow({
     song.attachments.length > 0;
 
   // The web's `showPeople`, widened to cover the links. A row with nothing to
-  // open, nobody singing it and no key to save skips the line outright rather
-  // than paying for an empty one.
-  const showControls = hasLinks || song.vocalists.length > 0 || canSaveKey;
+  // open and nobody singing it skips the line outright rather than paying for
+  // an empty one.
+  const showControls = hasLinks || song.vocalists.length > 0;
 
   const row = (
     <HStack className="items-start gap-2.5 px-4 py-2.5">
@@ -275,26 +275,27 @@ function SetlistRow({
 
             <Box className="flex-1" />
 
-            {/* Who is singing it, then whether it is in your keys — the order
-                the dashboard puts them in. */}
             <AvatarStack people={song.vocalists} size={VOCALIST} max={3} />
-
-            {canSaveKey ? (
-              <Box className="ml-1.5" style={{ marginRight: -BOOKMARK_SLACK }}>
-                <SongKeySaveButton
-                  organizationId={organizationId}
-                  songId={song.songId}
-                  title={song.title}
-                  artist={song.artist}
-                  pitch={song.pitch}
-                  keyQuality={song.keyQuality}
-                  savedEntry={savedEntry}
-                />
-              </Box>
-            ) : null}
           </HStack>
         ) : null}
       </VStack>
+
+      {/* A singer's ⋮, centred against the title and artist lines and pulled
+          out by its own slack so the glyph sits on the card's inset. */}
+      {canSaveKey ? (
+        <Box style={{ marginTop: 4, marginRight: -6 }}>
+          <SongKeyCard
+            organizationId={organizationId}
+            songId={song.songId}
+            title={song.title}
+            artist={song.artist}
+            pitch={song.pitch}
+            keyQuality={song.keyQuality}
+            savedEntry={savedEntry}
+            service={service}
+          />
+        </Box>
+      ) : null}
     </HStack>
   );
 

@@ -1,10 +1,17 @@
 import Eye from "lucide-react-native/icons/eye";
 import EyeOff from "lucide-react-native/icons/eye-off";
 import Phone from "lucide-react-native/icons/phone";
-import { useState, type ReactNode, type Ref } from "react";
-import { Pressable as BarePressable, TextInput, View, type TextInputProps } from "react-native";
+import { useContext, useState, type ReactNode, type Ref } from "react";
+import {
+  Pressable as BarePressable,
+  StyleSheet,
+  TextInput,
+  View,
+  type TextInputProps,
+} from "react-native";
 
 import { AppIcon, type AppIconName } from "@/components/app-icon";
+import { AuthRevealContext } from "@/components/auth/auth-shell";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Spinner } from "@/components/ui/spinner";
@@ -53,6 +60,8 @@ export function AuthInput({
 }: AuthInputProps) {
   const theme = useTheme();
   const [focused, setFocused] = useState(false);
+  // Moving to this field brings the screen's buttons up over the keyboard.
+  const reveal = useContext(AuthRevealContext);
 
   const ring = error ? theme.destructive : brand.orange;
 
@@ -88,6 +97,7 @@ export function AuthInput({
           ref={ref}
           onFocus={(event) => {
             setFocused(true);
+            reveal();
             onFocus?.(event);
           }}
           onBlur={(event) => {
@@ -240,26 +250,50 @@ type TextLinkProps = {
   muted?: boolean;
   /** Label-sized, for a link that sits beside a field's label. */
   small?: boolean;
+  /** A spinner holds the label's place while its request is out. */
+  busy?: boolean;
 };
 
-export function TextLink({ label, onPress, disabled, muted, small }: TextLinkProps) {
+export function TextLink({ label, onPress, disabled, muted, small, busy = false }: TextLinkProps) {
   const theme = useTheme();
+  const color = muted ? theme.textMuted : brand.orange;
 
   return (
     <Pressable
       onPress={onPress}
-      disabled={disabled}
+      disabled={disabled || busy}
       hitSlop={8}
       accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ busy }}
       className="data-[active=true]:opacity-60"
+      // The base style dims anything disabled; a busy link keeps its colour.
+      style={busy ? { opacity: 1 } : undefined}
     >
       <Text
         className={`${small ? "text-[13px]" : "text-[14.5px]"} font-semibold`}
-        style={{ color: muted ? theme.textMuted : brand.orange }}
+        style={{ color, opacity: busy ? 0 : 1 }}
       >
         {label}
       </Text>
+      {busy ? (
+        <View style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "center" }]}>
+          <Spinner size="small" color={color} />
+        </View>
+      ) : null}
     </Pressable>
+  );
+}
+
+export function OrDivider() {
+  const theme = useTheme();
+
+  return (
+    <HStack className="items-center gap-3">
+      <View style={{ flex: 1, height: 1, backgroundColor: theme.border }} />
+      <Text className="text-[13px] text-muted-foreground">or</Text>
+      <View style={{ flex: 1, height: 1, backgroundColor: theme.border }} />
+    </HStack>
   );
 }
 

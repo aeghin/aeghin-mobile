@@ -1,6 +1,13 @@
 import ChevronLeft from "lucide-react-native/icons/chevron-left";
-import { type ReactNode } from "react";
-import { ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
+import { createContext, useCallback, useEffect, useRef, type ReactNode } from "react";
+import {
+  Keyboard,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import Animated, {
   Easing,
   FadeIn,
@@ -26,6 +33,17 @@ const FOOTER_ENTRANCE = FadeIn.duration(480).delay(160);
 const FORWARD = FadeInRight.duration(280).easing(Easing.out(Easing.cubic));
 const BACKWARD = FadeInLeft.duration(280).easing(Easing.out(Easing.cubic));
 
+/** Room kept between a step's last control and the top of the keyboard. */
+const KEYBOARD_GAP = 16;
+/** How near the top of the screen the field being typed in may go: room for its label. */
+const FIELD_HEADROOM = 32;
+
+/**
+ * Handed down to every field: a focus asks the shell to bring the step's last
+ * control up over the keyboard. Outside a shell it does nothing.
+ */
+export const AuthRevealContext = createContext<() => void>(() => {});
+
 type AuthShellProps = {
   /** Changes with each step of a flow, which slides the new step in. */
   stepKey: string;
@@ -44,6 +62,13 @@ type AuthShellProps = {
  * brand glow — the web hero's blurred orange, as a radial gradient — with the
  * content scrolling above the keyboard on both platforms.
  *
+ * The system only scrolls far enough to show the field being typed in, which
+ * left sign-in's buttons under the keyboard. So when the keyboard comes up, or
+ * focus moves to another field, the shell scrolls on until the step's last
+ * control sits just above it — stopping short wherever that would push the
+ * field itself off the top, as it would on a small phone or sign-up's longer
+ * form.
+ *
  * Nothing renders until the splash starts lifting, so on a cold start the
  * entrance plays as the orange clears rather than behind it.
  */
@@ -59,11 +84,62 @@ export function AuthShell({
   const insets = useSafeAreaInsets();
   const revealed = useSplashRevealed();
 
+  const scrollRef = useRef<ScrollView>(null);
+  const stepRef = useRef<View>(null);
+  // Read only in handlers, never rendered, so refs rather than state.
+  const offset = useRef(0);
+  const keyboardTop = useRef<number | null>(null);
+
+  const reveal = useCallback(() => {
+    if (keyboardTop.current === null) return;
+
+    // A frame later, once the keyboard's inset (iOS) or the spacer (Android)
+    // has landed and any scroll of the system's own has run.
+    requestAnimationFrame(() => {
+      const top = keyboardTop.current;
+      const step = stepRef.current;
+      if (top === null || !step) return;
+
+      step.measureInWindow((_x, y, _width, height) => {
+        const hidden = y + height + KEYBOARD_GAP - top;
+        if (hidden <= 0) return;
+
+        const scrollBy = (room: number) => {
+          const by = Math.min(hidden, Math.max(room, 0));
+          if (by > 0) scrollRef.current?.scrollTo({ y: offset.current + by, animated: true });
+        };
+
+        const field = TextInput.State.currentlyFocusedInput();
+        if (field) {
+          field.measureInWindow((_fx, fieldY) => scrollBy(fieldY - insets.top - FIELD_HEADROOM));
+        } else {
+          scrollBy(hidden);
+        }
+      });
+    });
+  }, [insets.top]);
+
+  useEffect(() => {
+    const show = Keyboard.addListener("keyboardDidShow", (event) => {
+      keyboardTop.current = event.endCoordinates.screenY;
+      reveal();
+    });
+    const hide = Keyboard.addListener("keyboardDidHide", () => {
+      keyboardTop.current = null;
+    });
+
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, [reveal]);
+
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
       <BrandGlow />
 
       <ScrollView
+        ref={scrollRef}
         style={{ flex: 1 }}
         contentContainerStyle={{
           flexGrow: 1,
@@ -74,6 +150,13 @@ export function AuthShell({
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets
         showsVerticalScrollIndicator={false}
+        onScroll={(event) => {
+          offset.current = event.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
+        // Android shrinks this view for the keyboard a beat after it opens, and
+        // only then is there room to scroll into.
+        onLayout={reveal}
       >
         {revealed ? (
           <>
@@ -82,7 +165,11 @@ export function AuthShell({
 
               <LayoutAnimationConfig skipEntering>
                 <Animated.View key={stepKey} entering={direction === 1 ? FORWARD : BACKWARD}>
-                  {children}
+                  <View ref={stepRef} collapsable={false}>
+                    <AuthRevealContext.Provider value={reveal}>
+                      {children}
+                    </AuthRevealContext.Provider>
+                  </View>
                 </Animated.View>
               </LayoutAnimationConfig>
             </Animated.View>

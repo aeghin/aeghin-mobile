@@ -63,7 +63,6 @@ export type OrganizationInput = {
 /** What `POST .../invitations` takes. `orgId` comes from the path. */
 export type InvitationInput = {
   email: string;
-  phoneNumber: string;
   volunteerRoles: VolunteerRole[];
 };
 

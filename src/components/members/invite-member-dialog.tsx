@@ -18,9 +18,6 @@ function validate(draft: InvitationInput): FieldErrors {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email.trim())) {
     errors.email = "Invalid email address";
   }
-  if (!/^\d{10}$/.test(draft.phoneNumber.trim())) {
-    errors.phoneNumber = "Enter a valid 10-digit phone number";
-  }
   if (draft.volunteerRoles.length === 0) {
     errors.volunteerRoles = "Select at least one role";
   }
@@ -50,7 +47,6 @@ function InviteMemberBody({
 
   const [draft, setDraft] = useState<InvitationInput>({
     email: "",
-    phoneNumber: "",
     volunteerRoles: [],
   });
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -72,7 +68,7 @@ function InviteMemberBody({
     setSubmitError(null);
     const email = draft.email.trim().toLowerCase();
     invite.mutate(
-      { ...draft, email, phoneNumber: draft.phoneNumber.trim() },
+      { ...draft, email },
       {
         onSuccess: () => setSentTo(email),
         onError: (error) => setSubmitError(failureMessage(error)),
@@ -104,7 +100,11 @@ function InviteMemberBody({
     >
       <ErrorBanner message={submitError} />
 
-      <Field label="Email address" error={errors.email}>
+      <Field
+        label="Email address"
+        error={errors.email}
+        hint="They'll receive an invitation link to join your organization."
+      >
         <FormInput
           value={draft.email}
           onChangeText={(value) => set("email", value)}
@@ -114,20 +114,6 @@ function InviteMemberBody({
           autoComplete="email"
           autoCorrect={false}
           autoFocus
-        />
-      </Field>
-
-      <Field
-        label="Phone number"
-        error={errors.phoneNumber}
-        hint="They'll receive an invitation link to join your organization."
-      >
-        <FormInput
-          value={draft.phoneNumber}
-          onChangeText={(value) => set("phoneNumber", value.replace(/[^0-9]/g, ""))}
-          placeholder="1234567890"
-          keyboardType="number-pad"
-          maxLength={10}
         />
       </Field>
 

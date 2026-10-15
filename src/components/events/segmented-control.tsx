@@ -106,7 +106,9 @@ export function SegmentedControl<T extends string>({
             width: segmentWidth,
             height: TRACK_HEIGHT,
             borderRadius: 9,
-            backgroundColor: theme.card,
+            // In dark the card is a step below the track, so the thumb takes
+            // the next step up instead, as the web's active tab does.
+            backgroundColor: theme.scheme === "dark" ? theme.input : theme.card,
             // A lifted thumb is what separates the control from a row of chips.
             boxShadow: `0px 2px 6px ${withAlpha("#000000", theme.scheme === "dark" ? 0.4 : 0.12)}`,
             transform: [{ translateX }],

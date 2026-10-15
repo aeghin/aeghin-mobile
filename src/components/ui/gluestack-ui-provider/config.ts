@@ -25,13 +25,13 @@ function tokensFor(theme: Palette) {
     "--card": rgb(theme.card),
     "--card-foreground": rgb(theme.text),
 
-    "--popover": rgb(theme.card),
+    "--popover": rgb(theme.popover),
     "--popover-foreground": rgb(theme.text),
 
     "--secondary": rgb(theme.surface),
     "--secondary-foreground": rgb(theme.text),
 
-    "--muted": rgb(theme.surface),
+    "--muted": rgb(theme.muted),
     "--muted-foreground": rgb(theme.textMuted),
 
     "--accent": rgb(theme.surface),
@@ -40,8 +40,8 @@ function tokensFor(theme: Palette) {
     "--destructive": rgb(theme.destructive),
 
     "--border": rgb(theme.border),
-    "--input": rgb(theme.border),
-    "--ring": rgb(brand.orange),
+    "--input": rgb(theme.input),
+    "--ring": rgb(theme.ring),
 
     // Tokens of our own, for the things gluestack has no name for.
     "--brand": rgb(brand.orange),

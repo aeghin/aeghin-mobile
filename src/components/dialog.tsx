@@ -20,7 +20,7 @@ import { Pressable } from "@/components/ui/pressable";
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
-import { brand, withAlpha } from "@/constants/branding";
+import { blendOver, brand, withAlpha } from "@/constants/branding";
 import { useTheme } from "@/hooks/use-theme";
 
 /**
@@ -331,6 +331,12 @@ function DialogButton({
 }: DialogButtonProps) {
   const theme = useTheme();
   const outline = variant === "outline";
+  // As the web draws it: a red button at 60% in dark, where the full red is too
+  // light to carry a white label.
+  const fill =
+    theme.scheme === "dark" && accent === theme.destructive
+      ? blendOver(theme.card, accent, 0.6)
+      : accent;
 
   return (
     <Pressable
@@ -341,7 +347,7 @@ function DialogButton({
       className="flex-1 items-center justify-center rounded-2xl data-[active=true]:opacity-70"
       style={{
         height: BUTTON_HEIGHT,
-        backgroundColor: outline ? theme.surface : accent,
+        backgroundColor: outline ? theme.surface : fill,
         borderWidth: outline ? 1 : 0,
         borderColor: theme.border,
         opacity: disabled && !busy ? 0.45 : 1,

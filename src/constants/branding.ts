@@ -3,23 +3,38 @@ export const brand = {
   orangePressed: "#D96E00",
 } as const;
 
+/**
+ * The Aeghin design system's colours (the "Aeghin Design system" artifact's
+ * tokens.json, shared with the web's `app/globals.css`): neutral cool greys,
+ * a neutral near-black dark mode, and brand orange as the only saturated
+ * colour. The keys are the app's own names for them.
+ */
 export type Palette = {
   /** Which half of the palette this is. Config helpers branch on it. */
   scheme: "light" | "dark";
   background: string;
+  /** Quiet fills: fields, chips, tracks, tiles inside a card. The system's `secondary`. */
   surface: string;
+  /** Banners, tab lists, empty states. The system's `muted`. */
+  muted: string;
+  /** Menus and popovers, a step above `card` in dark. */
+  popover: string;
   border: string;
+  /** Form control borders, a step stronger than `border`. */
+  input: string;
+  /** Focus. Neutral grey, so focus never competes with the orange. */
+  ring: string;
   text: string;
   textMuted: string;
   /** Owner accent. Mirrors the web app's `--gold` token, which also shifts by scheme. */
   gold: string;
   /** Admin accent. The web config uses Tailwind blue-500/600 here. */
   admin: string;
-  /** Accept, "fully staffed", "up next" — the web's emerald-600/400. */
+  /** Accept, "fully staffed", "up next" — the system's emerald-700/400. */
   success: string;
   /** Expiring invitations and other "act soon" states. Tailwind amber-600/400. */
   warning: string;
-  /** Leave, delete, and the like. iOS system red, which reads on both schemes. */
+  /** Leave, delete, and the like. The system's red-600 / red-400. */
   destructive: string;
   /** Minor keys in the song library. The web's violet-700/400. */
   violet: string;
@@ -35,36 +50,45 @@ export const palette: Record<"light" | "dark", Palette> = {
   light: {
     scheme: "light",
     background: "#FFFFFF",
-    surface: "#F6F6F7",
-    border: "#E4E4E7",
-    text: "#111113",
-    textMuted: "#6B6B75",
+    surface: "#EEEEF0",
+    muted: "#F7F7F8",
+    popover: "#FFFFFF",
+    border: "#E3E3E7",
+    input: "#D9D9DE",
+    ring: "#747686",
+    text: "#131316",
+    textMuted: "#5E5F6E",
     gold: "#C4A03E",
     admin: "#2563EB",
-    success: "#059669",
+    success: "#007A55",
     warning: "#D97706",
-    destructive: "#FF3B30",
+    destructive: "#E7000B",
     violet: "#6D28D9",
     sky: "#0284C7",
-    groupedBackground: "#F2F2F7",
+    groupedBackground: "#F7F7F8",
     card: "#FFFFFF",
   },
+  // Neutral near-black, never navy: each surface a grey step above the last.
   dark: {
     scheme: "dark",
-    background: "#0E0E10",
-    surface: "#1A1A1D",
-    border: "#2A2A2F",
-    text: "#F5F5F6",
-    textMuted: "#9A9AA3",
+    background: "#131316",
+    surface: "#2F3037",
+    muted: "#212126",
+    popover: "#27272D",
+    border: "#2F3037",
+    input: "#42434D",
+    ring: "#9394A1",
+    text: "#F7F7F8",
+    textMuted: "#9394A1",
     gold: "#D8B353",
     admin: "#5B8DEF",
-    success: "#34D399",
+    success: "#00D492",
     warning: "#FBBF24",
-    destructive: "#FF453A",
+    destructive: "#FF6467",
     violet: "#A78BFA",
     sky: "#38BDF8",
-    groupedBackground: "#0E0E10",
-    card: "#1C1C1E",
+    groupedBackground: "#131316",
+    card: "#212126",
   },
 };
 

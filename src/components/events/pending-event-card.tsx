@@ -219,6 +219,8 @@ type AnswerButtonProps = {
   disabled: boolean;
 };
 
+const ACCEPT_FILL = "#009966";
+
 /**
  * Accept is filled and Decline is outlined, so the pair has one obvious
  * default without either being hard to reach — they are the same size and
@@ -234,7 +236,9 @@ function AnswerButton({
 }: AnswerButtonProps) {
   const theme = useTheme();
   const accept = kind === "accept";
-  const color = accept ? theme.success : theme.destructive;
+  // Accept fills with the web's emerald-600 in both schemes: `success` is a
+  // text colour, and the dark one is too light to carry a white label.
+  const color = accept ? ACCEPT_FILL : theme.destructive;
 
   return (
     <Pressable

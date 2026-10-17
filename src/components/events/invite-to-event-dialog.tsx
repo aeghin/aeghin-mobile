@@ -17,7 +17,6 @@ import { Pressable } from "@/components/ui/pressable";
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
-import { VolunteerRolePicker, toggleRole } from "@/components/volunteer-role-picker";
 import { brand, withAlpha } from "@/constants/branding";
 import { useEventAvailability, useInviteToEvent } from "@/hooks/use-events";
 import { useMembersList } from "@/hooks/use-members-list";
@@ -51,8 +50,11 @@ type InviteToEventDialogProps = {
   onClose: () => void;
   organizationId: string;
   eventId: string;
-  /** The roster — the only roles this dialog can invite into. */
-  rosterRoles: VolunteerRole[];
+  /**
+   * The role whose open spot was tapped. Kept once the dialog closes, so the
+   * card fades out still naming it; null until the first tap.
+   */
+  role: VolunteerRole | null;
   /** How many each role needs, for the open spots the dialog names. */
   roleSpots?: RoleSpots;
   assignments: EventDetailsAssignment[];
@@ -68,24 +70,21 @@ type InviteToEventDialogProps = {
 };
 
 /**
- * The web's Invite to Event dialog: pick a role, pick the members who hold
- * it, pick how long they have to answer.
+ * The web's Invite to Event dialog, opened from one role's open spot on the
+ * Team card: the members who hold that role, and how long they have to answer.
  *
  * Availability is checked the moment it opens, exactly as the dashboard does,
  * and the answer is read the same two ways. A **blockout** is a hard block —
  * the row is greyed and there is no override, because the server refuses the
  * whole batch over one of them. A **conflict** is the manager's call, so it is
  * put to them rather than decided for them.
- *
- * The one shape that differs from the web is the role: the dashboard opens
- * this dialog from a role's own row, so its role is fixed, while the phone has
- * a single Invite pill on the Team card and picks the role inside. What it
- * offers is still the roster and nothing else — widening that is what Add
- * roles is for. The check is unaffected — availability is keyed by member and
- * hours, never by role — so switching roles re-uses the same answer.
  */
-export function InviteToEventDialog(props: InviteToEventDialogProps) {
-  return <InviteToEventBody key={String(props.visible)} {...props} />;
+export function InviteToEventDialog({ role, ...props }: InviteToEventDialogProps) {
+  // Read before any spot is tapped, so the first open already knows who holds
+  // the role instead of flashing "0 available".
+  useMembersList(props.organizationId);
+
+  return role ? <InviteToEventBody key={String(props.visible)} role={role} {...props} /> : null;
 }
 
 function InviteToEventBody({
@@ -93,13 +92,13 @@ function InviteToEventBody({
   onClose,
   organizationId,
   eventId,
-  rosterRoles,
+  role,
   roleSpots,
   assignments,
   dates,
   viewerId,
   teamLeads,
-}: InviteToEventDialogProps) {
+}: InviteToEventDialogProps & { role: VolunteerRole }) {
   const theme = useTheme();
   const catalog = useRoles();
   const members = useMembersList(organizationId);
@@ -120,22 +119,13 @@ function InviteToEventBody({
   const availability = useEventAvailability(organizationId, eventId, days, canCheck);
   const checking = canCheck && availability.isPending;
 
-  // Only the roles this event asked for, in roster order. Offering the rest
-  // let the phone invite into a role the event never wanted, and the invite
-  // action backfills `rolesNeeded` with whatever role it is handed — so the
-  // roster grew behind the manager's back. Add roles is the deliberate way to
-  // widen it, which is the line the dashboard draws by construction.
-  const roles = catalog.inOrder(rosterRoles);
-
-  // Reachable: removing the last role leaves an event with an empty roster.
-  const noRoles = roles.length === 0;
-
-  const [role, setRole] = useState<VolunteerRole | null>(roles[0] ?? null);
   const [userIds, setUserIds] = useState<string[]>([]);
   const [expiresAt, setExpiresAt] = useState<3 | 5 | 7>(3);
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [now] = useState(() => Date.now());
+
+  const { label, emoji } = catalog.get(role);
 
   const conflicts = availability.data?.conflicts ?? {};
   const blockouts = availability.data?.blockouts ?? {};
@@ -157,30 +147,26 @@ function InviteToEventBody({
   // the web shows why somebody is unavailable rather than hiding them, and
   // "already on this event" is the answer to the question the manager is
   // actually asking.
-  const holders = role
-    ? (members.data ?? []).filter((member) => member.volunteerRoles.includes(role))
-    : [];
+  const holders = (members.data ?? []).filter((member) => member.volunteerRoles.includes(role));
 
   const invitableCount = holders.filter((member) => !live.has(member.id)).length;
 
-  // Who is already live on the chosen role, said so the manager knows who is
-  // there. Every invite is somebody wanted there, so one past the role's open
-  // spots simply adds a spot on the server.
-  const standing = role ? roleStanding(role, roleSpots, assignments, now) : null;
+  // Every invite is somebody wanted there, so one past the role's open spots
+  // simply adds a spot on the server.
+  const standing = roleStanding(role, roleSpots, assignments, now);
 
-  const onRole = role
-    ? assignments.filter(
-        (assignment) =>
-          assignment.role === role &&
-          (assignment.status === "ACCEPTED" ||
-            (assignment.status === "PENDING" && new Date(assignment.expiresAt).getTime() > now)),
-      )
-    : [];
+  // Who is already live on the role, said so the manager knows who is there.
+  const onRole = assignments.filter(
+    (assignment) =>
+      assignment.role === role &&
+      (assignment.status === "ACCEPTED" ||
+        (assignment.status === "PENDING" && new Date(assignment.expiresAt).getTime() > now)),
+  );
 
-  const team = role ? catalog.teamOf(role) : null;
-  const lead = team ? teamLeads[team] : undefined;
+  const team = catalog.teamOf(role);
+  const lead = teamLeads[team];
   const leadLine =
-    team && lead && lead.userId !== viewerId
+    lead && lead.userId !== viewerId
       ? lead.cover
         ? `${lead.firstName} ${lead.lastName} is covering ${catalog.teamLabel(team)} for this event and is asked to fill its roles.`
         : `${lead.firstName} ${lead.lastName} leads ${catalog.teamLabel(team)} and is asked to fill its roles.`
@@ -238,7 +224,6 @@ function InviteToEventBody({
   };
 
   const send = () => {
-    if (!role) return;
     setError(null);
     invite.mutate(
       { role, userIds, expiresAt },
@@ -261,17 +246,11 @@ function InviteToEventBody({
     <Dialog
       visible={visible}
       icon={UserPlus}
-      title="Invite volunteers"
-      description={
-        role && standing
-          ? `${userIds.length} selected · ${invitableCount} available · ${
-              standing.open === 1 ? "1 open spot" : `${standing.open} open spots`
-            }`
-          : noRoles
-            ? "This event has no roles on its roster yet."
-            : "Pick a role, then the members who hold it."
-      }
-      action={{ label: "Invite", onPress: send, disabled: !role || userIds.length === 0 }}
+      title={`${emoji} Invite ${label}`}
+      description={`${userIds.length} selected · ${invitableCount} available · ${
+        standing.open === 1 ? "1 open spot" : `${standing.open} open spots`
+      }`}
+      action={{ label: "Invite", onPress: send, disabled: userIds.length === 0 }}
       submitting={invite.isPending}
       onClose={onClose}
     >
@@ -293,22 +272,6 @@ function InviteToEventBody({
           </HStack>
         </Box>
       ) : null}
-
-      <Field
-        label="Role"
-        hint={noRoles ? "Add a role from the Team card, then invite into it." : undefined}
-      >
-        <VolunteerRolePicker
-          roles={roles}
-          selected={role ? [role] : []}
-          single
-          onToggle={(next) => {
-            setRole(toggleRole(role ? [role] : [], next, true)[0] ?? null);
-            setUserIds([]);
-            setSearch("");
-          }}
-        />
-      </Field>
 
       {onRole.length > 0 ? (
         <Box
@@ -332,7 +295,7 @@ function InviteToEventBody({
         </Box>
       ) : null}
 
-      <Field label={role ? `Members who can play ${catalog.get(role).label}` : "Members"}>
+      <Field label="Members">
         <VStack className="gap-2">
           {holders.length > SEARCH_THRESHOLD ? (
             <HStack
@@ -376,13 +339,7 @@ function InviteToEventBody({
             </FormCard>
           ) : (
             <Text className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-[13px] text-muted-foreground">
-              {noRoles
-                ? "Add a role to this event first"
-                : !role
-                  ? "Pick a role to see who can fill it"
-                  : holders.length === 0
-                    ? "No members hold this role yet"
-                    : "No members match your search"}
+              {holders.length === 0 ? "No members hold this role yet" : "No members match your search"}
             </Text>
           )}
         </VStack>

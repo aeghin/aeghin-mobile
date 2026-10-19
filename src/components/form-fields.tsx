@@ -154,10 +154,13 @@ export function Choice({ label, selected, onPress, leading, disabled }: ChoicePr
   );
 }
 
-/** A group of related rows, bounded the way a card bounds a list. */
+/**
+ * A group of related rows, bounded the way a card bounds a list. White, not
+ * `surface`: faded and tinted rows inside it have to read apart from the rest.
+ */
 export function FormCard({ children }: { children: ReactNode }) {
   return (
-    <VStack className="overflow-hidden rounded-2xl border border-border bg-surface">
+    <VStack className="overflow-hidden rounded-2xl border border-border bg-card">
       {children}
     </VStack>
   );

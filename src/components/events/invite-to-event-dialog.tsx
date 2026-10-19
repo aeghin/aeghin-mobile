@@ -42,6 +42,9 @@ const EXPIRY_OPTIONS = [3, 5, 7] as const;
 /** Past this many holders the web grows a search box; below it the list reads fine. */
 const SEARCH_THRESHOLD = 5;
 
+/** The web's `opacity-70` on a member who can't be picked. */
+const UNAVAILABLE_OPACITY = 0.7;
+
 /** `"09:00"` — the clock face of an instant, read in UTC like every other date here. */
 const clockOf = (iso: string) => new Date(iso).toISOString().slice(11, 16);
 
@@ -64,7 +67,7 @@ type InviteToEventDialogProps = {
   viewerId: string;
   /**
    * Who handles each team on this event — its lead, or whoever covers it for
-   * this event only — named when a second invite is about to go into its role.
+   * this event only — named over the member list so nobody staffs it twice.
    */
   teamLeads: Partial<Record<Team, EventTeamLead>>;
 };
@@ -131,37 +134,35 @@ function InviteToEventBody({
   const blockouts = availability.data?.blockouts ?? {};
 
   // One role per member, so anyone still live on the event cannot be invited
-  // into another. A lapsed invite is not live — re-inviting is what unsticks
-  // it — which is the same line the action draws server-side.
-  const live = new Set(
+  // into another; their row says which role they hold. A lapsed invite is not
+  // live — re-inviting is what unsticks it — which is the same line the action
+  // draws server-side.
+  const live = new Map(
     assignments
       .filter(
         (assignment) =>
           assignment.status === "ACCEPTED" ||
           (assignment.status === "PENDING" && new Date(assignment.expiresAt).getTime() > now),
       )
-      .map((assignment) => assignment.userId),
+      .map((assignment) => [assignment.userId, assignment]),
   );
 
+  // Who can be picked, then who can with a warning, then who can't. Ticking
+  // never moves a row.
+  const rank = (member: OrganizationMember) =>
+    live.has(member.id) || blockouts[member.id] ? 2 : conflicts[member.id] ? 1 : 0;
+
   // Everyone who holds the role, listed whether or not they can be picked:
-  // the web shows why somebody is unavailable rather than hiding them, and
-  // "already on this event" is the answer to the question the manager is
-  // actually asking.
-  const holders = (members.data ?? []).filter((member) => member.volunteerRoles.includes(role));
+  // the web shows why somebody is unavailable rather than hiding them.
+  const holders = (members.data ?? [])
+    .filter((member) => member.volunteerRoles.includes(role))
+    .sort((a, b) => rank(a) - rank(b));
 
   const invitableCount = holders.filter((member) => !live.has(member.id)).length;
 
   // Every invite is somebody wanted there, so one past the role's open spots
   // simply adds a spot on the server.
   const standing = roleStanding(role, roleSpots, assignments, now);
-
-  // Who is already live on the role, said so the manager knows who is there.
-  const onRole = assignments.filter(
-    (assignment) =>
-      assignment.role === role &&
-      (assignment.status === "ACCEPTED" ||
-        (assignment.status === "PENDING" && new Date(assignment.expiresAt).getTime() > now)),
-  );
 
   const team = catalog.teamOf(role);
   const lead = teamLeads[team];
@@ -170,17 +171,7 @@ function InviteToEventBody({
       ? lead.cover
         ? `${lead.firstName} ${lead.lastName} is covering ${catalog.teamLabel(team)} for this event and is asked to fill its roles.`
         : `${lead.firstName} ${lead.lastName} leads ${catalog.teamLabel(team)} and is asked to fill its roles.`
-      : null;
-
-  const holderLine = (assignment: EventDetailsAssignment) => {
-    const name = assignment.userId === viewerId ? "You" : personName(assignment.user);
-
-    if (assignment.status === "ACCEPTED") return `${name} — confirmed`;
-
-    return assignment.invitedBy
-      ? `${name} — invited by ${personName(assignment.invitedBy)}, waiting for an answer`
-      : `${name} — waiting for an answer`;
-  };
+      : undefined;
 
   const query = search.trim().toLowerCase();
 
@@ -273,34 +264,16 @@ function InviteToEventBody({
         </Box>
       ) : null}
 
-      {onRole.length > 0 ? (
-        <Box
-          className="gap-1 rounded-xl px-3 py-2.5"
-          style={{ backgroundColor: withAlpha(theme.warning, 0.12) }}
-        >
-          <HStack className="items-center gap-2">
-            <AppIcon icon={TriangleAlert} size={15} color={theme.warning} />
-            <Text className="flex-1 text-[13px] font-semibold" style={{ color: theme.warning }}>
-              Already on this role
-            </Text>
-          </HStack>
-          {onRole.map((assignment) => (
-            <Text key={assignment.id} className="text-[13px] text-foreground">
-              {holderLine(assignment)}
-            </Text>
-          ))}
-          {leadLine ? (
-            <Text className="text-[12px] text-muted-foreground">{leadLine}</Text>
-          ) : null}
-        </Box>
-      ) : null}
-
       <Field label="Members">
         <VStack className="gap-2">
+          {leadLine ? (
+            <Text className="ml-1 text-[12px] text-muted-foreground">{leadLine}</Text>
+          ) : null}
+
           {holders.length > SEARCH_THRESHOLD ? (
             <HStack
               className="items-center gap-2 rounded-xl border px-3"
-              style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+              style={{ backgroundColor: theme.card, borderColor: theme.border }}
             >
               <AppIcon icon={Search} size={16} color={theme.textMuted} />
               <TextInput
@@ -329,7 +302,7 @@ function InviteToEventBody({
                   <MemberRow
                     member={member}
                     selected={userIds.includes(member.id)}
-                    onEvent={live.has(member.id)}
+                    onEvent={live.get(member.id)}
                     blockout={blockouts[member.id]}
                     conflict={conflicts[member.id]}
                     onPress={() => toggleMember(member)}
@@ -364,8 +337,8 @@ function InviteToEventBody({
 type MemberRowProps = {
   member: OrganizationMember;
   selected: boolean;
-  /** Still live on this event, so not invitable into a second role. */
-  onEvent: boolean;
+  /** Their live place on this event, so not invitable into a second role. */
+  onEvent?: EventDetailsAssignment;
   blockout?: { startDate: string; endDate: string };
   conflict?: { eventName: string; startTime: string; endTime: string };
   onPress: () => void;
@@ -375,12 +348,14 @@ type MemberRowProps = {
  * One candidate, and why they can or cannot be picked.
  *
  * The three states are the dashboard's, in its order of severity: already on
- * the event, blocked out, or merely double-booked. Only the last is selectable.
+ * the event, blocked out, or merely double-booked. Only the last is selectable,
+ * so the first two are greyed out and the last keeps its amber.
  */
 function MemberRow({ member, selected, onEvent, blockout, conflict, onPress }: MemberRowProps) {
   const theme = useTheme();
+  const catalog = useRoles();
 
-  const blocked = onEvent || Boolean(blockout);
+  const blocked = Boolean(onEvent || blockout);
   const name = personName(member);
 
   return (
@@ -389,11 +364,15 @@ function MemberRow({ member, selected, onEvent, blockout, conflict, onPress }: M
       disabled={blocked}
       accessibilityRole="checkbox"
       accessibilityState={{ checked: selected, disabled: blocked }}
-      className="data-[active=true]:bg-border/40"
+      // Pressable's own disabled dim is 40%, too faint to read who is busy.
+      className="data-[active=true]:bg-border/40 data-[disabled=true]:opacity-70"
       style={{
-        opacity: blocked ? 0.55 : 1,
-        backgroundColor:
-          !blocked && conflict && !selected ? withAlpha(theme.warning, 0.08) : "transparent",
+        opacity: blocked ? UNAVAILABLE_OPACITY : 1,
+        backgroundColor: blocked
+          ? withAlpha(theme.surface, 0.4)
+          : conflict && !selected
+            ? withAlpha(theme.warning, 0.08)
+            : "transparent",
       }}
     >
       <HStack className="items-center gap-3 px-3 py-2.5">
@@ -406,7 +385,9 @@ function MemberRow({ member, selected, onEvent, blockout, conflict, onPress }: M
 
           {onEvent ? (
             <Text className="text-[12px] text-muted-foreground" numberOfLines={1}>
-              Already on this event
+              {`${catalog.get(onEvent.role).label} · ${
+                onEvent.status === "ACCEPTED" ? "confirmed" : "invited"
+              }`}
             </Text>
           ) : blockout ? (
             <HStack className="items-center gap-1">

@@ -1,5 +1,6 @@
 import Check from "lucide-react-native/icons/check";
 import Pencil from "lucide-react-native/icons/pencil";
+import X from "lucide-react-native/icons/x";
 import { useState } from "react";
 
 import { AppIcon } from "@/components/app-icon";
@@ -12,9 +13,8 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { toggleRole } from "@/components/volunteer-role-picker";
-import { brand } from "@/constants/branding";
+import { brand, withAlpha } from "@/constants/branding";
 import { useAddEventRoles, useRemoveEventRole } from "@/hooks/use-events";
-import { useMembersList } from "@/hooks/use-members-list";
 import { useRoles } from "@/hooks/use-roles";
 import { useTheme } from "@/hooks/use-theme";
 import { failureMessage } from "@/lib/failure";
@@ -40,6 +40,9 @@ type EditRolesDialogProps = {
  * its row; the phone does both here, so the Team card shows only people and
  * open spots. The rules are the server's either way: a role with somebody
  * accepted or still deciding can't come off, so it stays ticked and says who.
+ *
+ * It only picks roles. Who can fill one is the invite dialog's question, asked
+ * with the availability check at the moment somebody is being picked.
  */
 export function EditRolesDialog(props: EditRolesDialogProps) {
   return <EditRolesBody key={String(props.visible)} {...props} />;
@@ -54,7 +57,6 @@ function EditRolesBody({
   assignments,
 }: EditRolesDialogProps) {
   const catalog = useRoles();
-  const members = useMembersList(organizationId);
   const add = useAddEventRoles(organizationId, eventId);
   const remove = useRemoveEventRole(organizationId, eventId);
 
@@ -77,7 +79,7 @@ function EditRolesBody({
           (assignment.status === "PENDING" && new Date(assignment.expiresAt).getTime() > now)),
     );
 
-  const noteFor = (role: VolunteerRole): { text: string; locked?: boolean; warn?: boolean } => {
+  const noteFor = (role: VolunteerRole): { text?: string; locked?: boolean; warn?: boolean } => {
     const live = liveOn(role).map((assignment) => personName(assignment.user));
 
     if (live.length > 0) {
@@ -98,11 +100,7 @@ function EditRolesBody({
         : { text: "Comes off this event", warn: true };
     }
 
-    if (!members.data) return { text: "Not on this event" };
-
-    const holders = members.data.filter((member) => member.volunteerRoles.includes(role));
-
-    return { text: `${holders.length} available` };
+    return {};
   };
 
   // One request at a time: each rewrites the event's whole list of roles, so
@@ -132,7 +130,7 @@ function EditRolesBody({
       visible={visible}
       icon={Pencil}
       title="Edit roles"
-      description="Roles show up on the Team card as open spots you can invite into."
+      description="Roles show up on the Team card as open spots you can invite into. A role with someone on it stays until they're removed from the Team card."
       action={{ label: "Save", onPress: save, disabled: added.length + removed.length === 0 }}
       submitting={saving}
       onClose={onClose}
@@ -171,8 +169,8 @@ function EditRolesBody({
 type RoleRowProps = {
   role: VolunteerRole;
   checked: boolean;
-  /** The line under the name: who can fill it, who is on it, or what Save does to it. */
-  note: string;
+  /** The line under the name, on a role on the event: who is on it, or what Save does to it. */
+  note?: string;
   /** Somebody is on it, so it can't come off. */
   locked?: boolean;
   /** About to come off the event. */
@@ -189,12 +187,15 @@ function RoleRow({ role, checked, note, locked = false, warn = false, onPress }:
       onPress={onPress}
       disabled={locked}
       accessibilityRole="checkbox"
-      accessibilityLabel={`${label}, ${note}`}
+      accessibilityLabel={note ? `${label}, ${note}` : label}
       accessibilityState={{ checked, disabled: locked }}
-      className="data-[active=true]:bg-border/40"
-      // The web's locked-in rows are faded too. Inline, because the shared
-      // Pressable's own disabled fade goes further and reads as unavailable.
-      style={{ opacity: locked ? 0.55 : 1 }}
+      // Greyed the way the invite dialog greys a member who can't be picked;
+      // Pressable's own disabled dim is 40%, too faint to read who is on it.
+      className="data-[active=true]:bg-border/40 data-[disabled=true]:opacity-70"
+      style={{
+        opacity: locked ? 0.7 : 1,
+        backgroundColor: locked ? withAlpha(theme.surface, 0.4) : "transparent",
+      }}
     >
       <HStack className="items-center gap-3 px-3 py-2.5">
         <Text style={{ width: 24, fontSize: 20, lineHeight: 26, textAlign: "center" }}>
@@ -205,23 +206,31 @@ function RoleRow({ role, checked, note, locked = false, warn = false, onPress }:
           <Text className="text-[15px] font-medium text-foreground" numberOfLines={1}>
             {label}
           </Text>
-          <Text
-            className="text-[12px]"
-            style={{ color: warn ? theme.destructive : theme.textMuted }}
-            numberOfLines={1}
-          >
-            {note}
-          </Text>
+          {note ? (
+            <Text
+              className="text-[12px]"
+              style={{ color: warn ? theme.destructive : theme.textMuted }}
+              numberOfLines={1}
+            >
+              {note}
+            </Text>
+          ) : null}
         </VStack>
 
+        {/* On, off, or coming off: an empty circle alone would read the same
+            as a role that was never on the event. */}
         <Box
           className="h-5 w-5 items-center justify-center rounded-full border"
           style={{
-            borderColor: checked ? brand.orange : theme.border,
-            backgroundColor: checked ? brand.orange : "transparent",
+            borderColor: checked ? brand.orange : warn ? theme.destructive : theme.border,
+            backgroundColor: checked ? brand.orange : warn ? theme.destructive : "transparent",
           }}
         >
-          {checked ? <AppIcon icon={Check} size={12} color="#FFFFFF" /> : null}
+          {checked ? (
+            <AppIcon icon={Check} size={12} color="#FFFFFF" />
+          ) : warn ? (
+            <AppIcon icon={X} size={12} color="#FFFFFF" />
+          ) : null}
         </Box>
       </HStack>
     </Pressable>

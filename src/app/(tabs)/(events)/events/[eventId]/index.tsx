@@ -3,20 +3,23 @@ import CircleAlert from "lucide-react-native/icons/circle-alert";
 import CircleSlash from "lucide-react-native/icons/circle-slash";
 import Pencil from "lucide-react-native/icons/pencil";
 import Trash2 from "lucide-react-native/icons/trash-2";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, RefreshControl, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Dialog } from "@/components/dialog";
-import { EventChatCard } from "@/components/events/event-chat-card";
+import { EventChatCard, EventChatCardSkeleton } from "@/components/events/event-chat-card";
 import {
   EventDetailHero,
   EventDetailHeroSkeleton,
 } from "@/components/events/event-detail-hero";
-import { EventSetlistCard } from "@/components/events/event-setlist-card";
+import {
+  EventSetlistCard,
+  EventSetlistCardSkeleton,
+} from "@/components/events/event-setlist-card";
 import { EventPager } from "@/components/events/event-pager";
 import { EventSmartSchedulingCard } from "@/components/events/event-smart-scheduling-card";
-import { EventTeamCard } from "@/components/events/event-team-card";
+import { EventTeamCard, EventTeamCardSkeleton } from "@/components/events/event-team-card";
 import { EventsEmptyState } from "@/components/events/events-empty-state";
 import { VocalistDialog } from "@/components/events/vocalist-dialog";
 import { ErrorBanner } from "@/components/form-fields";
@@ -25,6 +28,7 @@ import { useNowPlayingInset, useTrackPlayer } from "@/components/track-player-pr
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
 import { useSmartSchedulingAvailable } from "@/hooks/use-billing";
+import { useChatHistory, usePrefetchChatHistory } from "@/hooks/use-event-chat";
 import {
   useCancelAssignment,
   useDeleteEvent,
@@ -160,7 +164,19 @@ export default function EventDetailScreen() {
   const organizationId = organization?.id ?? "";
 
   const details = useEventDetails(organizationId, eventId ?? "");
-  const pullToRefresh = usePullToRefresh(details.refetch);
+
+  // Asked for alongside the event rather than once the chat card mounts, so
+  // the chat line fills with the rest of the page instead of after it.
+  const chat = useChatHistory(organizationId, eventId ?? "");
+
+  // A pull is the only re-read, so it takes the chat line with it.
+  const refetchDetails = details.refetch;
+  const refetchChat = chat.refetch;
+  const refresh = useCallback(
+    () => Promise.all([refetchDetails(), refetchChat()]),
+    [refetchDetails, refetchChat],
+  );
+  const pullToRefresh = usePullToRefresh(refresh);
   const event = details.data;
 
   // A 404 is authoritative: the event is gone, so a cached copy must stop
@@ -200,6 +216,7 @@ export default function EventDetailScreen() {
 
   const scrollRef = useRef<ScrollView>(null);
   const prefetchEvent = usePrefetchEventDetails(organizationId);
+  const prefetchChat = usePrefetchChatHistory(organizationId);
   const serviceColors = event ? getServiceColors(event.serviceType.color, theme) : null;
 
   // The step in flight. Until its event arrives it names the header at once,
@@ -222,9 +239,12 @@ export default function EventDetailScreen() {
   // Warm both neighbours once this event is up, so a step lands at once rather
   // than on the skeleton. Free while a cached copy is still fresh.
   useEffect(() => {
-    if (nextId) prefetchEvent(nextId);
-    if (previousId) prefetchEvent(previousId);
-  }, [nextId, previousId, prefetchEvent]);
+    for (const id of [nextId, previousId]) {
+      if (!id) continue;
+      prefetchEvent(id);
+      prefetchChat(id);
+    }
+  }, [nextId, previousId, prefetchEvent, prefetchChat]);
 
   // `confirm` is what the dialog *says*; `confirmOpen` is whether it is up.
   // Two pieces rather than one nullable, so closing does not blank the card
@@ -501,6 +521,14 @@ function Unavailable({ error }: { error: unknown }) {
   );
 }
 
+/** The page's own order, so each card lands where its placeholder sat. */
 function DetailLoading() {
-  return <EventDetailHeroSkeleton />;
+  return (
+    <VStack className="gap-4">
+      <EventDetailHeroSkeleton />
+      <EventChatCardSkeleton />
+      <EventSetlistCardSkeleton />
+      <EventTeamCardSkeleton />
+    </VStack>
+  );
 }

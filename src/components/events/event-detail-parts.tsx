@@ -7,6 +7,7 @@ import { Box } from "@/components/ui/box";
 import { Center } from "@/components/ui/center";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { withAlpha } from "@/constants/branding";
@@ -88,6 +89,20 @@ export function DetailCardHeader({ icon, title, subtitle, tint, trailing }: Deta
       </VStack>
 
       {trailing}
+    </HStack>
+  );
+}
+
+/** Holds a section title bar's shape while the event loads. */
+export function DetailCardHeaderSkeleton() {
+  return (
+    <HStack className="items-center gap-3 px-4 pb-3 pt-4">
+      <Skeleton
+        startColor="bg-border"
+        className="rounded-[10px]"
+        style={{ width: ICON_TILE, height: ICON_TILE }}
+      />
+      <Skeleton startColor="bg-border" style={{ width: 84, height: 15 }} />
     </HStack>
   );
 }

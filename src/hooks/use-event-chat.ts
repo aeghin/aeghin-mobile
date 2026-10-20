@@ -40,6 +40,28 @@ export function useChatHistory(orgId: string, eventId: string, enabled = true) {
   });
 }
 
+/**
+ * Loads an event's first page into the cache ahead of time, alongside
+ * `usePrefetchEventDetails`, so a step lands with its chat line filled. Reading
+ * history marks nothing read — that is its own route. Never throws.
+ */
+export function usePrefetchChatHistory(orgId: string) {
+  const { userId } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useCallback(
+    (eventId: string) => {
+      if (!userId || !orgId) return;
+
+      void queryClient.prefetchQuery({
+        queryKey: chatKey(userId, orgId, eventId),
+        queryFn: () => apiGet<ChatPage>(chatPath(orgId, eventId)),
+      });
+    },
+    [queryClient, userId, orgId],
+  );
+}
+
 /** Oldest first, no id twice. Later entries win, so a persisted row replaces its optimistic twin. */
 function mergeById(...lists: ChatMessage[][]): ChatMessage[] {
   const byId = new Map<string, ChatMessage>();

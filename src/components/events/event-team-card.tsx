@@ -21,6 +21,7 @@ import {
   DetailButton,
   DetailCard,
   DetailCardHeader,
+  DetailCardHeaderSkeleton,
   DetailCount,
 } from "@/components/events/event-detail-parts";
 import { InviteToEventDialog } from "@/components/events/invite-to-event-dialog";
@@ -31,6 +32,7 @@ import { Center } from "@/components/ui/center";
 import { Divider } from "@/components/ui/divider";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { withAlpha, type Palette } from "@/constants/branding";
@@ -402,6 +404,37 @@ export function EventTeamCard({
         </>
       ) : null}
     </>
+  );
+}
+
+/** Holds the card's shape while the event loads: one team, two roles. */
+export function EventTeamCardSkeleton() {
+  return (
+    <DetailCard>
+      <DetailCardHeaderSkeleton />
+      <Divider />
+
+      <HStack className="items-center px-4 py-3">
+        <Skeleton startColor="bg-border" style={{ width: 64, height: 14 }} />
+      </HStack>
+
+      <VStack className="gap-4 px-4 pb-5 pt-0.5">
+        {[130, 100].map((width) => (
+          <VStack key={width} className="gap-2">
+            <Skeleton startColor="bg-border" style={{ width: 90, height: 11 }} />
+            <HStack className="items-center gap-3 rounded-xl border border-border px-3 py-2.5">
+              {/* The avatar inside its status ring. */}
+              <Skeleton
+                startColor="bg-border"
+                className="rounded-full"
+                style={{ width: AVATAR + 8, height: AVATAR + 8 }}
+              />
+              <Skeleton startColor="bg-border" style={{ width, height: 13 }} />
+            </HStack>
+          </VStack>
+        ))}
+      </VStack>
+    </DetailCard>
   );
 }
 

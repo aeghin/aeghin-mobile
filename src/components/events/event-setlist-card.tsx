@@ -10,6 +10,7 @@ import {
   DetailButton,
   DetailCard,
   DetailCardHeader,
+  DetailCardHeaderSkeleton,
   DetailEmpty,
 } from "@/components/events/event-detail-parts";
 import { SongKeyCard } from "@/components/events/song-key-card";
@@ -21,6 +22,7 @@ import { Center } from "@/components/ui/center";
 import { Divider } from "@/components/ui/divider";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { mediaTint, withAlpha } from "@/constants/branding";
@@ -144,6 +146,34 @@ export function EventSetlistCard({
           ))}
         </VStack>
       )}
+    </DetailCard>
+  );
+}
+
+/** Holds the card's shape while the event loads. Three songs: a short set. */
+export function EventSetlistCardSkeleton() {
+  return (
+    <DetailCard>
+      <DetailCardHeaderSkeleton />
+
+      <VStack className="pb-1.5">
+        {[160, 120, 140].map((width, index) => (
+          <VStack key={width}>
+            {index > 0 ? <Divider style={{ marginLeft: SEPARATOR_INSET }} /> : null}
+            <HStack className="items-start gap-2.5 px-4 py-2.5">
+              <Skeleton
+                startColor="bg-border"
+                className="mt-0.5 rounded-md"
+                style={{ width: NUMBER, height: NUMBER }}
+              />
+              <VStack className="flex-1 gap-2 pt-0.5">
+                <Skeleton startColor="bg-border" style={{ width, height: 14 }} />
+                <Skeleton startColor="bg-border" style={{ width: 80, height: 11 }} />
+              </VStack>
+            </HStack>
+          </VStack>
+        ))}
+      </VStack>
     </DetailCard>
   );
 }

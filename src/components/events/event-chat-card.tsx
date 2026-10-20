@@ -73,10 +73,7 @@ export function EventChatCard({ organizationId, eventId, service, onOpen }: Even
           {/* Two lines in every state, so nothing below moves when it loads. */}
           <VStack className="flex-1 justify-center gap-px" style={{ minHeight: 35 }}>
             {history.isPending ? (
-              <VStack className="gap-2">
-                <Skeleton startColor="bg-border" style={{ width: 110, height: 11 }} />
-                <Skeleton startColor="bg-border" style={{ width: 200, height: 12 }} />
-              </VStack>
+              <PreviewSkeleton />
             ) : latest ? (
               <>
                 <HStack className="items-baseline gap-1.5">
@@ -127,5 +124,39 @@ export function EventChatCard({ organizationId, eventId, service, onOpen }: Even
         </HStack>
       </Pressable>
     </DetailCard>
+  );
+}
+
+/**
+ * Holds the line's shape while the event loads. Its bars are the ones the card
+ * itself shows while the chat is still coming, so if the event lands first
+ * they carry on rather than starting over.
+ */
+export function EventChatCardSkeleton() {
+  const theme = useTheme();
+
+  return (
+    <DetailCard>
+      <HStack className="items-center gap-3 py-[11px] pl-3 pr-3.5">
+        <Skeleton
+          startColor="bg-border"
+          className="rounded-[10px]"
+          style={{ width: 30, height: 30 }}
+        />
+        <VStack className="flex-1 justify-center" style={{ minHeight: 35 }}>
+          <PreviewSkeleton />
+        </VStack>
+        <AppIcon icon={ChevronRight} size={14} color={theme.textMuted} />
+      </HStack>
+    </DetailCard>
+  );
+}
+
+function PreviewSkeleton() {
+  return (
+    <VStack className="gap-2">
+      <Skeleton startColor="bg-border" style={{ width: 110, height: 11 }} />
+      <Skeleton startColor="bg-border" style={{ width: 200, height: 12 }} />
+    </VStack>
   );
 }

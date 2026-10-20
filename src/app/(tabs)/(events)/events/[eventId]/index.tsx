@@ -31,6 +31,7 @@ import {
   useDeleteInvite,
   useEventDetails,
   usePrefetchEventDetails,
+  useRemoveEventRole,
   useResendAssignment,
 } from "@/hooks/use-events";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
@@ -43,7 +44,12 @@ import type { Roles } from "@/lib/config/volunteer-roles";
 import { roleStanding, type RoleStanding } from "@/lib/events/spots";
 import { failureMessage } from "@/lib/failure";
 import { personName } from "@/lib/names";
-import type { EventDetailsAssignment, EventNeighbor, EventSetlistSong } from "@/types/event";
+import type {
+  EventDetailsAssignment,
+  EventNeighbor,
+  EventSetlistSong,
+  VolunteerRole,
+} from "@/types/event";
 
 /** How much page the tab bar covers once the list has scrolled under it. */
 const TAB_BAR_CLEARANCE = 64;
@@ -64,6 +70,12 @@ type Confirm =
       assignment: EventDetailsAssignment;
       /** The role as it stood when Delete was tapped, for what the dialog promises. */
       standing: RoleStanding;
+    }
+  | {
+      kind: "removeRole";
+      role: VolunteerRole;
+      /** It still carries declined, removed or lapsed invites, which go with it. */
+      withInvites: boolean;
     };
 
 /** What each one says. Every case is destructive and none of them is undoable. */
@@ -108,6 +120,15 @@ function describeConfirm(confirm: Confirm, roles: Roles) {
         label: "Delete",
       };
     }
+
+    case "removeRole":
+      return {
+        title: "Remove role",
+        description: `${roles.get(confirm.role).label} will come off this event's roster.${
+          confirm.withInvites ? " Its past invites go with it." : ""
+        }`,
+        label: "Remove",
+      };
   }
 }
 
@@ -151,6 +172,7 @@ export default function EventDetailScreen() {
   const cancelAssignment = useCancelAssignment(organizationId, eventId ?? "");
   const resendInvite = useResendAssignment(organizationId, eventId ?? "");
   const deleteInvite = useDeleteInvite(organizationId, eventId ?? "");
+  const removeRole = useRemoveEventRole(organizationId, eventId ?? "");
   const removeEvent = useDeleteEvent(organizationId, eventId ?? "");
   const autoFillAvailable = useSmartSchedulingAvailable(organizationId);
 
@@ -252,15 +274,24 @@ export default function EventDetailScreen() {
           onSuccess: () => setConfirmOpen(false),
           onError: failed,
         });
+        return;
+
+      case "removeRole":
+        removeRole.mutate(confirm.role, {
+          onSuccess: () => setConfirmOpen(false),
+          onError: failed,
+        });
     }
   };
 
   const confirmBusy =
     confirm?.kind === "deleteEvent"
       ? removeEvent.isPending
-      : confirm?.kind === "deleteInvite"
-        ? deleteInvite.isPending
-        : cancelAssignment.isPending;
+      : confirm?.kind === "removeRole"
+        ? removeRole.isPending
+        : confirm?.kind === "deleteInvite"
+          ? deleteInvite.isPending
+          : cancelAssignment.isPending;
 
   const confirmWords = confirm ? describeConfirm(confirm, roles) : null;
 
@@ -373,6 +404,18 @@ export default function EventDetailScreen() {
               onRemoveAssignment={
                 event.viewer.canManage
                   ? (assignment) => ask({ kind: "removeAssignment", assignment })
+                  : undefined
+              }
+              onRemoveRole={
+                event.viewer.canManage
+                  ? (role) =>
+                      ask({
+                        kind: "removeRole",
+                        role,
+                        withInvites: event.assignments.some(
+                          (assignment) => assignment.role === role,
+                        ),
+                      })
                   : undefined
               }
               onResendInvite={

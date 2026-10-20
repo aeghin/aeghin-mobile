@@ -1,18 +1,21 @@
 import ChevronDown from "lucide-react-native/icons/chevron-down";
+import ChevronsLeft from "lucide-react-native/icons/chevrons-left";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
 import Mail from "lucide-react-native/icons/mail";
-import Pencil from "lucide-react-native/icons/pencil";
+import Plus from "lucide-react-native/icons/plus";
 import RefreshCw from "lucide-react-native/icons/refresh-cw";
 import Trash2 from "lucide-react-native/icons/trash-2";
 import UserPlus from "lucide-react-native/icons/user-plus";
+import UserRound from "lucide-react-native/icons/user-round";
 import Users from "lucide-react-native/icons/users";
 import Zap from "lucide-react-native/icons/zap";
 import { useState } from "react";
 import { Alert } from "react-native";
+import ReanimatedSwipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 
 import { ActionMenu } from "@/components/action-menu";
 import { AppIcon } from "@/components/app-icon";
-import { EditRolesDialog } from "@/components/events/edit-roles-dialog";
+import { AddRolesDialog } from "@/components/events/add-roles-dialog";
 import { EmailTeamDialog } from "@/components/events/email-team-dialog";
 import {
   DetailButton,
@@ -22,6 +25,7 @@ import {
 } from "@/components/events/event-detail-parts";
 import { InviteToEventDialog } from "@/components/events/invite-to-event-dialog";
 import { OrgAvatar } from "@/components/org-avatar";
+import { Tip } from "@/components/tip";
 import { Box } from "@/components/ui/box";
 import { Center } from "@/components/ui/center";
 import { Divider } from "@/components/ui/divider";
@@ -34,6 +38,7 @@ import { useSmartSchedulingAvailable } from "@/hooks/use-billing";
 import { useSetSmartScheduling } from "@/hooks/use-events";
 import { useRoles } from "@/hooks/use-roles";
 import { useTheme } from "@/hooks/use-theme";
+import { useTip } from "@/hooks/use-tip";
 import { getServiceColors } from "@/lib/config/service-types";
 import {
   getStatusConfig,
@@ -96,6 +101,10 @@ const hasStalled = (groups: RoleGroup[], now: number) =>
       group.standing.open > 0 && group.items.some((item) => !isLive(item, now)),
   );
 
+/** The server lets a role go only while nobody is live on it. */
+const isRemovable = (group: RoleGroup, now: number) =>
+  !group.items.some((item) => isLive(item, now));
+
 /** Spots somebody accepted, never more than the role needs. */
 const filledOf = ({ accepted, needed }: RoleStanding) => Math.min(accepted, needed);
 
@@ -104,6 +113,8 @@ type EventTeamCardProps = {
   event: EventDetails;
   /** Managers only: take somebody off the event. Live rows become tappable. */
   onRemoveAssignment?: (assignment: EventDetailsAssignment) => void;
+  /** Managers only: take a role nobody is on off the roster. */
+  onRemoveRole?: (role: VolunteerRole) => void;
   /** Managers only: reopen a lapsed invitation. */
   onResendInvite?: (assignment: EventDetailsAssignment) => void;
   /**
@@ -118,8 +129,9 @@ type EventTeamCardProps = {
  * change it.
  *
  * This is where the roster is *worked on*, not merely read: every action that
- * changes it — invite, auto-fill, edit roles, email — sits under the title, so
- * staffing several roles never means scrolling the roster to find them.
+ * changes it — invite, auto-fill, add roles, email — sits under the title, so
+ * staffing several roles never means scrolling the roster to find them. A role
+ * nobody is on comes off with a swipe left on its open spot.
  *
  * Declined and canceled people stay on the list rather than disappearing —
  * struck through, as the web shows them. A role that lost somebody is a fact
@@ -129,6 +141,7 @@ export function EventTeamCard({
   organizationId,
   event,
   onRemoveAssignment,
+  onRemoveRole,
   onResendInvite,
   onDeleteInvite,
 }: EventTeamCardProps) {
@@ -144,6 +157,8 @@ export function EventTeamCard({
   const [now] = useState(() => Date.now());
 
   const [dialog, setDialog] = useState<"invite" | "roles" | "email" | null>(null);
+
+  const swipeTip = useTip("swipeRemoveRole", event.viewer.userId);
 
   const smart = useSetSmartScheduling(organizationId, event.id);
   const autoFillAvailable = useSmartSchedulingAvailable(organizationId);
@@ -185,6 +200,15 @@ export function EventTeamCard({
       stalled: hasStalled(groups, now),
     };
   }).filter((category) => category.groups.length > 0);
+
+  // Pointed at one role only: the first a manager can swipe in an open team.
+  const tipRole =
+    onRemoveRole && !swipeTip.seen
+      ? categories
+          .filter((category) => !collapsed.includes(category.key))
+          .flatMap((category) => category.groups)
+          .find((group) => isRemovable(group, now))?.role
+      : undefined;
 
   const spotCount = categories.reduce((count, category) => count + category.needed, 0);
   const filledCount = categories.reduce((count, category) => count + category.filled, 0);
@@ -260,8 +284,8 @@ export function EventTeamCard({
               style={HALF}
             />
             <DetailButton
-              icon={Pencil}
-              label="Edit roles"
+              icon={Plus}
+              label="Add roles"
               service={colors}
               onPress={() => setDialog("roles")}
               style={HALF}
@@ -283,7 +307,7 @@ export function EventTeamCard({
         {categories.length === 0 ? (
           <Text className="border-t border-border px-4 pb-4 pt-3 text-[13px] text-muted-foreground">
             {canManage
-              ? "No roles on this event yet. Tap Edit roles to start building the team."
+              ? "No roles on this event yet. Add roles to start building the team."
               : "No roles on this event yet."}
           </Text>
         ) : (
@@ -328,8 +352,10 @@ export function EventTeamCard({
                         group={group}
                         currentUserId={viewer.userId}
                         onRemoveAssignment={onRemoveAssignment}
+                        onRemoveRole={onRemoveRole}
                         onResendInvite={onResendInvite}
                         onDeleteInvite={onDeleteInvite}
+                        onDismissTip={group.role === tipRole ? swipeTip.dismiss : undefined}
                         now={now}
                       />
                     ))}
@@ -359,13 +385,12 @@ export function EventTeamCard({
             viewerId={viewer.userId}
             teamLeads={event.teamLeads ?? {}}
           />
-          <EditRolesDialog
+          <AddRolesDialog
             visible={dialog === "roles"}
             onClose={() => setDialog(null)}
             organizationId={organizationId}
             eventId={event.id}
             roster={rosterRoles}
-            assignments={assignments}
           />
           <EmailTeamDialog
             visible={dialog === "email"}
@@ -436,29 +461,48 @@ function RoleGroupBlock({
   group,
   currentUserId,
   onRemoveAssignment,
+  onRemoveRole,
   onResendInvite,
   onDeleteInvite,
+  onDismissTip,
   now,
 }: {
   group: RoleGroup;
   currentUserId: string;
   onRemoveAssignment?: (assignment: EventDetailsAssignment) => void;
+  onRemoveRole?: (role: VolunteerRole) => void;
   onResendInvite?: (assignment: EventDetailsAssignment) => void;
   onDeleteInvite?: (assignment: EventDetailsAssignment) => void;
+  /** Shows the swipe hint under this role; swiping it counts as "Got it". */
+  onDismissTip?: () => void;
   now: number;
 }) {
   const { label, emoji } = useRoles().get(group.role);
   const { needed, open } = group.standing;
   const unfilled = group.items.length === 0;
 
-  return (
+  const remove =
+    onRemoveRole && isRemovable(group, now) ? () => onRemoveRole(group.role) : undefined;
+
+  // Somebody declined, let it lapse, was removed, or the role needs more than
+  // are on it: the spot is still open.
+  const openSpot = unfilled
+    ? "No one assigned yet"
+    : open > 0
+      ? `${open} more needed`
+      : null;
+
+  const body = (
     <VStack className="gap-2">
       <HStack className="items-center gap-1.5">
         {/* Emoji ignore `color` and clip against a tight line box, so this one
             carries its own metrics rather than inheriting the label's. */}
         <Text style={{ fontSize: 13, lineHeight: 17 }}>{emoji}</Text>
 
-        <Text className="text-[11px] font-bold uppercase tracking-[0.7px] text-muted-foreground">
+        <Text
+          className="shrink text-[11px] font-bold uppercase tracking-[0.7px] text-muted-foreground"
+          numberOfLines={1}
+        >
           {label}
         </Text>
 
@@ -468,53 +512,160 @@ function RoleGroupBlock({
         >
           {`· ${filledOf(group.standing)}/${needed}`}
         </Text>
-
       </HStack>
 
-      {unfilled ? (
-        <Text className="px-1 text-[13px] text-muted-foreground">
-          No one assigned yet
-        </Text>
-      ) : (
-        <VStack className="gap-1.5">
-          {group.items.map((assignment) => {
-            const lapsed = isLapsed(assignment, now);
+      <VStack className="gap-1.5">
+        {group.items.map((assignment) => {
+          const lapsed = isLapsed(assignment, now);
 
-            return (
-              <AssignmentRow
-                key={assignment.id}
-                assignment={assignment}
-                isCurrentUser={assignment.userId === currentUserId}
-                expired={lapsed}
-                onPress={
-                  onRemoveAssignment && isLive(assignment, now)
-                    ? () => onRemoveAssignment(assignment)
-                    : undefined
-                }
-                onResend={
-                  onResendInvite && lapsed
-                    ? () => onResendInvite(assignment)
-                    : undefined
-                }
-                onDelete={
-                  onDeleteInvite && (lapsed || isInactiveStatus(assignment.status))
-                    ? () => onDeleteInvite(assignment)
-                    : undefined
-                }
-              />
-            );
-          })}
-        </VStack>
-      )}
+          return (
+            <AssignmentRow
+              key={assignment.id}
+              assignment={assignment}
+              isCurrentUser={assignment.userId === currentUserId}
+              expired={lapsed}
+              onPress={
+                onRemoveAssignment && isLive(assignment, now)
+                  ? () => onRemoveAssignment(assignment)
+                  : undefined
+              }
+              onResend={
+                onResendInvite && lapsed
+                  ? () => onResendInvite(assignment)
+                  : undefined
+              }
+              onDelete={
+                onDeleteInvite && (lapsed || isInactiveStatus(assignment.status))
+                  ? () => onDeleteInvite(assignment)
+                  : undefined
+              }
+            />
+          );
+        })}
 
-      {/* Somebody declined, let it lapse, was removed, or the role needs more
-          than are on it: the spot is still open. */}
-      {!unfilled && open > 0 ? (
-        <Text className="px-1 text-[13px] text-muted-foreground">
-          {`${open} more needed`}
-        </Text>
-      ) : null}
+        {openSpot ? (
+          <OpenSpot label={openSpot} role={label} onRemove={remove} onSwipeOpen={onDismissTip} />
+        ) : null}
+      </VStack>
     </VStack>
+  );
+
+  if (!onDismissTip) return body;
+
+  return (
+    <VStack>
+      {body}
+      <Tip
+        icon={ChevronsLeft}
+        title="Swipe left to remove a role"
+        message="A role with someone on it stays until they're removed."
+        onDismiss={onDismissTip}
+      />
+    </VStack>
+  );
+}
+
+/**
+ * A spot nobody holds, boxed like the people beside it with an empty seat
+ * where their avatar sits — the web's resting ring around a blank avatar — and
+ * nothing at its end, since inviting is the card's Invite. VoiceOver can't
+ * swipe, so the remove rides here as an action.
+ */
+function OpenSpot({
+  label,
+  role,
+  onRemove,
+  onSwipeOpen,
+}: {
+  label: string;
+  role: string;
+  /** Managers only, and only while nobody is on the role: the spot swipes. */
+  onRemove?: () => void;
+  onSwipeOpen?: () => void;
+}) {
+  const theme = useTheme();
+
+  const row = (
+    <HStack
+      className="items-center gap-3 rounded-xl border px-3 py-2.5"
+      style={{
+        borderCurve: "continuous",
+        borderColor: theme.border,
+        backgroundColor: theme.card,
+      }}
+    >
+      <Center
+        className="rounded-full border-2"
+        style={{ borderColor: theme.border, padding: 2, backgroundColor: theme.card }}
+      >
+        <Center
+          className="rounded-full"
+          style={{
+            width: AVATAR,
+            height: AVATAR,
+            backgroundColor: withAlpha(theme.surface, 0.3),
+          }}
+        >
+          <AppIcon icon={UserRound} size={16} color={theme.textMuted} />
+        </Center>
+      </Center>
+
+      <Text
+        className="flex-1 text-[13px] font-medium"
+        style={{ color: theme.destructive }}
+        numberOfLines={1}
+        accessibilityActions={onRemove ? [{ name: "remove", label: "Remove role" }] : undefined}
+        onAccessibilityAction={onRemove}
+      >
+        {label}
+      </Text>
+    </HStack>
+  );
+
+  if (!onRemove) return row;
+
+  // Only the spot slides, so the button behind it is the spot's own height
+  // rather than reaching up past the role's header.
+  return (
+    <ReanimatedSwipeable
+      friction={2}
+      overshootRight={false}
+      onSwipeableOpen={onSwipeOpen}
+      // Opaque, or the action shows through the spot's corners as it slides.
+      childrenContainerStyle={{ backgroundColor: theme.card }}
+      renderRightActions={(_progress, _translation, methods) => (
+        <RemoveRoleAction
+          role={role}
+          onPress={() => {
+            methods.close();
+            onRemove();
+          }}
+        />
+      )}
+    >
+      {row}
+    </ReanimatedSwipeable>
+  );
+}
+
+/** Behind an open spot; opens the screen's red confirm. */
+function RemoveRoleAction({ role, onPress }: { role: string; onPress: () => void }) {
+  const theme = useTheme();
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`Remove ${role}`}
+      className="pl-3 data-[active=true]:opacity-70"
+    >
+      <Center
+        className="flex-1 rounded-xl"
+        style={{ width: 72, backgroundColor: theme.destructive, borderCurve: "continuous" }}
+      >
+        <AppIcon icon={Trash2} size={18} color="#FFFFFF" />
+      </Center>
+    </Pressable>
   );
 }
 

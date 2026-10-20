@@ -97,11 +97,14 @@ const savedColorScheme = readColorScheme();
 
 /**
  * What the sidebar opens: whole screens over the tabs, each with a way back to
- * wherever the sidebar was opened from.
+ * wherever the sidebar was opened from. The back title is never drawn, but
+ * VoiceOver reads it and the long-press back menu lists it; left to default it
+ * is the tabs group's route name, "(tabs)".
  */
 const SIDEBAR_SCREEN = {
   headerShown: true,
   headerBackButtonDisplayMode: "minimal",
+  headerBackTitle: "Back",
 } as const;
 
 /** Settings' own pages, a step past it, whose back buttons say "Settings". */

@@ -53,11 +53,8 @@ import type { Team } from "@/types/team-notifications";
 
 const AVATAR = 32;
 
-/**
- * Each roster action takes what its label needs and the row's slack is shared,
- * so the three share one line; on a screen too narrow for that, the last wraps.
- */
-const FILL = { flexGrow: 1 } as const;
+/** Half a line less the gap, so the four roster actions sit two by two. */
+const HALF = { flexBasis: "48%", flexGrow: 1 } as const;
 
 type RoleGroup = {
   role: VolunteerRole;
@@ -120,9 +117,9 @@ type EventTeamCardProps = {
  * Who is on the event, what they answered, and — for a manager — every way to
  * change it.
  *
- * This is where the roster is *worked on*, not merely read: the roster-wide
- * actions — auto-fill, add roles, email — sit under the title, and each open
- * spot invites from its own row, as the web does.
+ * This is where the roster is *worked on*, not merely read: every action that
+ * changes it — invite, auto-fill, edit roles, email — sits under the title, so
+ * staffing several roles never means scrolling the roster to find them.
  *
  * Declined and canceled people stay on the list rather than disappearing —
  * struck through, as the web shows them. A role that lost somebody is a fact
@@ -147,8 +144,6 @@ export function EventTeamCard({
   const [now] = useState(() => Date.now());
 
   const [dialog, setDialog] = useState<"invite" | "roles" | "email" | null>(null);
-  // Never cleared, so the invite dialog fades out still naming its role.
-  const [inviteRole, setInviteRole] = useState<VolunteerRole | null>(null);
 
   const smart = useSetSmartScheduling(organizationId, event.id);
   const autoFillAvailable = useSmartSchedulingAvailable(organizationId);
@@ -237,11 +232,6 @@ export function EventTeamCard({
     });
   };
 
-  const openInvite = (role: VolunteerRole) => {
-    setInviteRole(role);
-    setDialog("invite");
-  };
-
   return (
     <>
       <DetailCard>
@@ -252,6 +242,14 @@ export function EventTeamCard({
         {canManage ? (
           <HStack className="flex-wrap gap-2 px-4 pb-4">
             <DetailButton
+              icon={UserPlus}
+              label="Invite"
+              service={colors}
+              primary
+              onPress={() => setDialog("invite")}
+              style={HALF}
+            />
+            <DetailButton
               icon={Zap}
               label="Auto-fill"
               service={colors}
@@ -259,17 +257,17 @@ export function EventTeamCard({
               on={autoFillOn}
               busy={smart.isPending}
               onPress={() => toggleSmart(!event.smartSchedulingEnabled)}
-              style={FILL}
+              style={HALF}
             />
             <DetailButton
               icon={Pencil}
               label="Edit roles"
               service={colors}
               onPress={() => setDialog("roles")}
-              style={FILL}
+              style={HALF}
             />
             {/* The dashboard hides this until somebody has accepted. Here it
-                stays: the buttons are a fixed row, and one going missing
+                stays: four buttons are a fixed block, and one going missing
                 reads as a fault rather than as "there is nobody to email yet"
                 — which the dialog says in words, and refuses to send on. */}
             <DetailButton
@@ -277,7 +275,7 @@ export function EventTeamCard({
               label="Email"
               service={colors}
               onPress={() => setDialog("email")}
-              style={FILL}
+              style={HALF}
             />
           </HStack>
         ) : null}
@@ -329,7 +327,6 @@ export function EventTeamCard({
                         key={group.role}
                         group={group}
                         currentUserId={viewer.userId}
-                        onInvite={canManage ? openInvite : undefined}
                         onRemoveAssignment={onRemoveAssignment}
                         onResendInvite={onResendInvite}
                         onDeleteInvite={onDeleteInvite}
@@ -355,7 +352,7 @@ export function EventTeamCard({
             onClose={() => setDialog(null)}
             organizationId={organizationId}
             eventId={event.id}
-            role={inviteRole}
+            rosterRoles={rosterRoles}
             roleSpots={event.roleSpots}
             assignments={assignments}
             dates={event.dates}
@@ -438,7 +435,6 @@ function isLive(assignment: EventDetailsAssignment, now: number): boolean {
 function RoleGroupBlock({
   group,
   currentUserId,
-  onInvite,
   onRemoveAssignment,
   onResendInvite,
   onDeleteInvite,
@@ -446,23 +442,14 @@ function RoleGroupBlock({
 }: {
   group: RoleGroup;
   currentUserId: string;
-  /** Managers only: invite into this role. */
-  onInvite?: (role: VolunteerRole) => void;
   onRemoveAssignment?: (assignment: EventDetailsAssignment) => void;
   onResendInvite?: (assignment: EventDetailsAssignment) => void;
   onDeleteInvite?: (assignment: EventDetailsAssignment) => void;
   now: number;
 }) {
-  const theme = useTheme();
   const { label, emoji } = useRoles().get(group.role);
   const { needed, open } = group.standing;
   const unfilled = group.items.length === 0;
-
-  // Open spots invite from their own row. A full role still can, from the icon
-  // in its header, which adds a spot — the web's two triggers. Taking a role
-  // off lives in Edit roles, so nothing here competes with Invite.
-  const invite = onInvite ? () => onInvite(group.role) : undefined;
-  const inviteMore = !unfilled && open === 0 ? invite : undefined;
 
   return (
     <VStack className="gap-2">
@@ -482,30 +469,12 @@ function RoleGroupBlock({
           {`· ${filledOf(group.standing)}/${needed}`}
         </Text>
 
-        {inviteMore ? (
-          // The web's ghost icon button, kept from growing this 17pt line.
-          <Pressable
-            onPress={inviteMore}
-            accessibilityRole="button"
-            accessibilityLabel={`Invite ${label}`}
-            accessibilityHint="Adds another spot to this role"
-            hitSlop={10}
-            className="ml-auto items-center justify-center rounded-md data-[active=true]:bg-border/60"
-            style={{ width: 24, height: 24, marginVertical: -3.5 }}
-          >
-            <AppIcon icon={UserPlus} size={14} color={theme.text} />
-          </Pressable>
-        ) : null}
       </HStack>
 
       {unfilled ? (
-        invite ? (
-          <OpenSpotRow label="No one assigned yet" role={label} onPress={invite} />
-        ) : (
-          <Text className="px-1 text-[13px] text-muted-foreground">
-            No one assigned yet
-          </Text>
-        )
+        <Text className="px-1 text-[13px] text-muted-foreground">
+          No one assigned yet
+        </Text>
       ) : (
         <VStack className="gap-1.5">
           {group.items.map((assignment) => {
@@ -541,78 +510,11 @@ function RoleGroupBlock({
       {/* Somebody declined, let it lapse, was removed, or the role needs more
           than are on it: the spot is still open. */}
       {!unfilled && open > 0 ? (
-        invite ? (
-          <OpenSpotRow label={`${open} more needed`} role={label} onPress={invite} />
-        ) : (
-          <Text className="px-1 text-[13px] text-muted-foreground">
-            {`${open} more needed`}
-          </Text>
-        )
+        <Text className="px-1 text-[13px] text-muted-foreground">
+          {`${open} more needed`}
+        </Text>
       ) : null}
     </VStack>
-  );
-}
-
-/**
- * A spot nobody holds, filled from where it sits: the web's row trigger. The
- * hoop is an assigned avatar's size, so the spot lines up with the people
- * above it rather than reading as a smaller, lesser thing.
- */
-function OpenSpotRow({
-  label,
-  role,
-  onPress,
-}: {
-  /** What is missing: "No one assigned yet", "2 more needed". */
-  label: string;
-  role: string;
-  onPress: () => void;
-}) {
-  const theme = useTheme();
-
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${label}. Invite ${role}`}
-      className="data-[active=true]:opacity-60"
-    >
-      {/* The rows' border, unpainted, so the hoop sits under their avatars. */}
-      <HStack
-        className="items-center gap-3 rounded-xl border px-3 py-2.5"
-        style={{ borderColor: "transparent" }}
-      >
-        {/* The web's hover look, held at rest since a phone has no hover: a
-            grey middle, the white ring-offset, then `ring-foreground/25` —
-            built the way the avatars above are. The middle is a third of the
-            web's #EEEEF0, which read too dark here. */}
-        <Center
-          className="rounded-full border-2"
-          style={{
-            borderColor: withAlpha(theme.text, 0.25),
-            padding: 2,
-            backgroundColor: theme.card,
-          }}
-        >
-          <Center
-            className="rounded-full"
-            style={{
-              width: AVATAR,
-              height: AVATAR,
-              backgroundColor: withAlpha(theme.surface, 0.3),
-            }}
-          >
-            <AppIcon icon={UserPlus} size={16} color={theme.text} />
-          </Center>
-        </Center>
-
-        <Text className="flex-1 text-[14px] text-muted-foreground" numberOfLines={1}>
-          {label}
-        </Text>
-
-        <Text className="text-[14px] font-semibold text-foreground">Invite</Text>
-      </HStack>
-    </Pressable>
   );
 }
 

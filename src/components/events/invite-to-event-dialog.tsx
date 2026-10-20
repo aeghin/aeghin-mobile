@@ -17,6 +17,7 @@ import { Pressable } from "@/components/ui/pressable";
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
+import { VolunteerRolePicker } from "@/components/volunteer-role-picker";
 import { brand, withAlpha } from "@/constants/branding";
 import { useEventAvailability, useInviteToEvent } from "@/hooks/use-events";
 import { useMembersList } from "@/hooks/use-members-list";
@@ -45,6 +46,11 @@ const SEARCH_THRESHOLD = 5;
 /** The web's `opacity-70` on a member who can't be picked. */
 const UNAVAILABLE_OPACITY = 0.7;
 
+const DAY = 86_400_000;
+
+/** Somebody's live place on the event: a real row, or one this dialog just sent. */
+type Place = Pick<EventDetailsAssignment, "userId" | "role" | "status" | "expiresAt">;
+
 /** `"09:00"` — the clock face of an instant, read in UTC like every other date here. */
 const clockOf = (iso: string) => new Date(iso).toISOString().slice(11, 16);
 
@@ -53,11 +59,8 @@ type InviteToEventDialogProps = {
   onClose: () => void;
   organizationId: string;
   eventId: string;
-  /**
-   * The role whose open spot was tapped. Kept once the dialog closes, so the
-   * card fades out still naming it; null until the first tap.
-   */
-  role: VolunteerRole | null;
+  /** The roster — the only roles this dialog can invite into. */
+  rosterRoles: VolunteerRole[];
   /** How many each role needs, for the open spots the dialog names. */
   roleSpots?: RoleSpots;
   assignments: EventDetailsAssignment[];
@@ -73,21 +76,24 @@ type InviteToEventDialogProps = {
 };
 
 /**
- * The web's Invite to Event dialog, opened from one role's open spot on the
- * Team card: the members who hold that role, and how long they have to answer.
+ * The web's Invite to Event dialog: pick a role, pick the members who hold
+ * it, pick how long they have to answer.
  *
  * Availability is checked the moment it opens, exactly as the dashboard does,
  * and the answer is read the same two ways. A **blockout** is a hard block —
  * the row is greyed and there is no override, because the server refuses the
  * whole batch over one of them. A **conflict** is the manager's call, so it is
  * put to them rather than decided for them.
+ *
+ * The one shape that differs from the web is the role: the dashboard opens
+ * this from each role's own row, while the phone has one Invite pill on the
+ * Team card and picks the role inside, so a lead staffing several roles never
+ * scrolls the roster looking for them. It stays open after a send for the
+ * same reason. Availability is keyed by member and hours, never by role, so
+ * switching roles re-uses the same answer.
  */
-export function InviteToEventDialog({ role, ...props }: InviteToEventDialogProps) {
-  // Read before any spot is tapped, so the first open already knows who holds
-  // the role instead of flashing "0 available".
-  useMembersList(props.organizationId);
-
-  return role ? <InviteToEventBody key={String(props.visible)} role={role} {...props} /> : null;
+export function InviteToEventDialog(props: InviteToEventDialogProps) {
+  return <InviteToEventBody key={String(props.visible)} {...props} />;
 }
 
 function InviteToEventBody({
@@ -95,13 +101,13 @@ function InviteToEventBody({
   onClose,
   organizationId,
   eventId,
-  role,
+  rosterRoles,
   roleSpots,
   assignments,
   dates,
   viewerId,
   teamLeads,
-}: InviteToEventDialogProps & { role: VolunteerRole }) {
+}: InviteToEventDialogProps) {
   const theme = useTheme();
   const catalog = useRoles();
   const members = useMembersList(organizationId);
@@ -122,13 +128,34 @@ function InviteToEventBody({
   const availability = useEventAvailability(organizationId, eventId, days, canCheck);
   const checking = canCheck && availability.isPending;
 
+  // Only the roles this event asked for: the invite action backfills
+  // `rolesNeeded` with whatever role it is handed, so offering the rest would
+  // grow the roster behind the manager's back. Edit roles is how it widens.
+  const roles = catalog.inOrder(rosterRoles);
+
+  const [now] = useState(() => Date.now());
+  // Whoever opens this is most likely leading a team, so it starts on their
+  // first open spot, then anyone's, then the first role.
+  const [role, setRole] = useState<VolunteerRole | null>(() => {
+    const isOpen = (entry: VolunteerRole) =>
+      roleStanding(entry, roleSpots, assignments, now).open > 0;
+    const isMine = (entry: VolunteerRole) =>
+      teamLeads[catalog.teamOf(entry)]?.userId === viewerId;
+
+    return (
+      roles.find((entry) => isMine(entry) && isOpen(entry)) ??
+      roles.find(isOpen) ??
+      roles[0] ??
+      null
+    );
+  });
   const [userIds, setUserIds] = useState<string[]>([]);
   const [expiresAt, setExpiresAt] = useState<3 | 5 | 7>(3);
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [now] = useState(() => Date.now());
-
-  const { label, emoji } = catalog.get(role);
+  // Who this dialog has invited: they stand in for their rows until the
+  // event's refetch brings them back, and read as just invited until Done.
+  const [sent, setSent] = useState<Place[]>([]);
 
   const conflicts = availability.data?.conflicts ?? {};
   const blockouts = availability.data?.blockouts ?? {};
@@ -137,7 +164,7 @@ function InviteToEventBody({
   // into another; their row says which role they hold. A lapsed invite is not
   // live — re-inviting is what unsticks it — which is the same line the action
   // draws server-side.
-  const live = new Map(
+  const live = new Map<string, Place>(
     assignments
       .filter(
         (assignment) =>
@@ -147,27 +174,50 @@ function InviteToEventBody({
       .map((assignment) => [assignment.userId, assignment]),
   );
 
-  // Who can be picked, then who can with a warning, then who can't. Ticking
-  // never moves a row.
+  const standIns = sent.filter((place) => !live.has(place.userId));
+  for (const place of standIns) live.set(place.userId, place);
+
+  const justInvited = new Set(
+    sent.filter((place) => place.role === role).map((place) => place.userId),
+  );
+
+  // Who can be picked, then who can with a warning, then who can't. Neither
+  // ticking nor sending moves a row: somebody just invited keeps the place
+  // they were ticked in.
   const rank = (member: OrganizationMember) =>
-    live.has(member.id) || blockouts[member.id] ? 2 : conflicts[member.id] ? 1 : 0;
+    justInvited.has(member.id)
+      ? conflicts[member.id]
+        ? 1
+        : 0
+      : live.has(member.id) || blockouts[member.id]
+        ? 2
+        : conflicts[member.id]
+          ? 1
+          : 0;
 
   // Everyone who holds the role, listed whether or not they can be picked:
   // the web shows why somebody is unavailable rather than hiding them.
-  const holders = (members.data ?? [])
-    .filter((member) => member.volunteerRoles.includes(role))
-    .sort((a, b) => rank(a) - rank(b));
+  const holders = role
+    ? (members.data ?? [])
+        .filter((member) => member.volunteerRoles.includes(role))
+        .sort((a, b) => rank(a) - rank(b))
+    : [];
 
-  const invitableCount = holders.filter((member) => !live.has(member.id)).length;
+  // Who can still be ticked: a blockout has no override, so it isn't available.
+  const invitableCount = holders.filter(
+    (member) => !live.has(member.id) && !blockouts[member.id],
+  ).length;
 
   // Every invite is somebody wanted there, so one past the role's open spots
   // simply adds a spot on the server.
-  const standing = roleStanding(role, roleSpots, assignments, now);
+  const standing = role
+    ? roleStanding(role, roleSpots, [...assignments, ...standIns], now)
+    : null;
 
-  const team = catalog.teamOf(role);
-  const lead = teamLeads[team];
+  const team = role ? catalog.teamOf(role) : null;
+  const lead = team ? teamLeads[team] : undefined;
   const leadLine =
-    lead && lead.userId !== viewerId
+    team && lead && lead.userId !== viewerId
       ? lead.cover
         ? `${lead.firstName} ${lead.lastName} is covering ${catalog.teamLabel(team)} for this event and is asked to fill its roles.`
         : `${lead.firstName} ${lead.lastName} leads ${catalog.teamLabel(team)} and is asked to fill its roles.`
@@ -214,19 +264,42 @@ function InviteToEventBody({
     );
   };
 
+  const pickRole = (next: VolunteerRole) => {
+    if (next === role) return;
+    setRole(next);
+    setUserIds([]);
+    setSearch("");
+  };
+
   const send = () => {
+    if (!role) return;
     setError(null);
     invite.mutate(
       { role, userIds, expiresAt },
       {
-        onSuccess: ({ invitedCount, skippedNames }) => {
-          onClose();
-          const skipped =
-            skippedNames.length > 0 ? ` ${skippedNames.join(", ")} already on this event.` : "";
-          Alert.alert(
-            "Invitations sent",
-            `Invited ${invitedCount} ${invitedCount === 1 ? "member" : "members"}.${skipped}`,
-          );
+        onSuccess: ({ skippedNames }) => {
+          // Already on the event by the time it landed — another manager got
+          // there first. Once the refetch lands, their row names the role they hold.
+          const skipped = new Set(skippedNames);
+          const invited = userIds.filter((userId) => {
+            const member = holders.find((entry) => entry.id === userId);
+            return !member || !skipped.has(`${member.firstName} ${member.lastName}`);
+          });
+
+          if (skippedNames.length > 0) {
+            Alert.alert("Already on this event", skippedNames.join(", "));
+          }
+
+          setSent((current) => [
+            ...current,
+            ...invited.map((userId) => ({
+              userId,
+              role,
+              status: "PENDING" as const,
+              expiresAt: new Date(now + expiresAt * DAY).toISOString(),
+            })),
+          ]);
+          setUserIds([]);
         },
         onError: (failure) => setError(failureMessage(failure)),
       },
@@ -237,12 +310,20 @@ function InviteToEventBody({
     <Dialog
       visible={visible}
       icon={UserPlus}
-      title={`${emoji} Invite ${label}`}
-      description={`${userIds.length} selected · ${invitableCount} available · ${
-        standing.open === 1 ? "1 open spot" : `${standing.open} open spots`
-      }`}
-      action={{ label: "Invite", onPress: send, disabled: userIds.length === 0 }}
+      title="Invite volunteers"
+      description={
+        role && standing
+          ? `${userIds.length} selected · ${invitableCount} available · ${
+              standing.open === 1 ? "1 open spot" : `${standing.open} open spots`
+            }`
+          : "This event has no roles on its roster yet."
+      }
+      action={{ label: "Invite", onPress: send, disabled: !role || userIds.length === 0 }}
       submitting={invite.isPending}
+      // Ticks beside "Done" would read as sending them.
+      cancelLabel={
+        sent.length > 0 && userIds.length === 0 ? `Done · ${sent.length} invited` : "Cancel"
+      }
       onClose={onClose}
     >
       <ErrorBanner message={error} />
@@ -264,7 +345,19 @@ function InviteToEventBody({
         </Box>
       ) : null}
 
-      <Field label="Members">
+      <Field
+        label="Role"
+        hint={roles.length === 0 ? "Add a role with Edit roles, then invite into it." : undefined}
+      >
+        <VolunteerRolePicker
+          roles={roles}
+          selected={role ? [role] : []}
+          single
+          onToggle={pickRole}
+        />
+      </Field>
+
+      <Field label={role ? `Members who can play ${catalog.get(role).label}` : "Members"}>
         <VStack className="gap-2">
           {leadLine ? (
             <Text className="ml-1 text-[12px] text-muted-foreground">{leadLine}</Text>
@@ -302,6 +395,7 @@ function InviteToEventBody({
                   <MemberRow
                     member={member}
                     selected={userIds.includes(member.id)}
+                    justInvited={justInvited.has(member.id)}
                     onEvent={live.get(member.id)}
                     blockout={blockouts[member.id]}
                     conflict={conflicts[member.id]}
@@ -312,7 +406,11 @@ function InviteToEventBody({
             </FormCard>
           ) : (
             <Text className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-[13px] text-muted-foreground">
-              {holders.length === 0 ? "No members hold this role yet" : "No members match your search"}
+              {!role
+                ? "Add a role to this event first"
+                : holders.length === 0
+                  ? "No members hold this role yet"
+                  : "No members match your search"}
             </Text>
           )}
         </VStack>
@@ -337,8 +435,10 @@ function InviteToEventBody({
 type MemberRowProps = {
   member: OrganizationMember;
   selected: boolean;
+  /** Sent from this dialog into the role on show. */
+  justInvited: boolean;
   /** Their live place on this event, so not invitable into a second role. */
-  onEvent?: EventDetailsAssignment;
+  onEvent?: Place;
   blockout?: { startDate: string; endDate: string };
   conflict?: { eventName: string; startTime: string; endTime: string };
   onPress: () => void;
@@ -351,12 +451,106 @@ type MemberRowProps = {
  * the event, blocked out, or merely double-booked. Only the last is selectable,
  * so the first two are greyed out and the last keeps its amber.
  */
-function MemberRow({ member, selected, onEvent, blockout, conflict, onPress }: MemberRowProps) {
+function MemberRow({
+  member,
+  selected,
+  justInvited,
+  onEvent,
+  blockout,
+  conflict,
+  onPress,
+}: MemberRowProps) {
   const theme = useTheme();
   const catalog = useRoles();
 
-  const blocked = Boolean(onEvent || blockout);
+  // Somebody just sent reads as that, not as greyed-out "already on the event".
+  const blocked = !justInvited && Boolean(onEvent || blockout);
   const name = personName(member);
+  const tick = justInvited ? theme.success : selected ? brand.orange : null;
+
+  const content = (
+    <HStack className="items-center gap-3 px-3 py-2.5">
+      <OrgAvatar name={name} logoUrl={member.imageUrl} size={34} shape="circle" />
+
+      <VStack className="flex-1">
+        <Text className="text-[15px] font-medium text-foreground" numberOfLines={1}>
+          {name}
+        </Text>
+
+        {justInvited ? (
+          <HStack className="items-center gap-1">
+            <AppIcon icon={Check} size={11} color={theme.success} />
+            <Text
+              className="flex-1 text-[12px] font-medium"
+              style={{ color: theme.success }}
+              numberOfLines={1}
+            >
+              Invited just now
+            </Text>
+          </HStack>
+        ) : onEvent ? (
+          <Text className="text-[12px] text-muted-foreground" numberOfLines={1}>
+            {`${catalog.get(onEvent.role).label} · ${
+              onEvent.status === "ACCEPTED" ? "confirmed" : "invited"
+            }`}
+          </Text>
+        ) : blockout ? (
+          <HStack className="items-center gap-1">
+            <AppIcon icon={CalendarOff} size={11} color={theme.destructive} />
+            <Text
+              className="flex-1 text-[12px]"
+              style={{ color: theme.destructive }}
+              numberOfLines={1}
+            >
+              {`Blocked out · ${formatDayMonth(blockout.startDate)}${
+                blockout.endDate !== blockout.startDate
+                  ? ` – ${formatDayMonth(blockout.endDate)}`
+                  : ""
+              }`}
+            </Text>
+          </HStack>
+        ) : conflict ? (
+          <HStack className="items-center gap-1">
+            <AppIcon icon={TriangleAlert} size={11} color={theme.warning} />
+            <Text
+              className="flex-1 text-[12px]"
+              style={{ color: theme.warning }}
+              numberOfLines={1}
+            >
+              {`${conflict.eventName} · ${formatTime(conflict.startTime)} - ${formatTime(conflict.endTime)}`}
+            </Text>
+          </HStack>
+        ) : (
+          <Text className="text-[12px] text-muted-foreground" numberOfLines={1}>
+            {member.email}
+          </Text>
+        )}
+      </VStack>
+
+      <Box
+        className="h-5 w-5 items-center justify-center rounded-full border"
+        style={{
+          borderColor: tick ?? theme.border,
+          backgroundColor: tick ?? "transparent",
+        }}
+      >
+        {tick ? <AppIcon icon={Check} size={12} color="#FFFFFF" /> : null}
+      </Box>
+    </HStack>
+  );
+
+  // Done with, but not unavailable: a disabled Pressable would dim it.
+  if (justInvited) {
+    return (
+      <Box
+        accessible
+        accessibilityLabel={`${name}, invited just now`}
+        style={{ backgroundColor: withAlpha(theme.success, 0.08) }}
+      >
+        {content}
+      </Box>
+    );
+  }
 
   return (
     <Pressable
@@ -375,63 +569,7 @@ function MemberRow({ member, selected, onEvent, blockout, conflict, onPress }: M
             : "transparent",
       }}
     >
-      <HStack className="items-center gap-3 px-3 py-2.5">
-        <OrgAvatar name={name} logoUrl={member.imageUrl} size={34} shape="circle" />
-
-        <VStack className="flex-1">
-          <Text className="text-[15px] font-medium text-foreground" numberOfLines={1}>
-            {name}
-          </Text>
-
-          {onEvent ? (
-            <Text className="text-[12px] text-muted-foreground" numberOfLines={1}>
-              {`${catalog.get(onEvent.role).label} · ${
-                onEvent.status === "ACCEPTED" ? "confirmed" : "invited"
-              }`}
-            </Text>
-          ) : blockout ? (
-            <HStack className="items-center gap-1">
-              <AppIcon icon={CalendarOff} size={11} color={theme.destructive} />
-              <Text
-                className="flex-1 text-[12px]"
-                style={{ color: theme.destructive }}
-                numberOfLines={1}
-              >
-                {`Blocked out · ${formatDayMonth(blockout.startDate)}${
-                  blockout.endDate !== blockout.startDate
-                    ? ` – ${formatDayMonth(blockout.endDate)}`
-                    : ""
-                }`}
-              </Text>
-            </HStack>
-          ) : conflict ? (
-            <HStack className="items-center gap-1">
-              <AppIcon icon={TriangleAlert} size={11} color={theme.warning} />
-              <Text
-                className="flex-1 text-[12px]"
-                style={{ color: theme.warning }}
-                numberOfLines={1}
-              >
-                {`${conflict.eventName} · ${formatTime(conflict.startTime)} - ${formatTime(conflict.endTime)}`}
-              </Text>
-            </HStack>
-          ) : (
-            <Text className="text-[12px] text-muted-foreground" numberOfLines={1}>
-              {member.email}
-            </Text>
-          )}
-        </VStack>
-
-        <Box
-          className="h-5 w-5 items-center justify-center rounded-full border"
-          style={{
-            borderColor: selected ? brand.orange : theme.border,
-            backgroundColor: selected ? brand.orange : "transparent",
-          }}
-        >
-          {selected ? <AppIcon icon={Check} size={12} color="#FFFFFF" /> : null}
-        </Box>
-      </HStack>
+      {content}
     </Pressable>
   );
 }

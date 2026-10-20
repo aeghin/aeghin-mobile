@@ -15,6 +15,7 @@ import { useMemo, useRef, useState } from "react";
 import { ScrollView, TextInput } from "react-native";
 
 import { AppIcon } from "@/components/app-icon";
+import { Markdown } from "@/components/markdown";
 import { Box } from "@/components/ui/box";
 import { Center } from "@/components/ui/center";
 import { HStack } from "@/components/ui/hstack";
@@ -206,13 +207,11 @@ export function AiEventPanel({
                         </Box>
                       </HStack>
                     ) : (
-                      <Text
+                      <Markdown
                         key={index}
-                        className="text-[14px] leading-[20px] text-foreground"
-                        selectable
-                      >
-                        {part.text}
-                      </Text>
+                        text={part.text}
+                        streaming={part.state === "streaming"}
+                      />
                     );
                   }
 

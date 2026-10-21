@@ -59,7 +59,8 @@ function paidFeatures(plan: PaidPlan, limits?: PlanLimits): string[] {
   return limits
     ? [
         first,
-        // Starter's caps; they're null on Premium and Pro, so those lines drop out.
+        // Every plan caps members; songs and service types are null on Premium
+        // and Pro, so those lines drop out.
         limits.members ? `Up to ${limits.members} members per organization` : "",
         limits.songs ? `Up to ${limits.songs} songs in your library` : "",
         limits.serviceTypes ? `${limits.serviceTypes} service types` : "",

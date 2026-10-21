@@ -24,10 +24,10 @@ export const PLAN_COPY: Record<PaidPlan, { name: string; price: string; blurb: s
   },
   premium: {
     name: "Premium",
-    price: "$39.99/month",
-    blurb: "No size limits, plus Smart Scheduling and AI setlists.",
+    price: "$49.99/month",
+    blurb: "Bigger teams, plus Smart Scheduling and AI setlists.",
     features: [
-      "Unlimited members, songs and service types",
+      "Unlimited songs and service types",
       "Smart Scheduling and last-call staffing alerts",
       "AI setlist generation",
       "Matches themes, keys, and tempo arc",
@@ -37,7 +37,7 @@ export const PLAN_COPY: Record<PaidPlan, { name: string; price: string; blurb: s
   },
   pro: {
     name: "Pro",
-    price: "$59.99/month",
+    price: "$79.99/month",
     blurb: "Drafts whole events, and researches beyond your catalog.",
     features: [
       "Everything in Premium",

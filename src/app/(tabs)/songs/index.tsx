@@ -165,7 +165,7 @@ export default function SongsScreen() {
   const confirmDelete = (song: LibrarySong) => {
     Alert.alert(
       "Delete song",
-      `${song.title} by ${song.artist} will be removed from the library and can no longer be added to setlists. Past setlists keep their copy.`,
+      `${song.title} by ${song.artist} will be removed from the library along with its charts and audio, and can no longer be added to setlists. Past setlists still list it.`,
       [
         { text: "Cancel", style: "cancel" },
         {

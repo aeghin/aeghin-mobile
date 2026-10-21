@@ -1,6 +1,7 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
 import CircleSlash from "lucide-react-native/icons/circle-slash";
+import FaceSlightlyFrowning from "lucide-react-native/icons/face-slightly-frowning";
 import Pencil from "lucide-react-native/icons/pencil";
 import Trash2 from "lucide-react-native/icons/trash-2";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -25,9 +26,11 @@ import { VocalistDialog } from "@/components/events/vocalist-dialog";
 import { ErrorBanner } from "@/components/form-fields";
 import { useCurrentOrganization } from "@/components/organization-provider";
 import { useNowPlayingInset, useTrackPlayer } from "@/components/track-player-provider";
+import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { brand } from "@/constants/branding";
 import { useSmartSchedulingAvailable } from "@/hooks/use-billing";
+import { useChurchClock } from "@/hooks/use-church-clock";
 import { useChatHistory, usePrefetchChatHistory } from "@/hooks/use-event-chat";
 import {
   useCancelAssignment,
@@ -37,6 +40,7 @@ import {
   usePrefetchEventDetails,
   useRemoveEventRole,
   useResendAssignment,
+  useWithdrawFromEvent,
 } from "@/hooks/use-events";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useRoles } from "@/hooks/use-roles";
@@ -49,6 +53,7 @@ import { roleStanding, type RoleStanding } from "@/lib/events/spots";
 import { failureMessage } from "@/lib/failure";
 import { personName } from "@/lib/names";
 import type {
+  EventDate,
   EventDetailsAssignment,
   EventNeighbor,
   EventSetlistSong,
@@ -58,8 +63,11 @@ import type {
 /** How much page the tab bar covers once the list has scrolled under it. */
 const TAB_BAR_CLEARANCE = 64;
 
+/** The clock's dates before the event has loaded. */
+const NO_DATES: EventDate[] = [];
+
 /**
- * What a manager is being asked to confirm.
+ * What the viewer is being asked to confirm.
  *
  * It carries its own words rather than pointing back at the event, because the
  * dialog outlives the answer: {@link Dialog} keeps its children mounted so the
@@ -80,7 +88,8 @@ type Confirm =
       role: VolunteerRole;
       /** It still carries declined, removed or lapsed invites, which go with it. */
       withInvites: boolean;
-    };
+    }
+  | { kind: "withdraw"; name: string; role: VolunteerRole };
 
 /** What each one says. Every case is destructive and none of them is undoable. */
 function describeConfirm(confirm: Confirm, roles: Roles) {
@@ -104,11 +113,10 @@ function describeConfirm(confirm: Confirm, roles: Roles) {
     }
 
     case "deleteInvite": {
-      const { user, role, status } = confirm.assignment;
+      const { user, role } = confirm.assignment;
       const { needed, open } = confirm.standing;
       const name = personName(user);
       const label = roles.get(role).label;
-      const kind = status === "DECLINED" ? "declined" : status === "CANCELED" ? null : "expired";
 
       // Their spot closes when it's still open and the role has others to keep.
       const effect =
@@ -116,12 +124,14 @@ function describeConfirm(confirm: Confirm, roles: Roles) {
           ? ""
           : needed > 1
             ? `, and ${label} will need ${needed - 1} instead of ${needed}`
-            : ", and the role still needs someone";
+            : `, and ${label} still needs someone`;
 
+      // They declined, let it lapse, backed out or were taken off: there's no
+      // invite left to delete, only their crossed-out row.
       return {
-        title: kind ? `Delete ${kind} invite` : "Delete invite",
-        description: `${name}'s ${kind ? `${kind} ` : ""}${label} invitation comes off the roster${effect}.`,
-        label: "Delete",
+        title: "Remove person",
+        description: `${name} comes off the roster${effect}.`,
+        label: "Remove",
       };
     }
 
@@ -132,6 +142,21 @@ function describeConfirm(confirm: Confirm, roles: Roles) {
           confirm.withInvites ? " Its past invites go with it." : ""
         }`,
         label: "Remove",
+      };
+
+    case "withdraw":
+      return {
+        title: "Can't make it?",
+        description: (
+          <>
+            {"You'll be taken off "}
+            <Text className="font-semibold text-foreground">{roles.get(confirm.role).label}</Text>
+            {" for "}
+            <Text className="font-semibold text-foreground">{confirm.name}</Text>
+            {", and whoever runs your team will be told."}
+          </>
+        ),
+        label: "Take me off",
       };
   }
 }
@@ -147,7 +172,8 @@ function describeConfirm(confirm: Confirm, roles: Roles) {
  * Every manager action sits on the section it changes — the setlist's editor
  * on the setlist card, the roster's on the Team card — and the two that change
  * the *whole* event hang off the hero's ⋮, which is where the dashboard keeps
- * them too.
+ * them too. "Can't make it" sits in that ⋮ as well, tucked away rather than on
+ * the roster, so nothing on the page invites backing out.
  */
 export default function EventDetailScreen() {
   const theme = useTheme();
@@ -190,7 +216,19 @@ export default function EventDetailScreen() {
   const deleteInvite = useDeleteInvite(organizationId, eventId ?? "");
   const removeRole = useRemoveEventRole(organizationId, eventId ?? "");
   const removeEvent = useDeleteEvent(organizationId, eventId ?? "");
+  const withdraw = useWithdrawFromEvent(organizationId, eventId ?? "");
   const autoFillAvailable = useSmartSchedulingAvailable(organizationId);
+
+  // "Can't make it" is offered until the event starts on the church's clock —
+  // the rule the server holds to as well.
+  const { now } = useChurchClock(event?.dates ?? NO_DATES);
+  const ownSpot = event?.assignments.find(
+    (assignment) =>
+      assignment.userId === event.viewer.userId && assignment.status === "ACCEPTED",
+  );
+  const canWithdraw =
+    !!ownSpot &&
+    !event?.dates.some((date) => new Date(date.startTime).getTime() <= now.getTime());
 
   // Offering the one-tap save comes off this event's roster rather than off
   // the membership's volunteer roles — if you're singing here you get it, and
@@ -263,6 +301,14 @@ export default function EventDetailScreen() {
   // leaving the roster looking as though the removal worked.
   const failed = (error: unknown) => setConfirmError(failureMessage(error));
 
+  // A deep link opens this screen with nothing behind it, and there `back()`
+  // is a no-op that would leave you sitting on an event you can't open any
+  // more. The events tab is `/`.
+  const leave = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace("/");
+  };
+
   const runConfirm = () => {
     if (!confirm) return;
 
@@ -271,16 +317,28 @@ export default function EventDetailScreen() {
         removeEvent.mutate(undefined, {
           onSuccess: () => {
             setConfirmOpen(false);
-
-            // A deep link opens this screen with nothing behind it, and there
-            // `back()` is a no-op that would leave you sitting on an event
-            // that no longer exists. The events tab is `/`.
-            if (router.canGoBack()) router.back();
-            else router.replace("/");
+            leave();
           },
           onError: failed,
         });
         return;
+
+      case "withdraw": {
+        // Only a manager can still open an event they're not on.
+        const stays = event?.viewer.canManage ?? false;
+
+        withdraw.mutate(
+          { stays },
+          {
+            onSuccess: () => {
+              setConfirmOpen(false);
+              if (!stays) leave();
+            },
+            onError: failed,
+          },
+        );
+        return;
+      }
 
       case "removeAssignment":
         cancelAssignment.mutate(confirm.assignment.userId, {
@@ -307,11 +365,13 @@ export default function EventDetailScreen() {
   const confirmBusy =
     confirm?.kind === "deleteEvent"
       ? removeEvent.isPending
-      : confirm?.kind === "removeRole"
-        ? removeRole.isPending
-        : confirm?.kind === "deleteInvite"
-          ? deleteInvite.isPending
-          : cancelAssignment.isPending;
+      : confirm?.kind === "withdraw"
+        ? withdraw.isPending
+        : confirm?.kind === "removeRole"
+          ? removeRole.isPending
+          : confirm?.kind === "deleteInvite"
+            ? deleteInvite.isPending
+            : cancelAssignment.isPending;
 
   const confirmWords = confirm ? describeConfirm(confirm, roles) : null;
 
@@ -367,14 +427,29 @@ export default function EventDetailScreen() {
                   />
                 ) : undefined
               }
-              actions={
-                event.viewer.canManage
+              actions={[
+                ...(event.viewer.canManage
                   ? [
                       {
                         icon: Pencil,
                         label: "Edit details",
                         onPress: () => router.push(`/events/${event.id}/edit`),
                       },
+                    ]
+                  : []),
+                ...(canWithdraw && ownSpot
+                  ? [
+                      {
+                        icon: FaceSlightlyFrowning,
+                        label: "Can't make it?",
+                        onPress: () =>
+                          ask({ kind: "withdraw", name: event.name, role: ownSpot.role }),
+                        destructive: true,
+                      },
+                    ]
+                  : []),
+                ...(event.viewer.canManage
+                  ? [
                       {
                         icon: Trash2,
                         label: "Delete event",
@@ -383,8 +458,8 @@ export default function EventDetailScreen() {
                         destructive: true,
                       },
                     ]
-                  : undefined
-              }
+                  : []),
+              ]}
             />
 
             <EventChatCard
@@ -462,6 +537,7 @@ export default function EventDetailScreen() {
                       })
                   : undefined
               }
+              canWithdraw={canWithdraw}
             />
           </VStack>
         )}

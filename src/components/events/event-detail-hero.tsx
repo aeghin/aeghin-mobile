@@ -25,7 +25,8 @@ const TILE_SKELETON = { width: 60, height: 76 };
 type EventDetailHeroProps = {
   event: EventDetails;
   /**
-   * Managers only: what the ⋮ in the top corner offers.
+   * What the ⋮ in the top corner offers: a manager's edit and delete, and
+   * "Can't make it" for anyone on the event until it starts.
    *
    * The dashboard hangs its event menu off this same corner, and for the same
    * reason — editing and deleting act on the *whole* event, so neither belongs

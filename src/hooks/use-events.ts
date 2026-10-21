@@ -386,6 +386,39 @@ export function useDeleteEvent(orgId: string, eventId: string) {
   );
 }
 
+/**
+ * "Can't make it": takes the caller off an event they had accepted.
+ *
+ * The same route as answering an invitation, and on the server the same work
+ * as a decline — Smart Scheduling's replacement, the alert to whoever runs the
+ * role. Not optimistic, and no retries, for the reason a decline has none.
+ *
+ * `stays` is whether the caller can still open the event afterwards, which
+ * only a manager can. Anyone else is leaving the screen, so its copy isn't
+ * read again under them, where it would only come back "Event unavailable".
+ */
+export function useWithdrawFromEvent(orgId: string, eventId: string) {
+  const { userId } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (_variables: { stays: boolean }) =>
+      apiPost<{ status: InvitationStatus }>(`${eventPath(orgId, eventId)}/respond`, {
+        action: "withdraw",
+      }),
+    retry: false,
+    onSuccess: (_data, { stays }) => {
+      queryClient.invalidateQueries({
+        queryKey: eventDetailsKey(userId, orgId, eventId),
+        refetchType: stays ? "active" : "none",
+      });
+      queryClient.invalidateQueries({ queryKey: ["organizations", userId, "user-events", orgId] });
+      queryClient.invalidateQueries({ queryKey: ["organizations", userId, "org-events", orgId] });
+      queryClient.invalidateQueries({ queryKey: ["organizations", userId, "notifications"] });
+    },
+  });
+}
+
 const eventsPath = (orgId: string) => `/api/mobile/v1/organizations/${orgId}/events`;
 
 /**

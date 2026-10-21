@@ -27,7 +27,10 @@ export type StatusConfig = {
   /** `bg-<c>-500` — the corner badge, and the status word beside the name. */
   color: string;
   icon: AppIconName;
-  /** `ring-<c>-500/70` on a live invitation, `/60` once it is settled. */
+  /**
+   * `ring-<c>-500/70` on a live invitation. A settled one is stronger than the
+   * web's `/60`: at that the red read pink on a light card.
+   */
   ringAlpha: number;
 };
 
@@ -40,6 +43,9 @@ export const ROW_FILL_ALPHA = 0.02;
 const EMERALD_500 = "#00BC7D";
 const AMBER_500 = "#FE9A00";
 const RED_500 = "#FB2C36";
+
+/** A declined, lapsed or removed row's ring. */
+const SETTLED_RING = 0.9;
 
 export function getStatusConfig(status: InvitationStatus): StatusConfig {
   switch (status) {
@@ -58,7 +64,7 @@ export function getStatusConfig(status: InvitationStatus): StatusConfig {
         ringAlpha: 0.7,
       };
     case "DECLINED":
-      return { label: "Declined", color: RED_500, icon: X, ringAlpha: 0.6 };
+      return { label: "Declined", color: RED_500, icon: X, ringAlpha: SETTLED_RING };
     // Red like a decline or a cancel, as on the web since 2026-10-13: either
     // way the spot is open again and somebody has to act on it. The hourglass
     // and the word still say it lapsed rather than was refused.
@@ -67,9 +73,9 @@ export function getStatusConfig(status: InvitationStatus): StatusConfig {
     // the `default` below caught EXPIRED and rendered it as a "Canceled" X — a
     // lapsed invitation reported as one somebody withdrew.
     case "EXPIRED":
-      return { label: "Expired", color: RED_500, icon: Hourglass, ringAlpha: 0.6 };
+      return { label: "Expired", color: RED_500, icon: Hourglass, ringAlpha: SETTLED_RING };
     default:
-      return { label: "Canceled", color: RED_500, icon: X, ringAlpha: 0.6 };
+      return { label: "Canceled", color: RED_500, icon: X, ringAlpha: SETTLED_RING };
   }
 }
 

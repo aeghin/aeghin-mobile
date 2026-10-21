@@ -22,7 +22,7 @@ export type ActionMenuItem = {
   icon: AppIconName;
   label: string;
   onPress: () => void;
-  /** Reddens the row, as the web's `text-destructive` menu item. */
+  /** Reddens the icon; the words stay in the foreground colour. */
   destructive?: boolean;
 };
 
@@ -35,6 +35,8 @@ const GAP = 6;
 const EDGE = 12;
 /** Fixed, because the card is positioned before it has ever been laid out. */
 const ROW_HEIGHT = 44;
+/** The hairline over each row. */
+const DIVIDER = 1;
 const HEADER_HEIGHT = 28;
 const CARD_PADDING = 6;
 const RADIUS = 14;
@@ -151,7 +153,7 @@ export function ActionMenu({ items, label, heading = "Actions" }: ActionMenuProp
   };
 
   const menuHeight =
-    HEADER_HEIGHT + items.length * ROW_HEIGHT + CARD_PADDING * 2;
+    HEADER_HEIGHT + items.length * (ROW_HEIGHT + DIVIDER) + CARD_PADDING * 2;
 
   // Below the trigger by default, flipped above it when there is no room —
   // and the card grows up from its own bottom edge when it does. Null only
@@ -238,9 +240,9 @@ export function ActionMenu({ items, label, heading = "Actions" }: ActionMenuProp
             </Text>
           </VStack>
 
-          {items.map((item, index) => (
+          {items.map((item) => (
             <VStack key={item.label}>
-              {index === 0 ? <Divider /> : null}
+              <Divider />
 
               <Pressable
                 onPress={() => choose(item)}
@@ -256,13 +258,7 @@ export function ActionMenu({ items, label, heading = "Actions" }: ActionMenuProp
                     size={17}
                     color={item.destructive ? theme.destructive : theme.textMuted}
                   />
-                  <Text
-                    className={`flex-1 text-[15px] ${
-                      item.destructive ? "text-destructive" : "text-foreground"
-                    }`}
-                  >
-                    {item.label}
-                  </Text>
+                  <Text className="flex-1 text-[15px] text-foreground">{item.label}</Text>
                 </HStack>
               </Pressable>
             </VStack>

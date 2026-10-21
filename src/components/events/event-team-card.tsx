@@ -7,13 +7,14 @@ import RefreshCw from "lucide-react-native/icons/refresh-cw";
 import Trash2 from "lucide-react-native/icons/trash-2";
 import UserPlus from "lucide-react-native/icons/user-plus";
 import UserRound from "lucide-react-native/icons/user-round";
+import UserRoundMinus from "lucide-react-native/icons/user-round-minus";
 import Users from "lucide-react-native/icons/users";
 import Zap from "lucide-react-native/icons/zap";
 import { useState } from "react";
 import { Alert } from "react-native";
 import ReanimatedSwipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 
-import { ActionMenu } from "@/components/action-menu";
+import { ActionMenu, type ActionMenuItem } from "@/components/action-menu";
 import { AppIcon } from "@/components/app-icon";
 import { AddRolesDialog } from "@/components/events/add-roles-dialog";
 import { EmailTeamDialog } from "@/components/events/email-team-dialog";
@@ -110,6 +111,20 @@ const isRemovable = (group: RoleGroup, now: number) =>
 /** Spots somebody accepted, never more than the role needs. */
 const filledOf = ({ accepted, needed }: RoleStanding) => Math.min(accepted, needed);
 
+/**
+ * What the role's open-spot card says, or null for none. A declined, lapsed or
+ * removed row already stands for the spot it left, crossed out, so the card
+ * only shows while some open spot has no row at all.
+ */
+function openSpotLabel(group: RoleGroup, now: number): string | null {
+  if (group.items.length === 0) return "No one assigned yet";
+
+  const { open } = group.standing;
+  const crossedOut = group.items.filter((item) => !isLive(item, now)).length;
+
+  return open > crossedOut ? `${open} more needed` : null;
+}
+
 type EventTeamCardProps = {
   organizationId: string;
   event: EventDetails;
@@ -124,6 +139,11 @@ type EventTeamCardProps = {
    * roster, which closes the spot it left open.
    */
   onDeleteInvite?: (assignment: EventDetailsAssignment) => void;
+  /**
+   * The viewer can still say "Can't make it" from the hero's ⋮, so a manager's
+   * own accepted row doesn't offer remove, which would skip telling their lead.
+   */
+  canWithdraw?: boolean;
 };
 
 /**
@@ -146,6 +166,7 @@ export function EventTeamCard({
   onRemoveRole,
   onResendInvite,
   onDeleteInvite,
+  canWithdraw,
 }: EventTeamCardProps) {
   const theme = useTheme();
   const colors = getServiceColors(event.serviceType.color, theme);
@@ -209,7 +230,7 @@ export function EventTeamCard({
       ? categories
           .filter((category) => !collapsed.includes(category.key))
           .flatMap((category) => category.groups)
-          .find((group) => isRemovable(group, now))?.role
+          .find((group) => isRemovable(group, now) && openSpotLabel(group, now))?.role
       : undefined;
 
   const spotCount = categories.reduce((count, category) => count + category.needed, 0);
@@ -357,6 +378,7 @@ export function EventTeamCard({
                         onRemoveRole={onRemoveRole}
                         onResendInvite={onResendInvite}
                         onDeleteInvite={onDeleteInvite}
+                        canWithdraw={canWithdraw}
                         onDismissTip={group.role === tipRole ? swipeTip.dismiss : undefined}
                         now={now}
                       />
@@ -497,6 +519,7 @@ function RoleGroupBlock({
   onRemoveRole,
   onResendInvite,
   onDeleteInvite,
+  canWithdraw,
   onDismissTip,
   now,
 }: {
@@ -506,24 +529,18 @@ function RoleGroupBlock({
   onRemoveRole?: (role: VolunteerRole) => void;
   onResendInvite?: (assignment: EventDetailsAssignment) => void;
   onDeleteInvite?: (assignment: EventDetailsAssignment) => void;
+  canWithdraw?: boolean;
   /** Shows the swipe hint under this role; swiping it counts as "Got it". */
   onDismissTip?: () => void;
   now: number;
 }) {
   const { label, emoji } = useRoles().get(group.role);
-  const { needed, open } = group.standing;
-  const unfilled = group.items.length === 0;
+  const { needed } = group.standing;
 
   const remove =
     onRemoveRole && isRemovable(group, now) ? () => onRemoveRole(group.role) : undefined;
 
-  // Somebody declined, let it lapse, was removed, or the role needs more than
-  // are on it: the spot is still open.
-  const openSpot = unfilled
-    ? "No one assigned yet"
-    : open > 0
-      ? `${open} more needed`
-      : null;
+  const openSpot = openSpotLabel(group, now);
 
   const body = (
     <VStack className="gap-2">
@@ -550,15 +567,17 @@ function RoleGroupBlock({
       <VStack className="gap-1.5">
         {group.items.map((assignment) => {
           const lapsed = isLapsed(assignment, now);
+          const isCurrentUser = assignment.userId === currentUserId;
+          const ownSpot = canWithdraw && isCurrentUser && assignment.status === "ACCEPTED";
 
           return (
             <AssignmentRow
               key={assignment.id}
               assignment={assignment}
-              isCurrentUser={assignment.userId === currentUserId}
+              isCurrentUser={isCurrentUser}
               expired={lapsed}
               onPress={
-                onRemoveAssignment && isLive(assignment, now)
+                onRemoveAssignment && isLive(assignment, now) && !ownSpot
                   ? () => onRemoveAssignment(assignment)
                   : undefined
               }
@@ -572,6 +591,7 @@ function RoleGroupBlock({
                   ? () => onDeleteInvite(assignment)
                   : undefined
               }
+              onRemoveRole={remove}
             />
           );
         })}
@@ -709,6 +729,7 @@ function AssignmentRow({
   onPress,
   onResend,
   onDelete,
+  onRemoveRole,
 }: {
   assignment: EventDetailsAssignment;
   isCurrentUser: boolean;
@@ -718,6 +739,8 @@ function AssignmentRow({
   onPress?: () => void;
   onResend?: () => void;
   onDelete?: () => void;
+  /** Managers only, while nobody is live on the role. */
+  onRemoveRole?: () => void;
 }) {
   const theme = useTheme();
 
@@ -725,18 +748,22 @@ function AssignmentRow({
   const status = getStatusConfig(expired ? "EXPIRED" : assignment.status);
   const inactive = expired || isInactiveStatus(assignment.status);
 
-  // A lapsed invite can go out again or come off; a declined or removed one
-  // can only come off, which closes the spot it left.
-  const menu = expired
-    ? onResend && onDelete
-      ? [
-          { icon: RefreshCw, label: "Resend Invitation", onPress: onResend },
-          { icon: Trash2, label: "Delete Expired Invite", onPress: onDelete, destructive: true },
-        ]
-      : null
-    : inactive && onDelete
-      ? [{ icon: Trash2, label: "Delete Invite", onPress: onDelete, destructive: true }]
-      : null;
+  // A lapsed invite can go out again. Any crossed-out row can come off, which
+  // closes the spot it left, and the role can go with it while nobody is live
+  // on it — there's no open-spot card to swipe once every gap is crossed out.
+  const menu: ActionMenuItem[] = inactive
+    ? [
+        ...(expired && onResend
+          ? [{ icon: RefreshCw, label: "Resend Invitation", onPress: onResend }]
+          : []),
+        ...(onDelete
+          ? [{ icon: UserRoundMinus, label: "Remove Person", onPress: onDelete, destructive: true }]
+          : []),
+        ...(onRemoveRole
+          ? [{ icon: Trash2, label: "Remove Role", onPress: onRemoveRole, destructive: true }]
+          : []),
+      ]
+    : [];
 
   const fullName = personName(assignment.user);
 
@@ -753,9 +780,10 @@ function AssignmentRow({
           : { borderColor: theme.border, backgroundColor: theme.card }),
       }}
     >
-      <Box className="shrink-0" style={{ opacity: inactive ? 0.6 : 1 }}>
+      <Box className="shrink-0">
         {/* The web's `ring-2 ring-offset-2`: a hoop in the status colour with
-            the page showing through the gap. */}
+            the page showing through the gap. On a settled row only the face
+            fades — the red ring and badge stay full, or they read pink. */}
         <Center
           className="rounded-full border-2"
           style={{
@@ -764,12 +792,14 @@ function AssignmentRow({
             backgroundColor: theme.card,
           }}
         >
-          <OrgAvatar
-            name={fullName || "?"}
-            logoUrl={assignment.user.userImageUrl}
-            size={AVATAR}
-            shape="circle"
-          />
+          <Box style={{ opacity: inactive ? 0.6 : 1 }}>
+            <OrgAvatar
+              name={fullName || "?"}
+              logoUrl={assignment.user.userImageUrl}
+              size={AVATAR}
+              shape="circle"
+            />
+          </Box>
         </Center>
 
         <Center
@@ -810,7 +840,7 @@ function AssignmentRow({
         </Text>
       </HStack>
 
-      {menu ? (
+      {menu.length > 0 ? (
         <ActionMenu
           label={`Actions for ${fullName || "this invitation"}`}
           heading="Action(s)"

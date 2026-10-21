@@ -55,8 +55,11 @@ type DialogAction = {
 type DialogProps = {
   visible: boolean;
   title: string;
-  /** The line under the title. The web's `DialogDescription`. */
-  description?: string;
+  /**
+   * The line under the title. The web's `DialogDescription`; a nested `<Text>`
+   * picks words out the way its `<span>`s do.
+   */
+  description?: ReactNode;
   /** The glyph in the tinted circle above the title. */
   icon?: AppIconName;
   /** `destructive` turns the circle, the title and the confirm button red. */

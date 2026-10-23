@@ -279,11 +279,14 @@ function SetlistRow({
             {song.artist}
           </Text>
 
+          {/* No "bpm": beside a time signature the number can't be anything
+              else. A screen reader still says it. */}
           <Text
             className="text-[12px] text-muted-foreground"
             style={{ fontVariant: ["tabular-nums"] }}
+            accessibilityLabel={`${song.bpm} BPM, ${song.timeSignature}`}
           >
-            {`${song.bpm} bpm · ${song.timeSignature}`}
+            {`${song.bpm} · ${song.timeSignature}`}
           </Text>
         </HStack>
 

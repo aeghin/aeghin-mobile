@@ -40,8 +40,16 @@ import type { SongAttachment, SongKey } from "@/types/song";
 const NUMBER = 22;
 /** Hairlines start past the position badge, so they line up with the titles. */
 const SEPARATOR_INSET = 16 + NUMBER + 10;
-/** Assigned faces. The web draws these at 24. */
-const VOCALIST = 22;
+/**
+ * Assigned faces, the web's size. With their 1.5pt ring they come to 27, inside
+ * the 28pt line the buttons set, so a row with any doesn't grow.
+ */
+const VOCALIST = 24;
+/**
+ * The line the faces took at 22pt. A row with no buttons keeps it, and the
+ * bigger faces hang a point over each edge instead of making the row taller.
+ */
+const FACES_LINE = 25;
 /** Half the gap between a 28pt `OpenButton` and the 17pt glyph it centres. */
 const LINK_SLACK = 5.5;
 
@@ -340,7 +348,7 @@ function SetlistRow({
 
             <Box
               className="ml-1.5 justify-center"
-              style={{ minHeight: hasButtons ? OPEN_BUTTON_TAP : undefined }}
+              style={{ height: hasButtons ? OPEN_BUTTON_TAP : FACES_LINE }}
             >
               <AvatarStack people={song.vocalists} size={VOCALIST} max={3} />
             </Box>

@@ -1,14 +1,13 @@
 import AudioLines from "lucide-react-native/icons/audio-lines";
-import EllipsisVertical from "lucide-react-native/icons/ellipsis-vertical";
 import FileText from "lucide-react-native/icons/file-text";
 
+import { ActionMenu, type ActionMenuItem } from "@/components/action-menu";
 import { AppIcon } from "@/components/app-icon";
 import { SpotifyIcon, YoutubeIcon } from "@/components/icons/brand-icons";
-import { OPEN_BUTTON_TAP, OpenButton } from "@/components/open-button";
+import { OpenButton } from "@/components/open-button";
 import type { Track } from "@/components/track-player-provider";
 import { Box } from "@/components/ui/box";
 import { HStack } from "@/components/ui/hstack";
-import { Pressable } from "@/components/ui/pressable";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
@@ -29,8 +28,8 @@ type SongRowProps = {
   song: LibrarySong;
   /** Owners and admins get the actions button; everyone else reads the row. */
   canManage: boolean;
-  /** Opens the edit/delete menu. The row itself decides nothing. */
-  onActions: () => void;
+  /** What the ⋮ offers. The row itself decides nothing. */
+  actions: ActionMenuItem[];
   /** Opens the player on one of the song's tracks. */
   onPlayTrack: (track: Track) => void;
 };
@@ -42,7 +41,7 @@ type SongRowProps = {
  * the stack, with the same facts in the same order — what it is, who wrote it,
  * how it is played, what it is about, and what you can open.
  */
-export function SongRow({ song, canManage, onActions, onPlayTrack }: SongRowProps) {
+export function SongRow({ song, canManage, actions, onPlayTrack }: SongRowProps) {
   const theme = useTheme();
 
   const minor = song.defaultKeyQuality === "MINOR";
@@ -78,15 +77,7 @@ export function SongRow({ song, canManage, onActions, onPlayTrack }: SongRowProp
         </Box>
 
         {canManage ? (
-          <Pressable
-            onPress={onActions}
-            accessibilityRole="button"
-            accessibilityLabel={`Actions for ${song.title}`}
-            className="items-center justify-center rounded-md data-[active=true]:bg-border/60"
-            style={{ width: 26, height: OPEN_BUTTON_TAP }}
-          >
-            <AppIcon icon={EllipsisVertical} size={16} color={theme.textMuted} />
-          </Pressable>
+          <ActionMenu label={`Actions for ${song.title}`} items={actions} />
         ) : null}
       </HStack>
 

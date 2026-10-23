@@ -1,15 +1,19 @@
 import ArrowUpDown from "lucide-react-native/icons/arrow-up-down";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
 import Music from "lucide-react-native/icons/music";
+import Paperclip from "lucide-react-native/icons/paperclip";
+import Pencil from "lucide-react-native/icons/pencil";
 import Plus from "lucide-react-native/icons/plus";
 import Search from "lucide-react-native/icons/search";
 import SearchX from "lucide-react-native/icons/search-x";
 import SlidersHorizontal from "lucide-react-native/icons/sliders-horizontal";
+import Trash2 from "lucide-react-native/icons/trash-2";
 import X from "lucide-react-native/icons/x";
 import { useMemo, useState } from "react";
 import { Alert, RefreshControl, ScrollView, TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import type { ActionMenuItem } from "@/components/action-menu";
 import { AppHeader } from "@/components/app-header";
 import { AppIcon, type AppIconName } from "@/components/app-icon";
 import { InsetCard } from "@/components/inset-list";
@@ -183,23 +187,24 @@ export default function SongsScreen() {
     );
   };
 
-  const openActions = (song: LibrarySong) => {
-    Alert.alert(song.title, song.artist, [
-      { text: "Edit details", onPress: () => setEditing(song) },
-      {
-        text: song.attachments.length
-          ? `Attachments (${song.attachments.length})`
-          : "Add attachments",
-        onPress: () => setAttachingId(song.id),
-      },
-      {
-        text: "Delete song",
-        style: "destructive",
-        onPress: () => confirmDelete(song),
-      },
-      { text: "Cancel", style: "cancel" },
-    ], { cancelable: true });
-  };
+  // The app's own ⋮ menu, not a system alert: Android shows only an alert's
+  // first three buttons, so any item past them would be left off.
+  const songActions = (song: LibrarySong): ActionMenuItem[] => [
+    { icon: Pencil, label: "Edit details", onPress: () => setEditing(song) },
+    {
+      icon: Paperclip,
+      label: song.attachments.length
+        ? `Attachments (${song.attachments.length})`
+        : "Add attachments",
+      onPress: () => setAttachingId(song.id),
+    },
+    {
+      icon: Trash2,
+      label: "Delete song",
+      onPress: () => confirmDelete(song),
+      destructive: true,
+    },
+  ];
 
   const sortLabel =
     SORT_OPTIONS.find((option) => option.value === sort)?.label ?? "Sort";
@@ -351,7 +356,7 @@ export default function SongsScreen() {
                 key={song.id}
                 song={song}
                 canManage={canManage}
-                onActions={() => openActions(song)}
+                actions={songActions(song)}
                 onPlayTrack={playTrack}
               />
             ))}

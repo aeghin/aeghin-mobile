@@ -73,7 +73,11 @@ export function VocalistDialog({
                   onPress={() =>
                     song &&
                     toggle.mutate(
-                      { setlistSongId: song.id, userId: candidate.userId, assign: !isAssigned },
+                      {
+                        setlistSongId: song.id,
+                        person: { userId: candidate.userId, ...candidate.user },
+                        assign: !isAssigned,
+                      },
                       { onError: (error) => Alert.alert("Couldn't update", failureMessage(error)) },
                     )
                   }

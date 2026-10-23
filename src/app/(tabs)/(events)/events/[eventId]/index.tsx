@@ -56,7 +56,6 @@ import type {
   EventDate,
   EventDetailsAssignment,
   EventNeighbor,
-  EventSetlistSong,
   VolunteerRole,
 } from "@/types/event";
 
@@ -247,7 +246,9 @@ export default function EventDetailScreen() {
   // asks for one.
   const songKeys = useSongKeys(organizationId, { enabled: canSaveKeys });
 
-  const [vocalistsFor, setVocalistsFor] = useState<EventSetlistSong | null>(null);
+  // Whose vocalists are up, by id, so the dialog reads each refetch. Held as
+  // the row itself, it kept the singers as they were when it opened.
+  const [vocalistsFor, setVocalistsFor] = useState<string | null>(null);
 
   const { play: playTrack } = useTrackPlayer();
   const nowPlayingInset = useNowPlayingInset();
@@ -481,7 +482,7 @@ export default function EventDetailScreen() {
             <EventSetlistCard
               setlist={event.setlist}
               service={event.serviceType}
-              onSongPress={event.viewer.canManage ? setVocalistsFor : undefined}
+              onSongPress={event.viewer.canManage ? (song) => setVocalistsFor(song.id) : undefined}
               onEdit={
                 event.viewer.canManage
                   ? () => router.push(`/events/${event.id}/setlist`)
@@ -560,7 +561,7 @@ export default function EventDetailScreen() {
 
       {event ? (
         <VocalistDialog
-          song={vocalistsFor}
+          song={event.setlist.find((song) => song.id === vocalistsFor) ?? null}
           onClose={() => setVocalistsFor(null)}
           organizationId={organizationId}
           eventId={event.id}

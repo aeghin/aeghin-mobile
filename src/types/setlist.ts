@@ -10,6 +10,10 @@ import type { KeyQuality, Pitch } from "@/types/song";
 export type SetlistDraftSong = {
   id: string;
   songId: string;
+  /** The arrangement this event plays. Null is the Original. */
+  arrangementId: string | null;
+  /** Its name, for the row's picker. Null for the Original. */
+  arrangementName: string | null;
   position: number;
   pitch: Pitch;
   keyQuality: KeyQuality;

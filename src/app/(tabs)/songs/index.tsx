@@ -1,5 +1,6 @@
 import ArrowUpDown from "lucide-react-native/icons/arrow-up-down";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
+import Layers from "lucide-react-native/icons/layers";
 import Music from "lucide-react-native/icons/music";
 import Paperclip from "lucide-react-native/icons/paperclip";
 import Pencil from "lucide-react-native/icons/pencil";
@@ -24,6 +25,7 @@ import {
   SongRow,
   SongRowSkeleton,
 } from "@/components/songs/song-row";
+import { SongArrangementsDialog } from "@/components/songs/song-arrangements-dialog";
 import { SongAttachmentsDialog } from "@/components/songs/song-attachments-dialog";
 import { SongFormDialog } from "@/components/songs/song-form-dialog";
 import { FilterDialog, SortDialog } from "@/components/songs/song-dialogs";
@@ -101,6 +103,12 @@ export default function SongsScreen() {
   const [attachingId, setAttachingId] = useState<string | null>(null);
   const [limitOpen, setLimitOpen] = useState(false);
 
+  // Whose arrangements are up, live for the same reason. Kept through the
+  // closing fade so the card fades with its content; `visit` mounts each
+  // opening fresh, on the list or straight on the form.
+  const [arranging, setArranging] = useState<{ songId: string; visit: number } | null>(null);
+  const [arrangementsOpen, setArrangementsOpen] = useState(false);
+
   const { play: playTrack } = useTrackPlayer();
   const nowPlayingInset = useNowPlayingInset();
 
@@ -111,14 +119,20 @@ export default function SongsScreen() {
   const songLimitReached = songLimit !== null && library.length >= songLimit;
   const planName = PLAN_NAMES[planOf(billing.data)];
 
-  // The library's charts and audio against the plan's storage. Null until the plan loads.
+  // The library's charts and audio against the plan's storage, arrangements'
+  // included. Null until the plan loads.
   const storageLimit = billing.data?.limits?.storage ?? null;
   const storage =
     storageLimit === null
       ? null
       : {
           used: library.reduce(
-            (total, song) => total + song.attachments.reduce((sum, file) => sum + file.size, 0),
+            (total, song) =>
+              total +
+              [
+                ...song.attachments,
+                ...(song.arrangements ?? []).flatMap((arrangement) => arrangement.attachments),
+              ].reduce((sum, file) => sum + file.size, 0),
             0,
           ),
           limit: storageLimit,
@@ -188,7 +202,7 @@ export default function SongsScreen() {
   };
 
   // The app's own ⋮ menu, not a system alert: Android shows only an alert's
-  // first three buttons, so any item past them would be left off.
+  // first three buttons, which left Delete song off once Arrangements joined.
   const songActions = (song: LibrarySong): ActionMenuItem[] => [
     { icon: Pencil, label: "Edit details", onPress: () => setEditing(song) },
     {
@@ -198,6 +212,24 @@ export default function SongsScreen() {
         : "Add attachments",
       onPress: () => setAttachingId(song.id),
     },
+    // Absent from an older server, which has nowhere to save one.
+    ...(song.arrangements
+      ? [
+          {
+            icon: Layers,
+            label: song.arrangements.length
+              ? `Arrangements (${song.arrangements.length})`
+              : "Add arrangement",
+            onPress: () => {
+              setArranging((current) => ({
+                songId: song.id,
+                visit: (current?.visit ?? 0) + 1,
+              }));
+              setArrangementsOpen(true);
+            },
+          },
+        ]
+      : []),
     {
       icon: Trash2,
       label: "Delete song",
@@ -408,6 +440,15 @@ export default function SongsScreen() {
         organizationId={organizationId}
         storage={storage}
         onClose={() => setAttachingId(null)}
+      />
+
+      <SongArrangementsDialog
+        key={arranging ? `${arranging.songId}-${arranging.visit}` : "none"}
+        visible={arrangementsOpen}
+        song={library.find((song) => song.id === arranging?.songId)}
+        organizationId={organizationId}
+        storage={storage}
+        onClose={() => setArrangementsOpen(false)}
       />
 
       {organization && songLimit !== null ? (

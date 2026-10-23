@@ -56,7 +56,33 @@ export type LibrarySong = {
   spotifyUrl: string | null;
   youtubeUrl: string | null;
   themes: string[];
+  /** The Original's. Each arrangement carries its own. */
   attachments: SongAttachment[];
+  /** Its other versions, oldest first. Absent from an older server. */
+  arrangements?: SongArrangement[];
+};
+
+/**
+ * A named version of a library song, like the verse the band recorded. It's
+ * picked per event on a setlist, and the team then sees its files instead of
+ * the Original's.
+ */
+export type SongArrangement = {
+  id: string;
+  name: string;
+  /** On: a setlist shows the song's links. Off: the two below, if any. */
+  useSongLinks: boolean;
+  spotifyUrl: string | null;
+  youtubeUrl: string | null;
+  attachments: SongAttachment[];
+};
+
+/** What the add and edit routes take, as the web's arrangement form submits it. */
+export type SongArrangementInput = {
+  name: string;
+  useSongLinks: boolean;
+  spotifyUrl: string;
+  youtubeUrl: string;
 };
 
 /**

@@ -104,11 +104,14 @@ export function AiSetlistPanel({ organizationId, eventId, colors, onApply }: AiS
     setInput("");
   };
 
+  // Fresh rows are the Original; the editor carries a kept song's pick across.
   const applyProposal = (songs: ProposedSetlistSong[]) =>
     onApply(
       songs.map((song, index) => ({
         id: Crypto.randomUUID(),
         songId: song.songId,
+        arrangementId: null,
+        arrangementName: null,
         position: index,
         pitch: song.pitch,
         keyQuality: song.keyQuality,

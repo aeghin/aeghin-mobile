@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
 import { isPlanLimit } from "@/lib/failure";
 import { uploadToStorage, type UploadFile } from "@/lib/uploadthing";
-import type { LibrarySong, SongInput } from "@/types/song";
+import type { LibrarySong, SongArrangementInput, SongInput } from "@/types/song";
 
 type SongsResponse = {
   songs: LibrarySong[];
@@ -19,6 +19,18 @@ const songsKey = (userId: string | null | undefined, orgId: string) => [
   "organizations",
   userId,
   "songs",
+  orgId,
+];
+
+/**
+ * Every cached event in the organization. Their setlist rows show a picked
+ * version's name, links and files, and an event screen left open in its tab
+ * keeps what it has until something expires it.
+ */
+const eventsKey = (userId: string | null | undefined, orgId: string) => [
+  "organizations",
+  userId,
+  "event-details",
   orgId,
 ];
 
@@ -132,6 +144,8 @@ export type AttachmentUploadResult = {
 
 export type NewAttachments = {
   songId: string;
+  /** The arrangement they're for. Null is the Original's. */
+  arrangementId: string | null;
   files: UploadFile[];
 };
 
@@ -151,16 +165,17 @@ export function useAddAttachments(orgId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ songId, files }: NewAttachments) => {
+    mutationFn: async ({ songId, arrangementId, files }: NewAttachments) => {
       const stored = await uploadToStorage("songAttachment", files, { songId });
 
       return apiPost<AttachmentUploadResult>(
         `${songsPath(orgId)}/${songId}/attachments`,
-        { files: stored },
+        { files: stored, arrangementId },
       );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: songsKey(userId, orgId) });
+      queryClient.invalidateQueries({ queryKey: eventsKey(userId, orgId) });
     },
   });
 }
@@ -182,6 +197,81 @@ export function useDeleteAttachment(orgId: string) {
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: songsKey(userId, orgId) });
+      queryClient.invalidateQueries({ queryKey: eventsKey(userId, orgId) });
+    },
+  });
+}
+
+export type NewArrangement = {
+  songId: string;
+  arrangement: SongArrangementInput;
+};
+
+export type ArrangementEdit = {
+  songId: string;
+  arrangementId: string;
+  arrangement: SongArrangementInput;
+};
+
+export type ArrangementRef = {
+  songId: string;
+  arrangementId: string;
+};
+
+const arrangementsPath = (orgId: string, songId: string) =>
+  `${songsPath(orgId)}/${songId}/arrangements`;
+
+/**
+ * Adds an arrangement to a song. Its files go on afterwards, the way a song's
+ * do. The three below wait for the library to refetch before they settle, so
+ * the dialog goes back to a list that already shows the change.
+ */
+export function useAddArrangement(orgId: string) {
+  const { userId } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ songId, arrangement }: NewArrangement) =>
+      apiPost<{ success: true }>(arrangementsPath(orgId, songId), arrangement),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: songsKey(userId, orgId) }),
+  });
+}
+
+/** Renames one or changes its links. Every setlist that plays it follows. */
+export function useUpdateArrangement(orgId: string) {
+  const { userId } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ songId, arrangementId, arrangement }: ArrangementEdit) =>
+      apiPatch<{ success: true }>(
+        `${arrangementsPath(orgId, songId)}/${arrangementId}`,
+        arrangement,
+      ),
+    onSuccess: () => {
+      // Not waited on: the dialog only needs the library back.
+      queryClient.invalidateQueries({ queryKey: eventsKey(userId, orgId) });
+      return queryClient.invalidateQueries({ queryKey: songsKey(userId, orgId) });
+    },
+  });
+}
+
+/**
+ * Deletes one along with its files. Not optimistic, like deleting a song: the
+ * server refuses while an upcoming setlist plays it, and says which.
+ */
+export function useDeleteArrangement(orgId: string) {
+  const { userId } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ songId, arrangementId }: ArrangementRef) =>
+      apiDelete<{ success: true }>(`${arrangementsPath(orgId, songId)}/${arrangementId}`),
+    onSuccess: () => {
+      // A past setlist that played it shows the Original from now on.
+      queryClient.invalidateQueries({ queryKey: eventsKey(userId, orgId) });
+      return queryClient.invalidateQueries({ queryKey: songsKey(userId, orgId) });
     },
   });
 }

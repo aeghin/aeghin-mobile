@@ -1,5 +1,7 @@
+import Check from "lucide-react-native/icons/check";
 import ChevronDown from "lucide-react-native/icons/chevron-down";
 import ChevronUp from "lucide-react-native/icons/chevron-up";
+import Layers from "lucide-react-native/icons/layers";
 import Music from "lucide-react-native/icons/music";
 import X from "lucide-react-native/icons/x";
 import { useState } from "react";
@@ -15,14 +17,18 @@ import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
-import { withAlpha } from "@/constants/branding";
+import { brand, withAlpha } from "@/constants/branding";
 import { useTheme } from "@/hooks/use-theme";
 import { KEY_OPTIONS, TIME_SIGNATURES, formatKey } from "@/lib/config/keys";
 import type { ServiceColors } from "@/lib/config/service-types";
+import { versionLinks } from "@/lib/songs/arrangements";
 import type { SetlistDraftSong } from "@/types/setlist";
+import type { LibrarySong } from "@/types/song";
 
 type SetlistDraftListProps = {
   songs: SetlistDraftSong[];
+  /** The library, for each song's arrangements. */
+  library: LibrarySong[];
   colors: ServiceColors;
   onChange: (songs: SetlistDraftSong[]) => void;
 };
@@ -32,12 +38,42 @@ type SetlistDraftListProps = {
  * signature per song. Reordering is by arrows rather than drag — a drag
  * needs the worklets runtime nothing in this app has exercised yet.
  */
-export function SetlistDraftList({ songs, colors, onChange }: SetlistDraftListProps) {
+export function SetlistDraftList({ songs, library, colors, onChange }: SetlistDraftListProps) {
   const theme = useTheme();
   const [keyFor, setKeyFor] = useState<SetlistDraftSong | null>(null);
 
+  // Which row's arrangement is being picked. Kept through the closing fade,
+  // so the options fade out with the dialog instead of emptying first.
+  const [arrangementFor, setArrangementFor] = useState<string | null>(null);
+  const [arrangementOpen, setArrangementOpen] = useState(false);
+
+  const librarySongs = new Map(library.map((song) => [song.id, song]));
+  const arrangementsOf = (song: SetlistDraftSong) =>
+    librarySongs.get(song.songId)?.arrangements ?? [];
+
+  const picking = songs.find((song) => song.id === arrangementFor);
+
   const update = (id: string, patch: Partial<SetlistDraftSong>) =>
     onChange(songs.map((song) => (song.id === id ? { ...song, ...patch } : song)));
+
+  // Switches the arrangement this event plays, and the links the row shows with it.
+  const updateArrangement = (id: string, arrangementId: string | null) =>
+    onChange(
+      songs.map((song) => {
+        const librarySong = librarySongs.get(song.songId);
+        if (song.id !== id || !librarySong) return song;
+
+        const arrangement =
+          librarySong.arrangements?.find((option) => option.id === arrangementId) ?? null;
+
+        return {
+          ...song,
+          arrangementId: arrangement?.id ?? null,
+          arrangementName: arrangement?.name ?? null,
+          ...versionLinks(librarySong, arrangement),
+        };
+      }),
+    );
 
   const move = (index: number, delta: number) => {
     const target = index + delta;
@@ -74,6 +110,10 @@ export function SetlistDraftList({ songs, colors, onChange }: SetlistDraftListPr
               </Text>
               <Text className="text-[12.5px] text-muted-foreground" numberOfLines={1}>
                 {song.artist}
+                {/* The version this event plays, as the event card shows it. */}
+                {song.arrangementName ? (
+                  <Text className="font-medium text-foreground/80">{` · ${song.arrangementName}`}</Text>
+                ) : null}
               </Text>
             </VStack>
 
@@ -137,6 +177,20 @@ export function SetlistDraftList({ songs, colors, onChange }: SetlistDraftListPr
               width={52}
             />
 
+            {/* Only for songs that have arrangements, as on the web. An icon,
+                so the row fits small phones; the name is on the artist line,
+                and the chip turns orange while it isn't the Original. */}
+            {arrangementsOf(song).length > 0 ? (
+              <ArrangementChip
+                picked={song.arrangementId !== null}
+                label={`Arrangement, ${song.arrangementName ?? "Original"}`}
+                onPress={() => {
+                  setArrangementFor(song.id);
+                  setArrangementOpen(true);
+                }}
+              />
+            ) : null}
+
             <HStack className="ml-auto items-center gap-1">
               <ArrowButton
                 icon={ChevronUp}
@@ -181,6 +235,42 @@ export function SetlistDraftList({ songs, colors, onChange }: SetlistDraftListPr
           {`Common time signatures: ${TIME_SIGNATURES.join(", ")}`}
         </Text>
       </Dialog>
+
+      <Dialog
+        visible={arrangementOpen}
+        icon={Layers}
+        title="Arrangement"
+        description={picking ? `Which version of ${picking.title} this event plays.` : undefined}
+        onClose={() => setArrangementOpen(false)}
+      >
+        {picking ? (
+          <VStack>
+            {[{ id: null, name: "Original" }, ...arrangementsOf(picking)].map((option) => {
+              const selected = option.id === picking.arrangementId;
+
+              return (
+                <Pressable
+                  key={option.id ?? "original"}
+                  onPress={() => {
+                    if (!selected) updateArrangement(picking.id, option.id);
+                    setArrangementOpen(false);
+                  }}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected }}
+                  className="rounded-xl px-3 data-[active=true]:bg-border/60"
+                >
+                  <HStack className="min-h-[46px] items-center gap-3">
+                    <Text className="flex-1 text-[15px] text-foreground" numberOfLines={1}>
+                      {option.name}
+                    </Text>
+                    {selected ? <AppIcon icon={Check} size={16} color={brand.orange} /> : null}
+                  </HStack>
+                </Pressable>
+              );
+            })}
+          </VStack>
+        ) : null}
+      </Dialog>
     </VStack>
   );
 }
@@ -209,6 +299,40 @@ function SmallInput({
         backgroundColor: theme.surface,
       }}
     />
+  );
+}
+
+/** Opens the arrangement picker. Sized to sit with the key, BPM and time chips. */
+function ArrangementChip({
+  picked,
+  label,
+  onPress,
+}: {
+  picked: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  const tint = picked ? brand.orange : theme.textMuted;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityHint="Choose which version this event plays"
+      className="justify-center rounded-lg border px-2"
+      style={{
+        height: 30,
+        borderColor: picked ? withAlpha(brand.orange, 0.4) : theme.border,
+        backgroundColor: picked ? withAlpha(brand.orange, 0.1) : theme.surface,
+      }}
+    >
+      <HStack className="items-center gap-0.5">
+        <AppIcon icon={Layers} size={14} color={tint} />
+        <AppIcon icon={ChevronDown} size={12} color={tint} />
+      </HStack>
+    </Pressable>
   );
 }
 

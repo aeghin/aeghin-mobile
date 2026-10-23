@@ -185,9 +185,12 @@ export type EventSetlistSong = {
   timeSignature: string;
   title: string;
   artist: string;
+  /** The played version's: an arrangement's when one is picked, else the song's. */
   youtubeUrl: string | null;
   spotifyUrl: string | null;
   attachments: SongAttachment[];
+  /** The arrangement this event plays. Null is the Original; absent from an older server. */
+  arrangement?: { id: string; name: string } | null;
   /** Who is singing this one. Empty until somebody is assigned. */
   vocalists: EventPerson[];
 };

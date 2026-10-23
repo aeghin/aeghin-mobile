@@ -67,6 +67,10 @@ export function CatalogPicker({ organizationId, draftSongIds, colors, onAdd }: C
     onAdd({
       id: Crypto.randomUUID(),
       songId: song.id,
+      // The Original, switched from the row. Null rather than left out, which
+      // would keep the pick of a song removed and re-added before saving.
+      arrangementId: null,
+      arrangementName: null,
       position: 0,
       pitch: song.defaultPitch,
       keyQuality: song.defaultKeyQuality,

@@ -5,6 +5,7 @@ import Music from "lucide-react-native/icons/music";
 import Pencil from "lucide-react-native/icons/pencil";
 
 import { AppIcon } from "@/components/app-icon";
+import { ArrangementButton } from "@/components/events/arrangement-button";
 import {
   AvatarStack,
   DetailButton,
@@ -15,7 +16,7 @@ import {
 } from "@/components/events/event-detail-parts";
 import { SongKeyCard } from "@/components/events/song-key-card";
 import { SpotifyIcon, YoutubeIcon } from "@/components/icons/brand-icons";
-import { OpenButton } from "@/components/open-button";
+import { OPEN_BUTTON_TAP, OpenButton } from "@/components/open-button";
 import type { Track } from "@/components/track-player-provider";
 import { Box } from "@/components/ui/box";
 import { Center } from "@/components/ui/center";
@@ -28,7 +29,10 @@ import { VStack } from "@/components/ui/vstack";
 import { mediaTint, withAlpha } from "@/constants/branding";
 import { useTheme } from "@/hooks/use-theme";
 import { formatKey } from "@/lib/config/keys";
-import { getServiceColors, type ServiceColors } from "@/lib/config/service-types";
+import {
+  getServiceColors,
+  type ServiceColors,
+} from "@/lib/config/service-types";
 import type { EventSetlistSong, ServiceType } from "@/types/event";
 import type { SongAttachment, SongKey } from "@/types/song";
 
@@ -105,7 +109,12 @@ export function EventSetlistCard({
         tint={colors}
         trailing={
           onEdit ? (
-            <DetailButton icon={Pencil} label="Edit" service={colors} onPress={onEdit} />
+            <DetailButton
+              icon={Pencil}
+              label="Edit"
+              service={colors}
+              onPress={onEdit}
+            />
           ) : undefined
         }
       />
@@ -159,7 +168,9 @@ export function EventSetlistCardSkeleton() {
       <VStack className="pb-1.5">
         {[160, 120, 140].map((width, index) => (
           <VStack key={width}>
-            {index > 0 ? <Divider style={{ marginLeft: SEPARATOR_INSET }} /> : null}
+            {index > 0 ? (
+              <Divider style={{ marginLeft: SEPARATOR_INSET }} />
+            ) : null}
             <HStack className="items-start gap-2.5 px-4 py-2.5">
               <Skeleton
                 startColor="bg-border"
@@ -167,8 +178,14 @@ export function EventSetlistCardSkeleton() {
                 style={{ width: NUMBER, height: NUMBER }}
               />
               <VStack className="flex-1 gap-2 pt-0.5">
-                <Skeleton startColor="bg-border" style={{ width, height: 14 }} />
-                <Skeleton startColor="bg-border" style={{ width: 80, height: 11 }} />
+                <Skeleton
+                  startColor="bg-border"
+                  style={{ width, height: 14 }}
+                />
+                <Skeleton
+                  startColor="bg-border"
+                  style={{ width: 80, height: 11 }}
+                />
               </VStack>
             </HStack>
           </VStack>
@@ -202,15 +219,18 @@ function SetlistRow({
   const minor = song.keyQuality === "MINOR";
   const keyColor = minor ? theme.violet : theme.textMuted;
 
-  const hasLinks =
+  // Anything on the controls line to press: a link, a file, or the
+  // arrangement's glyph.
+  const hasButtons =
     Boolean(song.spotifyUrl) ||
     Boolean(song.youtubeUrl) ||
-    song.attachments.length > 0;
+    song.attachments.length > 0 ||
+    Boolean(song.arrangement);
 
-  // The web's `showPeople`, widened to cover the links. A row with nothing to
-  // open and nobody singing it skips the line outright rather than paying for
-  // an empty one.
-  const showControls = hasLinks || song.vocalists.length > 0;
+  // The web's `showPeople`, widened to cover the buttons. A row with nothing
+  // to press and nobody singing it skips the line outright rather than paying
+  // for an empty one.
+  const showControls = hasButtons || song.vocalists.length > 0;
 
   const row = (
     <HStack className="items-start gap-2.5 px-4 py-2.5">
@@ -268,13 +288,17 @@ function SetlistRow({
         </HStack>
 
         {showControls ? (
-          <HStack className="items-center">
+          // Top-aligned once icons can wrap, so the singers stay level with
+          // the first line of them; a row without icons is one line anyway.
+          <HStack className={hasButtons ? "items-start" : "items-center"}>
             {/* Every control here is a tap square wider than the glyph inside
               it, so each end is pulled out by its own slack — otherwise the
-              icons sit indented from the title and artist above them. */}
+              icons sit indented from the title and artist above them. A row
+              with more of them than fit takes a second line rather than
+              pushing the singers off the card. */}
             <HStack
-              className="items-center"
-              style={{ marginLeft: -LINK_SLACK }}
+              className="flex-1 flex-wrap items-center"
+              style={{ marginLeft: -LINK_SLACK, rowGap: 2 }}
             >
               {song.spotifyUrl ? (
                 <OpenButton
@@ -298,14 +322,25 @@ function SetlistRow({
                 <AttachmentButton
                   key={attachment.id}
                   attachment={attachment}
-                  onPlay={() => onPlayTrack({ attachment, songTitle: song.title })}
+                  onPlay={() =>
+                    onPlayTrack({ attachment, songTitle: song.title })
+                  }
                 />
               ))}
+
+              {/* The version this event plays, after its own links and files
+                  so they start in the same place on every row. */}
+              {song.arrangement ? (
+                <ArrangementButton name={song.arrangement.name} />
+              ) : null}
             </HStack>
 
-            <Box className="flex-1" />
-
-            <AvatarStack people={song.vocalists} size={VOCALIST} max={3} />
+            <Box
+              className="ml-1.5 justify-center"
+              style={{ minHeight: hasButtons ? OPEN_BUTTON_TAP : undefined }}
+            >
+              <AvatarStack people={song.vocalists} size={VOCALIST} max={3} />
+            </Box>
           </HStack>
         ) : null}
       </VStack>

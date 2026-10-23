@@ -25,20 +25,27 @@ import { brand } from "@/constants/branding";
 import { useBillingStatus } from "@/hooks/use-billing";
 import { useEventDetails } from "@/hooks/use-events";
 import { useSaveSetlist } from "@/hooks/use-setlist";
+import { useSongs } from "@/hooks/use-songs";
 import { useTheme } from "@/hooks/use-theme";
 import { ApiError } from "@/lib/api";
 import { getServiceColors } from "@/lib/config/service-types";
 import { failureMessage } from "@/lib/failure";
 import type { EventSetlistSong } from "@/types/event";
 import type { SetlistDraftSong } from "@/types/setlist";
+import type { LibrarySong } from "@/types/song";
 
 const TAB_BAR_CLEARANCE = 64;
+
+/** Stable identity while the library loads. */
+const NO_SONGS: LibrarySong[] = [];
 
 type Pane = "setlist" | "catalog" | "ai";
 
 const toDraft = (song: EventSetlistSong): SetlistDraftSong => ({
   id: song.id,
   songId: song.songId,
+  arrangementId: song.arrangement?.id ?? null,
+  arrangementName: song.arrangement?.name ?? null,
   position: song.position,
   pitch: song.pitch,
   keyQuality: song.keyQuality,
@@ -128,6 +135,8 @@ function Editor({
 
   const billing = useBillingStatus(organizationId);
   const save = useSaveSetlist(organizationId, eventId);
+  // Each song's arrangements, for the rows' pickers.
+  const library = useSongs(organizationId);
 
   const [songs, setSongs] = useState(initial);
   const [dirty, setDirty] = useState(false);
@@ -143,8 +152,36 @@ function Editor({
   const submit = () =>
     save.mutate(songs, {
       onSuccess: () => router.back(),
-      onError: (error) => Alert.alert("Couldn't save", failureMessage(error)),
+      onError: (error) => {
+        // A refusal can be an arrangement deleted meanwhile, which the pickers
+        // shouldn't offer again.
+        library.refetch();
+        Alert.alert("Couldn't save", failureMessage(error));
+      },
     });
+
+  // The AI picks songs, never arrangements: a song it keeps stays on the
+  // arrangement picked for it here, and one it brings in is the Original.
+  const applyAiSongs = (proposed: SetlistDraftSong[]) => {
+    const current = new Map(songs.map((song) => [song.songId, song]));
+
+    change(
+      proposed.map((song) => {
+        const kept = current.get(song.songId);
+
+        return kept
+          ? {
+              ...song,
+              arrangementId: kept.arrangementId,
+              arrangementName: kept.arrangementName,
+              spotifyUrl: kept.spotifyUrl,
+              youtubeUrl: kept.youtubeUrl,
+            }
+          : song;
+      }),
+    );
+    setPane("setlist");
+  };
 
   const canUseAi = Boolean(billing.data?.hasPremium || billing.data?.hasPro);
 
@@ -213,10 +250,7 @@ function Editor({
                   organizationId={organizationId}
                   eventId={eventId}
                   colors={colors}
-                  onApply={(next) => {
-                    change(next);
-                    setPane("setlist");
-                  }}
+                  onApply={applyAiSongs}
                 />
               </VStack>
             )}
@@ -232,7 +266,12 @@ function Editor({
             keyboardShouldPersistTaps="handled"
           >
             {pane === "setlist" ? (
-              <SetlistDraftList songs={songs} colors={colors} onChange={change} />
+              <SetlistDraftList
+                songs={songs}
+                library={library.data ?? NO_SONGS}
+                colors={colors}
+                onChange={change}
+              />
             ) : (
               <CatalogPicker
                 organizationId={organizationId}

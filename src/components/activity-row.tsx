@@ -77,7 +77,7 @@ function describe(item: ActivityItem): Part[] {
         ? [plain("Smart Scheduling invited "), person(item.targetName), plain(" after "), person(item.actorName), plain(" declined"), ...onEvent(item.eventName)]
         : [plain("Smart Scheduling auto-invited "), person(item.targetName)];
     case "SMART_FILL_SKIPPED":
-      return [person(item.actorName), plain(" declined "), name(item.targetName), ...onEvent(item.eventName), plain(" — auto-fill is off, so the slot is still open")];
+      return [person(item.actorName), plain(" declined "), name(item.targetName), ...onEvent(item.eventName), plain(" — auto-fill was off, so nobody was invited")];
     case "SMART_FILL_NO_CANDIDATES":
       return [plain("Smart Scheduling couldn't fill "), name(item.targetName), ...onEvent(item.eventName), plain(" — nobody in this organization has that role")];
     case "SMART_FILL_ALL_UNAVAILABLE":

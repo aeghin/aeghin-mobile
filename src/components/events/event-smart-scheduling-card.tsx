@@ -101,7 +101,9 @@ export function EventSmartSchedulingCard({
     unfilledCount > 0 && {
       key: "unfilled",
       icon: CalendarClock,
-      label: `${unfilledCount} ${unfilledCount === 1 ? "slot" : "slots"} left open`,
+      // History, like "filled automatically": the log can't know what the
+      // roster did since, so it never claims a spot is still open.
+      label: `${unfilledCount} not filled automatically`,
       color: theme.warning,
     },
   ].filter(Boolean) as {
@@ -248,7 +250,7 @@ function describeRow(item: SmartSchedulingActivityItem): ReactNode {
       return (
         <>
           <Person>{item.actorName}</Person> declined <Name>{item.targetName}</Name>{" "}
-          — auto-fill was off, so the slot is still open
+          — auto-fill was off, so nobody was invited
         </>
       );
     case "SMART_FILL_NO_CANDIDATES":

@@ -79,8 +79,9 @@ type DialogProps = {
    */
   bodyRef?: Ref<ScrollView>;
   /**
-   * Hides the glyph and trims the description to one line while the keyboard
-   * is up, so a dialog someone writes in keeps that room for its fields.
+   * Hides the glyph while the keyboard is up, so a dialog someone writes in
+   * keeps that room for its fields. The description stays whole: trimmed, it
+   * couldn't be read until a scroll dropped the keyboard.
    */
   compactWhileTyping?: boolean;
 };
@@ -237,10 +238,7 @@ export function Dialog({
               </Text>
 
               {description ? (
-                <Text
-                  className="max-w-[300px] text-center text-[13.5px] leading-[19px] text-muted-foreground"
-                  numberOfLines={compact ? 1 : undefined}
-                >
+                <Text className="max-w-[300px] text-center text-[13.5px] leading-[19px] text-muted-foreground">
                   {description}
                 </Text>
               ) : null}

@@ -221,7 +221,6 @@ export function SongArrangementsDialog({
             placeholder="Verse sample"
             maxLength={60}
             autoCorrect={false}
-            autoFocus={editing === "new"}
             returnKeyType="done"
           />
         </Field>

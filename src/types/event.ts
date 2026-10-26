@@ -278,6 +278,14 @@ export type EventDetails = {
    * absent from an older server.
    */
   createdBy?: { userId: string; firstName: string; lastName: string } | null;
+  /**
+   * The teams the viewer can fill with AI here, as the dashboard decides it:
+   * theirs, and the ones they back up on Also notify, on a Pro plan, while the
+   * event is still ahead. Managers only; absent from an older server.
+   */
+  aiTeams?: AiTeam[];
+  /** Inside last-call days, when a backup can fill with AI whatever the team's state. */
+  lastCall?: boolean;
   /** Managers only; empty for everybody else. */
   smartSchedulingActivity: SmartSchedulingActivityItem[];
   /** Managers only; 0 for everybody else. */
@@ -305,6 +313,13 @@ export type EventNeighbor = {
   name: string;
   /** The first day's start, wall-clock like `dates`. */
   startTime: string;
+};
+
+/** A team the viewer can fill with AI on an event. */
+export type AiTeam = {
+  team: Team;
+  /** Whoever's in charge, by first name, when the viewer is only its backup. */
+  backingUp: string | null;
 };
 
 /**
@@ -342,6 +357,8 @@ export type NewEvent = {
   roleAssignments: Record<string, string[]>;
   /** Teams handed to somebody other than the service type's lead, for this event only. */
   teamLeads?: TeamLeadPick[];
+  /** The AI draft's Create: somebody now serving another event at that time is refused. */
+  refuseConflicts?: boolean;
 };
 
 /**

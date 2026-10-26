@@ -41,7 +41,9 @@ export type ProposedSetlistSong = {
 
 export type SetlistProposal = {
   title: string;
+  /** The model's explanation, shown on the card. Absent from an older server. */
+  note?: string;
   songs: ProposedSetlistSong[];
-  /** Ids the model named that were not in the catalog. */
+  /** Refs the model named that were not in the catalog. */
   skipped: string[];
 };

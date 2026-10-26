@@ -1,9 +1,11 @@
+import { useRouter } from "expo-router";
 import ChevronDown from "lucide-react-native/icons/chevron-down";
 import ChevronsLeft from "lucide-react-native/icons/chevrons-left";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
 import Mail from "lucide-react-native/icons/mail";
 import Plus from "lucide-react-native/icons/plus";
 import RefreshCw from "lucide-react-native/icons/refresh-cw";
+import Sparkles from "lucide-react-native/icons/sparkles";
 import Trash2 from "lucide-react-native/icons/trash-2";
 import UserPlus from "lucide-react-native/icons/user-plus";
 import UserRound from "lucide-react-native/icons/user-round";
@@ -27,6 +29,7 @@ import {
 } from "@/components/events/event-detail-parts";
 import { InviteToEventDialog } from "@/components/events/invite-to-event-dialog";
 import { OrgAvatar } from "@/components/org-avatar";
+import { ShimmerIcon } from "@/components/shimmer-icon";
 import { Tip } from "@/components/tip";
 import { Box } from "@/components/ui/box";
 import { Center } from "@/components/ui/center";
@@ -42,13 +45,14 @@ import { useSetSmartScheduling } from "@/hooks/use-events";
 import { useRoles } from "@/hooks/use-roles";
 import { useTheme } from "@/hooks/use-theme";
 import { useTip } from "@/hooks/use-tip";
-import { getServiceColors } from "@/lib/config/service-types";
+import { getServiceColors, type ServiceColors } from "@/lib/config/service-types";
 import {
   getStatusConfig,
   isInactiveStatus,
   ROW_BORDER_ALPHA,
   ROW_FILL_ALPHA,
 } from "@/lib/config/status";
+import { fillableTeams } from "@/lib/events/fill";
 import { roleStanding, type RoleStanding } from "@/lib/events/spots";
 import { failureMessage } from "@/lib/failure";
 import { personName } from "@/lib/names";
@@ -171,6 +175,7 @@ export function EventTeamCard({
   const theme = useTheme();
   const colors = getServiceColors(event.serviceType.color, theme);
   const roles = useRoles();
+  const router = useRouter();
   // Every team starts open, so the whole roster reads at a glance. Team is the
   // last card on the screen, so opening everything pushes nothing out of reach.
   // Tracking what was closed rather than what is open means a team that joins
@@ -223,6 +228,10 @@ export function EventTeamCard({
       stalled: hasStalled(groups, now),
     };
   }).filter((category) => category.groups.length > 0);
+
+  // Fill with AI: the viewer's teams that still have spots nobody has taken.
+  // A team they only back up waits for its lead until the backup is needed.
+  const fillable = canManage ? fillableTeams(event, roles, now) : [];
 
   // Pointed at one role only: the first a manager can swipe in an open team.
   const tipRole =
@@ -369,6 +378,17 @@ export function EventTeamCard({
 
                 {!collapsed.includes(category.key) ? (
                   <VStack className="gap-4 px-4 pb-4 pt-0.5">
+                    {fillable
+                      .filter((entry) => entry.team === category.key)
+                      .map((entry) => (
+                        <FillRow
+                          key={entry.team}
+                          open={entry.open}
+                          backingUp={entry.backingUp}
+                          colors={colors}
+                          onPress={() => router.push(`/events/${event.id}/fill?team=${entry.team}`)}
+                        />
+                      ))}
                     {category.groups.map((group) => (
                       <RoleGroupBlock
                         key={group.role}
@@ -698,6 +718,62 @@ function OpenSpot({
     >
       {row}
     </ReanimatedSwipeable>
+  );
+}
+
+/**
+ * Fill with AI, as a row at the top of a team's section, in the service's
+ * colour so it stands out on the roster and invites a tap. Somebody else's
+ * team, which the viewer only backs up, is said as a fact, not a request.
+ */
+function FillRow({
+  open,
+  backingUp,
+  colors,
+  onPress,
+}: {
+  open: number;
+  backingUp: string | null;
+  colors: ServiceColors;
+  onPress: () => void;
+}) {
+  const spots = open === 1 ? "1 open spot" : `${open} open spots`;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`Fill with AI, ${spots}${backingUp ? `, ${backingUp}'s team` : ""}`}
+      className="data-[active=true]:opacity-60"
+    >
+      <HStack
+        className="items-center gap-3 rounded-xl border px-3 py-2.5"
+        style={{
+          borderCurve: "continuous",
+          borderColor: colors.hairline,
+          backgroundColor: withAlpha(colors.base, 0.06),
+        }}
+      >
+        {/* The size of the avatar in its ring on the rows under it. */}
+        <Center
+          className="rounded-full"
+          style={{ width: AVATAR + 8, height: AVATAR + 8, backgroundColor: colors.base }}
+        >
+          <ShimmerIcon icon={Sparkles} size={18} color="#FFFFFF" />
+        </Center>
+
+        <VStack className="flex-1">
+          <Text className="text-[14px] font-semibold text-foreground">{spots}</Text>
+          <Text className="text-[12px] text-muted-foreground" numberOfLines={1}>
+            {backingUp ? `${backingUp}'s team` : "AI picks, you approve"}
+          </Text>
+        </VStack>
+
+        <Box className="rounded-full px-3 py-1.5" style={{ backgroundColor: colors.base }}>
+          <Text className="text-[12px] font-semibold text-white">Fill with AI</Text>
+        </Box>
+      </HStack>
+    </Pressable>
   );
 }
 

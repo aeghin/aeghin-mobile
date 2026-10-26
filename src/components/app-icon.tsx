@@ -23,7 +23,7 @@ type AppIconProps = {
  * with `size` and lands heavier beside iOS text than SF Symbols do. `STROKE`
  * is the one number to turn if the icons ever read too bold or too faint.
  */
-const STROKE = 1.75;
+export const STROKE = 1.75;
 
 export function AppIcon({ icon: Icon, size = 20, color }: AppIconProps) {
   return <Icon size={size} color={color} strokeWidth={STROKE} />;

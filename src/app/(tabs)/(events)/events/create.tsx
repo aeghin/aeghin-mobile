@@ -120,6 +120,8 @@ type CreateSeed = {
   rehearsal: NewEventDay | null;
   /** Who to invite, per role. Only a draft ever arrives with anybody in it. */
   assignments: Record<string, string[]>;
+  /** Teams handed to somebody for this event only. Only a draft ever arrives with any. */
+  teamLeads: TeamLeadPicks;
 };
 
 const BLANK_SEED: CreateSeed = {
@@ -135,6 +137,7 @@ const BLANK_SEED: CreateSeed = {
   smartScheduling: false,
   rehearsal: null,
   assignments: {},
+  teamLeads: {},
 };
 
 /**
@@ -199,6 +202,7 @@ function seedFromTemplate(template: EventTemplate, serviceTypes: ServiceType[]):
     smartScheduling: template.smartSchedulingEnabled,
     rehearsal,
     assignments: {},
+    teamLeads: {},
   };
 }
 
@@ -243,6 +247,10 @@ function seedFromDraft(draft: EventDraft): CreateSeed {
     smartScheduling: draft.smartSchedulingEnabled,
     rehearsal: draft.rehearsal,
     assignments,
+    // "I'll handle the band": the draft's covers become the form's team picks.
+    teamLeads: Object.fromEntries(
+      (draft.covers ?? []).map((cover) => [cover.team, cover.userId]),
+    ),
   };
 }
 
@@ -406,7 +414,11 @@ export default function CreateEventScreen() {
                   setStep(1);
                   setPane("form");
                 }}
-                onCreated={() => router.back()}
+                // Straight to the new event, where its leads' teams are filled.
+                // An older server sends no id, and that's back to the list.
+                onCreated={(eventId) =>
+                  eventId ? router.replace(`/events/${eventId}`) : router.back()
+                }
               />
             ) : (
               <ScrollView keyboardShouldPersistTaps="handled">
@@ -506,11 +518,11 @@ function CreateEventForm({
 
   // Teams handed to somebody other than the lead, for this event only. Kept
   // with the service type they were picked against: switching types starts
-  // over from that type's own leads.
+  // over from that type's own leads. A draft's covers arrive with its seed.
   const [teamLeadPicks, setTeamLeadPicks] = useState<{
     serviceTypeId: string | null;
     picks: TeamLeadPicks;
-  }>({ serviceTypeId: null, picks: {} });
+  }>({ serviceTypeId: seed.serviceTypeId, picks: seed.teamLeads });
 
   const currentTeamLeadPicks =
     teamLeadPicks.serviceTypeId === serviceTypeId ? teamLeadPicks.picks : {};

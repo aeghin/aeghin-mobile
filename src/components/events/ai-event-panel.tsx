@@ -4,12 +4,17 @@ import { fetch as expoFetch } from "expo/fetch";
 import ArrowUp from "lucide-react-native/icons/arrow-up";
 import CalendarClock from "lucide-react-native/icons/calendar-clock";
 import CalendarDays from "lucide-react-native/icons/calendar-days";
+import CalendarOff from "lucide-react-native/icons/calendar-off";
+import CalendarX2 from "lucide-react-native/icons/calendar-x-2";
 import Check from "lucide-react-native/icons/check";
+import ChevronDown from "lucide-react-native/icons/chevron-down";
 import MapPin from "lucide-react-native/icons/map-pin";
 import Pencil from "lucide-react-native/icons/pencil";
+import History from "lucide-react-native/icons/rotate-ccw-clock";
 import Sparkles from "lucide-react-native/icons/sparkles";
 import Square from "lucide-react-native/icons/square";
 import TriangleAlert from "lucide-react-native/icons/triangle-alert";
+import UserSearch from "lucide-react-native/icons/user-search";
 import X from "lucide-react-native/icons/x";
 import { useMemo, useRef, useState } from "react";
 import { ScrollView, TextInput } from "react-native";
@@ -29,10 +34,17 @@ import { useRoles } from "@/hooks/use-roles";
 import { useTheme } from "@/hooks/use-theme";
 import { apiBaseUrl, authHeaders } from "@/lib/api";
 import { getServiceColors } from "@/lib/config/service-types";
-import { formatShortDate, formatTime, keyToDate, todayKey } from "@/lib/events/format";
+import {
+  formatDayMonth,
+  formatShortDate,
+  formatTime,
+  keyToDate,
+  todayKey,
+} from "@/lib/events/format";
 import { failureMessage } from "@/lib/failure";
-import type { NewEvent } from "@/types/event";
+import type { NewEvent, VolunteerRole } from "@/types/event";
 import type {
+  AvailabilityRole,
   CheckAvailabilityOutput,
   EventDraft,
   ProposeEventOutput,
@@ -54,6 +66,16 @@ type EventUIMessage = UIMessage<unknown, Record<string, unknown>, EventTools>;
 
 /** A draft's `"09:00"` as `"9:00 AM"`, read in UTC like every other time here. */
 const formatClock = (clock: string) => formatTime(`1970-01-01T${clock}:00Z`);
+
+/** `"2026-10-31 to 2026-11-02"` as `"Oct 31 – Nov 2"`; blockout days are UTC midnights. */
+function formatBlockout(detail: string): string {
+  const [from, to] = detail.split(" to ");
+  if (!from || !to) return detail;
+
+  const day = (key: string) => formatDayMonth(keyToDate(key));
+
+  return from === to ? day(from) : `${day(from)} – ${day(to)}`;
+}
 
 /** The refusals worth rewording. Everything else is already a sentence. */
 const REWORDED: [RegExp, string][] = [
@@ -112,8 +134,11 @@ type AiEventPanelProps = {
   hasServiceTypes: boolean;
   /** Hand the draft to the form below for manual editing. */
   onRefine: (draft: EventDraft) => void;
-  /** The draft was created for real — leave the screen. */
-  onCreated: () => void;
+  /**
+   * The draft was created for real — leave the screen. `eventId` is the new
+   * event, so it can be opened; an older server leaves it out.
+   */
+  onCreated: (eventId?: string) => void;
 };
 
 /**
@@ -133,6 +158,9 @@ export function AiEventPanel({
   const [input, setInput] = useState("");
   const [timedOut, setTimedOut] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  // Follows the reply to the bottom as it streams in, until somebody opens a
+  // step above it to read: then the list stays where they are.
+  const follow = useRef(true);
 
   const transport = useMemo(
     () =>
@@ -167,10 +195,26 @@ export function AiEventPanel({
         : false;
   const showBusy = isStreaming && !tailIsLive;
 
+  // Only the newest draft can be created or edited; earlier ones fold away so
+  // nobody taps Create on a version they've already moved past.
+  let latestDraftId: string | undefined;
+  for (const message of messages) {
+    for (const part of message.parts) {
+      if (
+        part.type === "tool-proposeEvent" &&
+        part.state === "output-available" &&
+        part.output.ok
+      ) {
+        latestDraftId = part.toolCallId;
+      }
+    }
+  }
+
   const submit = () => {
     const text = input.trim();
     if (!text || isStreaming || !hasServiceTypes) return;
     setTimedOut(false);
+    follow.current = true;
     sendMessage({ text });
     setInput("");
   };
@@ -181,7 +225,9 @@ export function AiEventPanel({
         ref={scrollRef}
         className="flex-1"
         contentContainerStyle={{ paddingBottom: 8 }}
-        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+        onContentSizeChange={() => {
+          if (follow.current) scrollRef.current?.scrollToEnd({ animated: true });
+        }}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
       >
@@ -222,11 +268,13 @@ export function AiEventPanel({
                         return <Busy key={index} label="Checking who's available…" />;
                       case "output-available":
                         return (
-                          <Text key={index} className="text-[12px] text-muted-foreground">
-                            {`Checked availability across ${part.output.roles.length} role${
-                              part.output.roles.length === 1 ? "" : "s"
-                            }`}
-                          </Text>
+                          <AvailabilityStep
+                            key={index}
+                            checked={part.output.roles}
+                            onToggle={() => {
+                              follow.current = false;
+                            }}
+                          />
                         );
                       default:
                         return null;
@@ -246,6 +294,7 @@ export function AiEventPanel({
                             organizationId={organizationId}
                             onRefine={onRefine}
                             onCreated={onCreated}
+                            latest={part.toolCallId === latestDraftId}
                           />
                         ) : (
                           <Text key={index} className="text-[12px] text-muted-foreground">
@@ -357,11 +406,14 @@ function DraftCard({
   organizationId,
   onRefine,
   onCreated,
+  latest,
 }: {
   draft: EventDraft;
   organizationId: string;
   onRefine: (draft: EventDraft) => void;
-  onCreated: () => void;
+  onCreated: (eventId?: string) => void;
+  /** The newest draft in the chat: the only one that can be created or edited. */
+  latest: boolean;
 }) {
   const theme = useTheme();
   const roles = useRoles();
@@ -375,6 +427,19 @@ function DraftCard({
 
   const kept = draft.assignments.filter((a) => !removed.has(a.userId));
   const locked = create.isPending || created;
+
+  // Roles by team, each with whoever picks its people. A draft from an older
+  // server carries no teams, which makes every team the drafter's.
+  const groups = (
+    draft.teams?.length
+      ? draft.teams
+      : roles.teamsOf(draft.rolesNeeded).map((team) => ({ team, name: "", you: true, cover: false }))
+  )
+    .map((entry) => ({
+      ...entry,
+      teamRoles: draft.rolesNeeded.filter((role) => roles.teamOf(role) === entry.team),
+    }))
+    .filter((entry) => entry.teamRoles.length > 0);
 
   const toggleRemoved = (userId: string) =>
     setRemoved((current) => {
@@ -412,16 +477,32 @@ function DraftCard({
       expiresAt: draft.expiresInDays,
       smartSchedulingEnabled: draft.smartSchedulingEnabled,
       roleAssignments,
+      // Teams the draft handed to somebody for this event only.
+      teamLeads: (draft.covers ?? []).map(({ team, userId }) => ({ team, userId })),
+      // Anybody booked elsewhere since the draft was built is refused.
+      refuseConflicts: true,
     };
 
     create.mutate(event, {
-      onSuccess: () => {
+      onSuccess: (result) => {
         setCreated(true);
-        onCreated();
+        onCreated(result.eventId);
       },
       onError: (failure) => setError(failureMessage(failure)),
     });
   };
+
+  // An earlier version in the same chat: one line, nothing to press.
+  if (!latest) {
+    return (
+      <HStack className="items-center gap-1.5 py-0.5">
+        <AppIcon icon={History} size={12} color={theme.textMuted} />
+        <Text className="flex-1 text-[12px] text-muted-foreground" numberOfLines={1}>
+          {`Earlier draft: ${draft.name} · ${formatShortDate(keyToDate(draft.days[0].date))}`}
+        </Text>
+      </HStack>
+    );
+  }
 
   return (
     <VStack className="gap-3 rounded-2xl border border-border bg-card p-3">
@@ -434,11 +515,18 @@ function DraftCard({
           <Text className="text-[15px] font-semibold text-foreground" numberOfLines={1}>
             {draft.name}
           </Text>
-          <Text className="text-[11.5px]" style={{ color: colors.text }}>
-            {draft.serviceTypeName}
-          </Text>
+          {draft.serviceTypeName.toLowerCase() !== draft.name.toLowerCase() ? (
+            <Text className="text-[11.5px]" style={{ color: colors.text }}>
+              {draft.serviceTypeName}
+            </Text>
+          ) : null}
         </VStack>
       </HStack>
+
+      {/* The model's explanation rides on the card: it stops at the draft. */}
+      {draft.summary ? (
+        <Text className="text-[12.5px] leading-[18px] text-muted-foreground">{draft.summary}</Text>
+      ) : null}
 
       <VStack className="gap-1">
         {draft.days.map((day) => (
@@ -465,55 +553,80 @@ function DraftCard({
         </HStack>
       </VStack>
 
-      <VStack className="gap-2">
-        {draft.rolesNeeded.map((role) => {
-          const people = kept.filter((assignment) => assignment.role === role);
-          const { emoji, label } = roles.get(role);
-          const spots = draft.roleSpots?.[role] ?? 1;
-
-          return (
-            <HStack key={role} className="items-start gap-2">
-              <Text style={{ fontSize: 13, lineHeight: 18 }}>{emoji}</Text>
-              <VStack className="flex-1 gap-0.5">
-                <Text className="text-[13px] font-medium text-foreground">
-                  {label}
-                  {spots > 1 ? (
-                    <Text className="text-[12px] font-normal text-muted-foreground">
-                      {` ×${spots}`}
-                    </Text>
-                  ) : null}
-                  {people.length === 0 ? (
-                    <Text className="text-[12px] font-normal text-muted-foreground">
-                      {"  — left open"}
-                    </Text>
-                  ) : people.length < spots ? (
-                    <Text className="text-[12px] font-normal text-muted-foreground">
-                      {`  — ${spots - people.length} more open`}
-                    </Text>
-                  ) : null}
-                </Text>
-                {people.map((person) => (
-                  <HStack key={person.userId} className="items-start gap-1.5">
-                    <Text className="flex-1 text-[11.5px] text-muted-foreground">
-                      <Text className="text-[11.5px] text-foreground">{person.name}</Text>
-                      {` · ${person.reason}`}
-                    </Text>
-                    <Pressable
-                      onPress={() => toggleRemoved(person.userId)}
-                      disabled={locked}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Remove ${person.name}`}
-                      hitSlop={8}
-                      style={{ opacity: locked ? 0.4 : 1 }}
-                    >
-                      <AppIcon icon={X} size={13} color={theme.textMuted} />
-                    </Pressable>
-                  </HStack>
-                ))}
-              </VStack>
+      <VStack className="gap-3">
+        {groups.map(({ team, name, you, cover, teamRoles }) => (
+          <VStack key={team} className="gap-2">
+            <HStack className="items-baseline justify-between gap-2">
+              <Text className="text-[11px] font-bold uppercase tracking-[0.7px] text-muted-foreground">
+                {roles.teamLabel(team)}
+              </Text>
+              <Text className="shrink text-[11px] text-muted-foreground" numberOfLines={1}>
+                {you ? (cover ? "You, covering" : "You") : `${name} picks`}
+              </Text>
             </HStack>
-          );
-        })}
+
+            {you ? (
+              teamRoles.map((role) => {
+                const people = kept.filter((assignment) => assignment.role === role);
+                const { emoji, label } = roles.get(role);
+                const spots = draft.roleSpots?.[role] ?? 1;
+
+                return (
+                  <HStack key={role} className="items-start gap-2">
+                    <Text style={{ fontSize: 13, lineHeight: 18 }}>{emoji}</Text>
+                    <VStack className="flex-1 gap-0.5">
+                      <Text className="text-[13px] font-medium text-foreground">
+                        {label}
+                        {spots > 1 ? (
+                          <Text className="text-[12px] font-normal text-muted-foreground">
+                            {` ×${spots}`}
+                          </Text>
+                        ) : null}
+                        {people.length === 0 ? (
+                          <Text className="text-[12px] font-normal text-muted-foreground">
+                            {"  — left open"}
+                          </Text>
+                        ) : people.length < spots ? (
+                          <Text className="text-[12px] font-normal text-muted-foreground">
+                            {`  — ${spots - people.length} more open`}
+                          </Text>
+                        ) : null}
+                      </Text>
+                      {people.map((person) => (
+                        <HStack key={person.userId} className="items-start gap-1.5">
+                          <Text className="flex-1 text-[11.5px] text-muted-foreground">
+                            <Text className="text-[11.5px] text-foreground">{person.name}</Text>
+                            {` · ${person.reason}`}
+                          </Text>
+                          <Pressable
+                            onPress={() => toggleRemoved(person.userId)}
+                            disabled={locked}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Remove ${person.name}`}
+                            hitSlop={8}
+                            style={{ opacity: locked ? 0.4 : 1 }}
+                          >
+                            <AppIcon icon={X} size={13} color={theme.textMuted} />
+                          </Pressable>
+                        </HStack>
+                      ))}
+                    </VStack>
+                  </HStack>
+                );
+              })
+            ) : (
+              // Somebody else's team: its spots wait for them, and they're told.
+              <Text className="text-[12.5px] text-muted-foreground">
+                {teamRoles
+                  .map((role) => {
+                    const spots = draft.roleSpots?.[role] ?? 1;
+                    return spots > 1 ? `${roles.get(role).label} ×${spots}` : roles.get(role).label;
+                  })
+                  .join(", ")}
+              </Text>
+            )}
+          </VStack>
+        ))}
       </VStack>
 
       {removed.size > 0 && !created ? (
@@ -609,6 +722,125 @@ function DraftCard({
         </Pressable>
       ) : null}
     </VStack>
+  );
+}
+
+/**
+ * Who's free for each role, and — opened — who can't serve and why. Folded
+ * twice, like the dashboard's: the step opens to a line per role, and a role
+ * opens to its names, so a big church's list only gets long where somebody
+ * looks. The count is the people free, not everyone holding the role.
+ */
+function AvailabilityStep({
+  checked,
+  onToggle,
+}: {
+  checked: AvailabilityRole[];
+  /** It opened or closed, which grows the chat above the reply: stop following it down. */
+  onToggle: () => void;
+}) {
+  const theme = useTheme();
+  const roles = useRoles();
+  const [open, setOpen] = useState(false);
+  const [openRoles, setOpenRoles] = useState<Set<VolunteerRole>>(new Set());
+
+  const toggleRole = (role: VolunteerRole) => {
+    onToggle();
+    setOpenRoles((current) => {
+      const next = new Set(current);
+      if (next.has(role)) next.delete(role);
+      else next.add(role);
+      return next;
+    });
+  };
+
+  return (
+    <VStack className="gap-1.5">
+      <Pressable
+        onPress={() => {
+          onToggle();
+          setOpen((shown) => !shown);
+        }}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        className="self-start data-[active=true]:opacity-60"
+      >
+        <HStack className="items-center gap-1.5">
+          <AppIcon icon={UserSearch} size={12} color={theme.textMuted} />
+          <Text className="text-[12px] text-muted-foreground">
+            {`Checked who's available · ${checked.length} ${checked.length === 1 ? "role" : "roles"}`}
+          </Text>
+          <Chevron open={open} />
+        </HStack>
+      </Pressable>
+
+      {open ? (
+        <VStack className="gap-1.5" style={{ marginLeft: 18 }}>
+          {checked.map((entry) => {
+            const roleOpen = openRoles.has(entry.role);
+            const line = (
+              <HStack className="items-center gap-1.5">
+                <Text className="text-[12px] text-foreground">{roles.get(entry.role).label}</Text>
+                <Text className="text-[12px] text-muted-foreground">
+                  {`${entry.eligible.length} free${
+                    entry.excluded.length > 0 ? ` · ${entry.excluded.length} can't` : ""
+                  }`}
+                </Text>
+                {entry.excluded.length > 0 ? <Chevron open={roleOpen} /> : null}
+              </HStack>
+            );
+
+            if (entry.excluded.length === 0) return <Box key={entry.role}>{line}</Box>;
+
+            return (
+              <VStack key={entry.role} className="gap-1">
+                <Pressable
+                  onPress={() => toggleRole(entry.role)}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: roleOpen }}
+                  className="self-start data-[active=true]:opacity-60"
+                >
+                  {line}
+                </Pressable>
+
+                {roleOpen ? (
+                  <VStack className="gap-1" style={{ marginLeft: 12 }}>
+                    {entry.excluded.map((person, index) => (
+                      <HStack key={`${person.name}-${index}`} className="items-start gap-1.5">
+                        <Box style={{ marginTop: 2 }}>
+                          <AppIcon
+                            icon={person.reason === "blockout" ? CalendarOff : CalendarX2}
+                            size={11}
+                            color={theme.textMuted}
+                          />
+                        </Box>
+                        <Text className="flex-1 text-[11.5px] text-muted-foreground">
+                          <Text className="text-[11.5px] text-foreground">{person.name}</Text>
+                          {person.reason === "blockout"
+                            ? ` · blocked out ${formatBlockout(person.detail)}`
+                            : ` · serving ${person.detail}`}
+                        </Text>
+                      </HStack>
+                    ))}
+                  </VStack>
+                ) : null}
+              </VStack>
+            );
+          })}
+        </VStack>
+      ) : null}
+    </VStack>
+  );
+}
+
+/** Points down when open, right when closed. */
+function Chevron({ open }: { open: boolean }) {
+  const theme = useTheme();
+
+  return (
+    <Box style={{ transform: [{ rotate: open ? "0deg" : "-90deg" }] }}>
+      <AppIcon icon={ChevronDown} size={12} color={theme.textMuted} />
+    </Box>
   );
 }
 

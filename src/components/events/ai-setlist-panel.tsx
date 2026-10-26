@@ -309,6 +309,11 @@ function ProposalCard({
         <Text className="text-[11px] text-muted-foreground">{`${proposal.songs.length} songs`}</Text>
       </HStack>
 
+      {/* The model's explanation rides on the card: it stops at the proposal. */}
+      {proposal.note ? (
+        <Text className="text-[12px] leading-[17px] text-muted-foreground">{proposal.note}</Text>
+      ) : null}
+
       <VStack className="gap-1.5">
         {proposal.songs.map((song, index) => (
           <HStack key={song.songId} className="items-start gap-2">

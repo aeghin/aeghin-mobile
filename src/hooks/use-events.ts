@@ -335,9 +335,18 @@ export type InviteToEventInput = {
   role: VolunteerRole;
   userIds: string[];
   expiresAt: 3 | 5 | 7;
+  /** Fill with AI's approval: only spots still open when it lands, so a lead and their backup can't both fill one. */
+  onlyOpenSpots?: boolean;
+  /** Fill with AI's approval too: somebody now serving another event at that time is refused. */
+  refuseConflicts?: boolean;
 };
 
-export type InviteToEventResult = { invitedCount: number; skippedNames: string[] };
+export type InviteToEventResult = {
+  invitedCount: number;
+  skippedNames: string[];
+  /** Picked, but the role filled up before they could be asked. Absent from an older server. */
+  noSpotNames?: string[];
+};
 
 export function useInviteToEvent(orgId: string, eventId: string) {
   return useEventWrite(orgId, eventId, (input: InviteToEventInput) =>
@@ -432,8 +441,9 @@ export function useCreateEvent(orgId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    // `eventId` so the AI draft can open what it made; an older server leaves it out.
     mutationFn: (event: NewEvent) =>
-      apiPost<{ success: true }>(eventsPath(orgId), event),
+      apiPost<{ success: true; eventId?: string }>(eventsPath(orgId), event),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["organizations", userId, "org-events", orgId] });
       // Assigning somebody puts the event on their own list too, and the

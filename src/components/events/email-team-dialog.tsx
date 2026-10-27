@@ -8,6 +8,7 @@ import { Text } from "@/components/ui/text";
 import { useEmailAllowance } from "@/hooks/use-billing";
 import { useEmailTeam } from "@/hooks/use-events";
 import { useFollowTyping } from "@/hooks/use-follow-typing";
+import type { ServiceColors } from "@/lib/config/service-types";
 import { failureMessage } from "@/lib/failure";
 
 type EmailTeamDialogProps = {
@@ -17,6 +18,8 @@ type EmailTeamDialogProps = {
   eventId: string;
   /** How many people have accepted — the recipients. */
   acceptedCount: number;
+  /** The event's service colours, which the circle and Send are drawn in, as the web's are. */
+  colors: ServiceColors;
 };
 
 /** The web's Email Team dialog: one message to everyone who has accepted. */
@@ -30,6 +33,7 @@ function EmailTeamBody({
   organizationId,
   eventId,
   acceptedCount,
+  colors,
 }: EmailTeamDialogProps) {
   const email = useEmailTeam(organizationId, eventId);
   const allowance = useEmailAllowance(organizationId, visible);
@@ -72,6 +76,7 @@ function EmailTeamBody({
     <Dialog
       visible={visible}
       icon={Mail}
+      accent={colors.base}
       title={usedUp ? "Monthly email limit reached" : "Email team"}
       description={
         usedUp

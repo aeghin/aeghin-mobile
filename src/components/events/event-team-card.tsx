@@ -52,7 +52,13 @@ import {
   ROW_BORDER_ALPHA,
   ROW_FILL_ALPHA,
 } from "@/lib/config/status";
-import { fillableTeams } from "@/lib/events/fill";
+import {
+  fillableTeams,
+  startingTeams,
+  teamList,
+  teamName,
+  type FillableTeam,
+} from "@/lib/events/fill";
 import { roleStanding, type RoleStanding } from "@/lib/events/spots";
 import { failureMessage } from "@/lib/failure";
 import { personName } from "@/lib/names";
@@ -333,6 +339,16 @@ export function EventTeamCard({
               onPress={() => setDialog("email")}
               style={HALF}
             />
+            {/* Fill with AI on a line of its own, once for all the viewer's teams. */}
+            {fillable.length > 0 ? (
+              <Box className="w-full">
+                <FillRow
+                  teams={fillable}
+                  colors={colors}
+                  onPress={() => router.push(`/events/${event.id}/fill`)}
+                />
+              </Box>
+            ) : null}
           </HStack>
         ) : null}
 
@@ -378,17 +394,6 @@ export function EventTeamCard({
 
                 {!collapsed.includes(category.key) ? (
                   <VStack className="gap-4 px-4 pb-4 pt-0.5">
-                    {fillable
-                      .filter((entry) => entry.team === category.key)
-                      .map((entry) => (
-                        <FillRow
-                          key={entry.team}
-                          open={entry.open}
-                          backingUp={entry.backingUp}
-                          colors={colors}
-                          onPress={() => router.push(`/events/${event.id}/fill?team=${entry.team}`)}
-                        />
-                      ))}
                     {category.groups.map((group) => (
                       <RoleGroupBlock
                         key={group.role}
@@ -428,6 +433,7 @@ export function EventTeamCard({
             dates={event.dates}
             viewerId={viewer.userId}
             teamLeads={event.teamLeads ?? {}}
+            colors={colors}
           />
           <AddRolesDialog
             visible={dialog === "roles"}
@@ -435,6 +441,9 @@ export function EventTeamCard({
             organizationId={organizationId}
             eventId={event.id}
             roster={rosterRoles}
+            colors={colors}
+            teamLeads={event.teamLeads ?? {}}
+            viewerId={viewer.userId}
           />
           <EmailTeamDialog
             visible={dialog === "email"}
@@ -442,6 +451,7 @@ export function EventTeamCard({
             organizationId={organizationId}
             eventId={event.id}
             acceptedCount={acceptedCount}
+            colors={colors}
           />
         </>
       ) : null}
@@ -722,28 +732,30 @@ function OpenSpot({
 }
 
 /**
- * Fill with AI, as a row at the top of a team's section, in the service's
- * colour so it stands out on the roster and invites a tap. Somebody else's
- * team, which the viewer only backs up, is said as a fact, not a request.
+ * Fill with AI, as one row under the Team card's actions, in the service's
+ * colour so it stands out and invites a tap. It counts and names the teams
+ * the screen starts on; a team the viewer only backs up is named as its
+ * lead's — a fact, not a request.
  */
 function FillRow({
-  open,
-  backingUp,
+  teams,
   colors,
   onPress,
 }: {
-  open: number;
-  backingUp: string | null;
+  teams: FillableTeam[];
   colors: ServiceColors;
   onPress: () => void;
 }) {
+  const start = startingTeams(teams);
+  const open = start.reduce((sum, entry) => sum + entry.open, 0);
   const spots = open === 1 ? "1 open spot" : `${open} open spots`;
+  const names = teamList(start.map(teamName));
 
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Fill with AI, ${spots}${backingUp ? `, ${backingUp}'s team` : ""}`}
+      accessibilityLabel={`Fill with AI, ${spots}, ${names}`}
       className="data-[active=true]:opacity-60"
     >
       <HStack
@@ -765,7 +777,7 @@ function FillRow({
         <VStack className="flex-1">
           <Text className="text-[14px] font-semibold text-foreground">{spots}</Text>
           <Text className="text-[12px] text-muted-foreground" numberOfLines={1}>
-            {backingUp ? `${backingUp}'s team` : "AI picks, you approve"}
+            {names}
           </Text>
         </VStack>
 

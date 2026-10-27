@@ -13,6 +13,7 @@ import type {
   OrganizationEvent,
   VolunteerRole,
 } from "@/types/event";
+import type { Team } from "@/types/team-notifications";
 
 type EventsResponse = {
   events: OrganizationEvent[];
@@ -319,9 +320,15 @@ export function useSetSmartScheduling(orgId: string, eventId: string) {
   );
 }
 
+export type AddEventRolesInput = {
+  roles: VolunteerRole[];
+  /** Teams these roles bring onto the event that the adder will fill, so their lead isn't told to. An older server ignores it. */
+  fillMyself?: Team[];
+};
+
 export function useAddEventRoles(orgId: string, eventId: string) {
-  return useEventWrite(orgId, eventId, (roles: VolunteerRole[]) =>
-    apiPost<{ success: true }>(`${eventPath(orgId, eventId)}/roles`, { roles }),
+  return useEventWrite(orgId, eventId, (input: AddEventRolesInput) =>
+    apiPost<{ success: true }>(`${eventPath(orgId, eventId)}/roles`, input),
   );
 }
 

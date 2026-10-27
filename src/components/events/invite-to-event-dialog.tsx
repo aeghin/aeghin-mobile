@@ -18,11 +18,12 @@ import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { VolunteerRolePicker } from "@/components/volunteer-role-picker";
-import { brand, withAlpha } from "@/constants/branding";
+import { withAlpha } from "@/constants/branding";
 import { useEventAvailability, useInviteToEvent } from "@/hooks/use-events";
 import { useMembersList } from "@/hooks/use-members-list";
 import { useRoles } from "@/hooks/use-roles";
 import { useTheme } from "@/hooks/use-theme";
+import type { ServiceColors } from "@/lib/config/service-types";
 import { dayKey, formatDayMonth, formatTime } from "@/lib/events/format";
 import { roleStanding } from "@/lib/events/spots";
 import { failureMessage } from "@/lib/failure";
@@ -73,6 +74,8 @@ type InviteToEventDialogProps = {
    * this event only — named over the member list so nobody staffs it twice.
    */
   teamLeads: Partial<Record<Team, EventTeamLead>>;
+  /** The event's service colours, which its pickers are selected in, as the web's are. */
+  colors: ServiceColors;
 };
 
 /**
@@ -107,6 +110,7 @@ function InviteToEventBody({
   dates,
   viewerId,
   teamLeads,
+  colors,
 }: InviteToEventDialogProps) {
   const theme = useTheme();
   const catalog = useRoles();
@@ -310,6 +314,7 @@ function InviteToEventBody({
     <Dialog
       visible={visible}
       icon={UserPlus}
+      accent={colors.base}
       title="Invite volunteers"
       description={
         role && standing
@@ -353,6 +358,7 @@ function InviteToEventBody({
           roles={roles}
           selected={role ? [role] : []}
           single
+          solid={colors.base}
           onToggle={pickRole}
         />
       </Field>
@@ -399,6 +405,7 @@ function InviteToEventBody({
                     onEvent={live.get(member.id)}
                     blockout={blockouts[member.id]}
                     conflict={conflicts[member.id]}
+                    accent={colors.base}
                     onPress={() => toggleMember(member)}
                   />
                 </VStack>
@@ -423,6 +430,7 @@ function InviteToEventBody({
               key={days}
               label={`${days} days`}
               selected={expiresAt === days}
+              solid={colors.base}
               onPress={() => setExpiresAt(days)}
             />
           ))}
@@ -441,6 +449,8 @@ type MemberRowProps = {
   onEvent?: Place;
   blockout?: { startDate: string; endDate: string };
   conflict?: { eventName: string; startTime: string; endTime: string };
+  /** The event's service colour, which a picked member's tick is drawn in. */
+  accent: string;
   onPress: () => void;
 };
 
@@ -458,6 +468,7 @@ function MemberRow({
   onEvent,
   blockout,
   conflict,
+  accent,
   onPress,
 }: MemberRowProps) {
   const theme = useTheme();
@@ -466,7 +477,7 @@ function MemberRow({
   // Somebody just sent reads as that, not as greyed-out "already on the event".
   const blocked = !justInvited && Boolean(onEvent || blockout);
   const name = personName(member);
-  const tick = justInvited ? theme.success : selected ? brand.orange : null;
+  const tick = justInvited ? theme.success : selected ? accent : null;
 
   const content = (
     <HStack className="items-center gap-3 px-3 py-2.5">

@@ -120,10 +120,12 @@ type ChoiceProps = {
   /** A glyph drawn ahead of the label — the role chips use an emoji. */
   leading?: string;
   disabled?: boolean;
+  /** Selected as a solid chip in this colour, instead of the brand's soft orange. */
+  solid?: string;
 };
 
 /** One tappable option in a wrapping row. */
-export function Choice({ label, selected, onPress, leading, disabled }: ChoiceProps) {
+export function Choice({ label, selected, onPress, leading, disabled, solid }: ChoiceProps) {
   const theme = useTheme();
 
   return (
@@ -134,8 +136,8 @@ export function Choice({ label, selected, onPress, leading, disabled }: ChoicePr
       accessibilityState={{ selected, disabled }}
       className="rounded-full border px-3 py-1.5"
       style={{
-        borderColor: selected ? brand.orange : theme.border,
-        backgroundColor: selected ? withAlpha(brand.orange, 0.12) : theme.card,
+        borderColor: selected ? (solid ?? brand.orange) : theme.border,
+        backgroundColor: selected ? (solid ?? withAlpha(brand.orange, 0.12)) : theme.card,
         opacity: disabled ? 0.4 : 1,
       }}
     >
@@ -145,7 +147,7 @@ export function Choice({ label, selected, onPress, leading, disabled }: ChoicePr
         ) : null}
         <Text
           className="text-[13px] font-medium"
-          style={{ color: selected ? brand.orange : theme.text }}
+          style={{ color: selected ? (solid ? "#FFFFFF" : brand.orange) : theme.text }}
         >
           {label}
         </Text>

@@ -64,6 +64,11 @@ type DialogProps = {
   icon?: AppIconName;
   /** `destructive` turns the circle, the title and the confirm button red. */
   tone?: DialogTone;
+  /**
+   * The circle and the confirm button in this colour instead of the brand's
+   * orange — an event's dialogs pass its service colour, as the web's do.
+   */
+  accent?: string;
   /** The confirming button. Omit it for a dialog that only shows or toggles. */
   action?: DialogAction;
   submitting?: boolean;
@@ -95,6 +100,7 @@ export function Dialog({
   description,
   icon,
   tone = "default",
+  accent: tint,
   action,
   submitting = false,
   cancelLabel = "Cancel",
@@ -147,7 +153,7 @@ export function Dialog({
     }).start();
   }, [visible, scale]);
 
-  const accent = tone === "destructive" ? theme.destructive : brand.orange;
+  const accent = tone === "destructive" ? theme.destructive : (tint ?? brand.orange);
   const dismiss = submitting ? undefined : onClose;
 
   return (

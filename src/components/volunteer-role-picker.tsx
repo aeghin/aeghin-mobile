@@ -12,6 +12,8 @@ type VolunteerRolePickerProps = {
   roles?: VolunteerRole[];
   /** One at a time rather than many. */
   single?: boolean;
+  /** Selected chips in this colour, solid: an event's service colour. */
+  solid?: string;
 };
 
 /**
@@ -27,6 +29,7 @@ export function VolunteerRolePicker({
   disabled = [],
   roles,
   single = false,
+  solid,
 }: VolunteerRolePickerProps) {
   const catalog = useRoles();
   // Every role, plus any already chosen that this build's list doesn't know.
@@ -44,6 +47,7 @@ export function VolunteerRolePicker({
             selected={selected.includes(role)}
             disabled={disabled.includes(role)}
             onPress={() => onToggle(role)}
+            solid={solid}
           />
         );
       })}

@@ -20,7 +20,7 @@ import { fillableTeams } from "@/lib/events/fill";
 const TAB_BAR_CLEARANCE = 64;
 
 /**
- * Fill with AI for one event, opened from a team's row on the Team card. A
+ * Fill with AI for one event, opened from its row on the Team card. A
  * screen rather than a dialog: the chat needs the height, and the keyboard.
  *
  * The conversation lasts as long as the screen does. The teams to pick from
@@ -33,7 +33,7 @@ export default function FillWithAiScreen() {
   const insets = useSafeAreaInsets();
   const nowPlayingInset = useNowPlayingInset();
 
-  const { eventId, team } = useLocalSearchParams<{ eventId: string; team?: string }>();
+  const { eventId } = useLocalSearchParams<{ eventId: string }>();
 
   const { organization } = useCurrentOrganization();
   const organizationId = organization?.id ?? "";
@@ -46,9 +46,9 @@ export default function FillWithAiScreen() {
 
   const teams = event ? fillableTeams(event, roles, now) : [];
 
-  // The row's team, if it's one the server says this viewer can fill; else the first open one.
-  const start =
-    event?.aiTeams?.find((entry) => entry.team === team)?.team ?? teams[0]?.team ?? null;
+  // Any team the server says this viewer can fill, open or not, so the panel
+  // stays put when its own Invite takes the last spot.
+  const canFill = (event?.aiTeams?.length ?? 0) > 0;
 
   return (
     <VStack className="flex-1 bg-grouped">
@@ -72,7 +72,7 @@ export default function FillWithAiScreen() {
                 <Spinner color={theme.textMuted} />
               </Box>
             )
-          ) : !start ? (
+          ) : !canFill ? (
             <Text className="py-10 text-center text-[13px] text-muted-foreground">
               Nothing here for you to fill with AI right now.
             </Text>
@@ -83,7 +83,6 @@ export default function FillWithAiScreen() {
               eventName={event.name}
               colors={getServiceColors(event.serviceType.color, theme)}
               teams={teams}
-              team={start}
             />
           )}
         </Box>

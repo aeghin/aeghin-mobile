@@ -55,3 +55,22 @@ export function fillableTeams(event: EventDetails, roles: Roles, now: number): F
     return open > 0 && needed ? [{ team, label: roles.teamLabel(team), open, backingUp }] : [];
   });
 }
+
+/**
+ * The teams Fill with AI starts on: the viewer's own. The ones they back up
+ * wait for a tap, unless that's all there is.
+ */
+export const startingTeams = (teams: FillableTeam[]): FillableTeam[] => {
+  const own = teams.filter((entry) => entry.backingUp === null);
+  return own.length > 0 ? own : teams;
+};
+
+/** "Band", or "Maria's Vocals" on a team the viewer only backs up. */
+export const teamName = (entry: FillableTeam) =>
+  entry.backingUp ? `${entry.backingUp}'s ${entry.label}` : entry.label;
+
+/** "Band", "Band and Vocals", "Band, Vocals, and Hospitality", as the dashboard lists them. */
+export const teamList = (names: string[]) =>
+  names.length <= 2
+    ? names.join(" and ")
+    : `${names.slice(0, -1).join(", ")}, and ${names.at(-1)}`;

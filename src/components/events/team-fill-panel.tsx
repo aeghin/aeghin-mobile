@@ -27,7 +27,7 @@ import { useRoles } from "@/hooks/use-roles";
 import { useTheme } from "@/hooks/use-theme";
 import { apiBaseUrl, authHeaders } from "@/lib/api";
 import type { ServiceColors } from "@/lib/config/service-types";
-import type { FillableTeam } from "@/lib/events/fill";
+import { startingTeams, teamName, type FillableTeam } from "@/lib/events/fill";
 import { failureMessage } from "@/lib/failure";
 import type { VolunteerRole } from "@/types/event";
 import type { ProposeInvitesOutput, TeamProposal } from "@/types/event-ai";
@@ -96,8 +96,6 @@ type TeamFillPanelProps = {
   colors: ServiceColors;
   /** Every team the viewer can fill here that still has open spots. */
   teams: FillableTeam[];
-  /** The team whose row opened the screen, picked to start with. */
-  team: Team;
 };
 
 /**
@@ -116,10 +114,12 @@ export function TeamFillPanel({
   eventName,
   colors,
   teams,
-  team,
 }: TeamFillPanelProps) {
   const theme = useTheme();
-  const [picked, setPicked] = useState<Team[]>([team]);
+  // Their own teams to start with, read once as the screen opens.
+  const [picked, setPicked] = useState<Team[]>(() =>
+    startingTeams(teams).map((entry) => entry.team),
+  );
   const [input, setInput] = useState("");
   const [timedOut, setTimedOut] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
@@ -142,6 +142,10 @@ export function TeamFillPanel({
   });
 
   const isStreaming = status === "submitted" || status === "streaming";
+
+  // Somebody else's teams the viewer has picked: said under the chips, so
+  // stepping in is something they chose.
+  const backups = teams.filter((entry) => entry.backingUp && picked.includes(entry.team));
 
   // The trailing part is "live" when text is still arriving or the tool is
   // mid call; otherwise the model is thinking and the panel says so.
@@ -194,12 +198,23 @@ export function TeamFillPanel({
           {teams.map((entry) => (
             <Choice
               key={entry.team}
-              label={`${entry.label} · ${entry.open}`}
+              label={`${teamName(entry)} · ${entry.open}`}
               selected={picked.includes(entry.team)}
+              solid={colors.base}
               onPress={() => togglePicked(entry.team)}
             />
           ))}
         </HStack>
+      ) : null}
+
+      {backups.length > 0 ? (
+        <VStack className="-mt-1 gap-0.5">
+          {backups.map((entry) => (
+            <Text key={entry.team} className="text-[12px] text-muted-foreground">
+              {`${entry.label} is ${entry.backingUp}'s to fill. You're the backup, so you can step in.`}
+            </Text>
+          ))}
+        </VStack>
       ) : null}
 
       <ScrollView
@@ -552,6 +567,7 @@ function ProposalCard({
                 key={days}
                 label={`${days} days`}
                 selected={expiresAt === days}
+                solid={colors.base}
                 onPress={() => setExpiresAt(days)}
                 disabled={locked}
               />

@@ -91,7 +91,7 @@ export function ServiceBadge({ service }: { service: ServiceType | undefined }) 
 /**
  * What the user was asked to play or do.
  *
- * The surface stays unbranded — every row already carries one colour and a
+ * No fill and no brand colour — every row already carries one colour and a
  * second competes with it — so the emoji is the only colour in the chip, which
  * is what lets a guitarist find their own rows without reading a word.
  *
@@ -103,7 +103,7 @@ export function RoleChip({ role }: { role: VolunteerRole }) {
 
   return (
     <HStack
-      className="items-center gap-1 rounded-md bg-surface px-2 py-[3px]"
+      className="items-center gap-1 py-[3px]"
       accessible
       accessibilityLabel={label}
     >

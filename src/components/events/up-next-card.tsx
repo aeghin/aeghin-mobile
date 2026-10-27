@@ -176,7 +176,7 @@ function InfoTile({
   serviceColors: ServiceColors;
 }) {
   return (
-    <VStack className="flex-1 gap-1 rounded-xl border border-border bg-surface/60 p-2.5">
+    <VStack className="flex-1 gap-1 rounded-xl border border-border bg-surface/20 p-2.5">
       <HStack className="items-center gap-1.5">
         <AppIcon icon={icon} size={11} color={serviceColors.text} />
         <Text

@@ -285,7 +285,7 @@ function InfoTile({
   return (
     <VStack
       className={`gap-1 rounded-xl border p-2.5 ${fill ? "flex-1" : ""} ${
-        today ? "" : "border-border bg-surface/60"
+        today ? "" : "border-border bg-surface/20"
       }`}
       style={{
         opacity: faded ? 0.5 : 1,

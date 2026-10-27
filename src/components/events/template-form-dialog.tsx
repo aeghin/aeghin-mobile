@@ -259,7 +259,7 @@ function TemplateForm({
         </HStack>
       </Field>
 
-      <Field label="First day" hint="Events start on the next one of these.">
+      <Field label="First day" hint="New events are dated to the next one of these days.">
         <HStack className="flex-wrap gap-1.5">
           {WEEKDAY_SHORT.map((label, index) => (
             <Choice
@@ -275,7 +275,7 @@ function TemplateForm({
       <Field
         label="Schedule"
         error={badOrder ? "Each day has to end after it starts." : undefined}
-        hint={draft.days.length > 1 ? "Consecutive days from the first." : undefined}
+        hint={draft.days.length > 1 ? "Extra days follow the first day." : undefined}
       >
         <VStack className="overflow-hidden rounded-2xl border border-border bg-card">
           {draft.days.map((day, index) => (
@@ -387,7 +387,7 @@ function TemplateForm({
         </VStack>
       </Field>
 
-      <Field label="Roles needed" hint="What an event from this template asks for.">
+      <Field label="Roles needed" hint="The roles each event starts with.">
         <VolunteerRolePicker
           selected={draft.rolesNeeded}
           onToggle={(role: VolunteerRole) =>
@@ -411,10 +411,10 @@ function TemplateForm({
 
       <HStack className="items-center gap-2.5 rounded-2xl border border-border bg-card px-3 py-2.5">
         <VStack className="flex-1">
-          <Text className="text-[15px] text-foreground">Auto-fill declines</Text>
+          <Text className="text-[15px] text-foreground">Smart Scheduling</Text>
           <Text className="text-[12px] text-muted-foreground">
             {autoFillAvailable
-              ? "Events from this template start with it on."
+              ? "Events from this template start with Smart Scheduling on."
               : "Not included in this organization's plan."}
           </Text>
         </VStack>

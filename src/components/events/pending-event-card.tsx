@@ -203,7 +203,7 @@ export function ExpiredInviteCard({
       <HStack className="items-center gap-1.5 pt-0.5">
         <Pill label="Invite expired" tone="neutral" icon={Hourglass} />
         <Text className="flex-1 text-[11.5px] text-muted-foreground" numberOfLines={2}>
-          Ran out before it was answered. Ask an admin for a new one.
+          You didn&apos;t answer in time. Ask an admin to invite you again.
         </Text>
       </HStack>
     </VStack>

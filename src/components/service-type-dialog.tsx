@@ -98,7 +98,7 @@ export function ServiceTypeDialog({
       visible={visible}
       icon={Palette}
       title={serviceType ? "Edit service type" : "New service type"}
-      description="Every event belongs to one. The colour is what tells them apart."
+      description="Every event belongs to one. The color is what tells them apart."
       action={{ label: "Save", onPress: submit, disabled: !ready }}
       submitting={add.isPending || update.isPending}
       onClose={onClose}
@@ -116,7 +116,7 @@ export function ServiceTypeDialog({
         />
       </Field>
 
-      <Field label="Colour">
+      <Field label="Color">
         <HStack className="flex-wrap gap-2">
           {COLORS.map((color) => {
             const colors = getServiceColors(color, theme);

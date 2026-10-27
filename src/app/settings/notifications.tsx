@@ -110,10 +110,10 @@ export default function StaffingAlertsScreen() {
       >
         <VStack className="gap-5">
           <Text className="ml-1 text-[13px] text-muted-foreground">
-            When a spot opens up — somebody declines, an invitation expires, or a member leaves —
-            that team&apos;s lead for the service is asked to fill it, and everyone on Also notify
-            gets a heads-up. With no lead, the event&apos;s creator is asked. Any event can hand a
-            team to someone else for that event only.
+            When a spot opens up (someone declines, an invitation expires or a member leaves), the
+            team&apos;s lead for that service is asked to fill it. Everyone under Also notify gets a
+            heads-up. With no lead, the event&apos;s creator is asked. To use someone else for one
+            event, change it when you create or edit that event.
           </Text>
 
           {!canManage ? (
@@ -241,8 +241,8 @@ function TeamsOverview({
       ))}
 
       <Text className="ml-1 text-[12px] text-muted-foreground">
-        Only owners can change these. You can hand a team to someone else for one event when you
-        create or edit it.
+        Only owners can change these. To use someone else for one event, change it when you
+        create or edit that event.
       </Text>
     </>
   );

@@ -187,7 +187,7 @@ function Editor({
 
   const segments: Segment<Pane>[] = [
     { value: "setlist", label: "Setlist", count: songs.length },
-    { value: "catalog", label: "Catalog" },
+    { value: "catalog", label: "Library" },
     {
       value: "ai",
       label: "AI",

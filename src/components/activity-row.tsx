@@ -77,7 +77,7 @@ function describe(item: ActivityItem): Part[] {
         ? [plain("Smart Scheduling invited "), person(item.targetName), plain(" after "), person(item.actorName), plain(" declined"), ...onEvent(item.eventName)]
         : [plain("Smart Scheduling auto-invited "), person(item.targetName)];
     case "SMART_FILL_SKIPPED":
-      return [person(item.actorName), plain(" declined "), name(item.targetName), ...onEvent(item.eventName), plain(" — auto-fill was off, so nobody was invited")];
+      return [person(item.actorName), plain(" declined "), name(item.targetName), ...onEvent(item.eventName), plain(" — Smart Scheduling was off, so nobody was invited")];
     case "SMART_FILL_NO_CANDIDATES":
       return [plain("Smart Scheduling couldn't fill "), name(item.targetName), ...onEvent(item.eventName), plain(" — nobody in this organization has that role")];
     case "SMART_FILL_ALL_UNAVAILABLE":
@@ -85,9 +85,9 @@ function describe(item: ActivityItem): Part[] {
     case "SMART_FILL_FAILED":
       return [plain("Smart Scheduling hit an error filling "), name(item.targetName), ...onEvent(item.eventName), plain(" after "), person(item.actorName), plain(" declined")];
     case "SMART_SCHEDULING_ENABLED":
-      return [person(item.actorName), plain(" turned auto-fill on"), ...onEvent(item.eventName)];
+      return [person(item.actorName), plain(" turned Smart Scheduling on"), ...onEvent(item.eventName)];
     case "SMART_SCHEDULING_DISABLED":
-      return [person(item.actorName), plain(" turned auto-fill off"), ...onEvent(item.eventName)];
+      return [person(item.actorName), plain(" turned Smart Scheduling off"), ...onEvent(item.eventName)];
     case "ROLE_CHANGED":
       return item.actorName
         ? [person(item.actorName), plain(" changed "), person(item.targetName), plain("'s role to "), name(item.detail)]

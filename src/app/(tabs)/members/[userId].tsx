@@ -107,7 +107,7 @@ export default function MemberScreen() {
   const confirmOwner = () =>
     Alert.alert(
       "Make owner",
-      `${fullName} will be able to edit and delete the organization. Ownership can't be taken back from here.`,
+      `${fullName} will be able to edit and delete the organization. Another owner can change this later.`,
       [
         { text: "Cancel", style: "cancel" },
         { text: "Make owner", style: "destructive", onPress: () => setRole("OWNER") },
@@ -260,12 +260,15 @@ export default function MemberScreen() {
                     value={role?.label}
                     onPress={changeRole}
                   />
-                  <InsetRow
-                    icon={Trash2}
-                    label="Remove from organization"
-                    onPress={confirmRemove}
-                    destructive
-                  />
+                  {/* The server won't remove an owner; they're made admin or member first. */}
+                  {member.role !== "OWNER" ? (
+                    <InsetRow
+                      icon={Trash2}
+                      label="Remove from organization"
+                      onPress={confirmRemove}
+                      destructive
+                    />
+                  ) : null}
                 </InsetCard>
               </VStack>
             ) : null}

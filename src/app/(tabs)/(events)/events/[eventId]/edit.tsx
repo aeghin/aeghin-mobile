@@ -445,7 +445,7 @@ function EditForm({
           {clashes.length > 0 ? <ClashBanner clashes={clashes} /> : null}
 
           <Text className="ml-1 text-[13px] text-muted-foreground">
-            Changes apply to everyone already on this event. Its roster, setlist and chat
+            Everyone on this event is notified of what changed. Its roster, setlist and chat
             stay as they are.
           </Text>
 
@@ -506,7 +506,7 @@ function EditForm({
             }
             footnote={
               days.length === 0
-                ? "Tap a day, or a start and an end for something running across days."
+                ? "Tap one day, or tap a start and end day for a multi-day event."
                 : days.length === 1
                   ? formatShortDate(keyToDate(days[0]))
                   : `${days.length} days, ${formatShortDate(keyToDate(days[0]))} to ${formatShortDate(keyToDate(days[days.length - 1]))}. Each day runs on its own hours.`

@@ -128,7 +128,7 @@ export function EventCard({
           <ServiceBadge service={service} />
           {assignment ? <RoleChip role={assignment.role} /> : null}
           {showStaffing && autoFillAvailable && event.smartSchedulingEnabled ? (
-            <Pill label="Auto-fill" tone="brand" icon={Sparkles} />
+            <Pill label="Smart Scheduling" tone="brand" icon={Sparkles} />
           ) : null}
         </HStack>
 

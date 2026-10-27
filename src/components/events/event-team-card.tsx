@@ -285,7 +285,7 @@ export function EventTeamCard({
 
   const toggleSmart = (enabled: boolean) => {
     if (!autoFillAvailable) {
-      Alert.alert("Auto-fill", "Smart Scheduling isn't included in this organization's plan.");
+      Alert.alert("Smart Scheduling", "Smart Scheduling isn't included in this organization's plan.");
       return;
     }
 
@@ -313,7 +313,7 @@ export function EventTeamCard({
             />
             <DetailButton
               icon={Zap}
-              label="Auto-fill"
+              label="Smart Scheduling"
               service={colors}
               checked={autoFillOn}
               on={autoFillOn}

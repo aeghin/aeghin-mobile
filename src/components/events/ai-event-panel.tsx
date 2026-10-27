@@ -109,7 +109,7 @@ function streamMessage(error: Error): string {
   }
 
   if (/^\s*<(!doctype|html)\b/i.test(raw)) {
-    return "The server didn't recognise that request — it may be running an older build.";
+    return "This isn't available right now. Try again in a few minutes.";
   }
 
   let reason = raw;

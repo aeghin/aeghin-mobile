@@ -129,7 +129,7 @@ export function EventSmartSchedulingCard({
                 className="shrink text-[10.5px] font-bold uppercase tracking-[0.8px]"
                 style={{ color: accent }}
               >
-                {`Auto-fill ${running ? "on" : enabled ? "paused on this plan" : "off"}`}
+                {running ? "On" : enabled ? "Paused on this plan" : "Off"}
               </Text>
             </HStack>
 
@@ -250,7 +250,7 @@ function describeRow(item: SmartSchedulingActivityItem): ReactNode {
       return (
         <>
           <Person>{item.actorName}</Person> declined <Name>{item.targetName}</Name>{" "}
-          — auto-fill was off, so nobody was invited
+          — Smart Scheduling was off, so nobody was invited
         </>
       );
     case "SMART_FILL_NO_CANDIDATES":
@@ -277,13 +277,13 @@ function describeRow(item: SmartSchedulingActivityItem): ReactNode {
     case "SMART_SCHEDULING_ENABLED":
       return (
         <>
-          <Person>{item.actorName}</Person> turned auto-fill on
+          <Person>{item.actorName}</Person> turned Smart Scheduling on
         </>
       );
     case "SMART_SCHEDULING_DISABLED":
       return (
         <>
-          <Person>{item.actorName}</Person> turned auto-fill off
+          <Person>{item.actorName}</Person> turned Smart Scheduling off
         </>
       );
     default:

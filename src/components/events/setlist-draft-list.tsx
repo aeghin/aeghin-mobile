@@ -90,7 +90,7 @@ export function SetlistDraftList({ songs, library, colors, onChange }: SetlistDr
       <VStack className="items-center gap-2 rounded-2xl border border-dashed border-border bg-card px-6 py-10">
         <AppIcon icon={Music} size={26} color={theme.textMuted} />
         <Text className="text-center text-[13px] text-muted-foreground">
-          No songs yet. Add from the catalog or generate with AI.
+          No songs yet. Add from the library or generate with AI.
         </Text>
       </VStack>
     );

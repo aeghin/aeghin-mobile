@@ -260,7 +260,7 @@ function InviteToEventBody({
 
     Alert.alert(
       "Scheduling Conflict",
-      `${name} is already assigned to ${conflict.eventName} from ${formatTime(conflict.startTime)} – ${formatTime(conflict.endTime)} on this day. Assigning them may cause a time overlap.`,
+      `${name} is already on ${conflict.eventName} from ${formatTime(conflict.startTime)} – ${formatTime(conflict.endTime)}, which overlaps this event.`,
       [
         { text: "Cancel", style: "cancel" },
         { text: "Select Anyway", onPress: () => select(member.id) },

@@ -877,7 +877,7 @@ function CreateEventForm({
                 }
                 footnote={
                   days.length === 0
-                    ? "Tap a day, or a start and an end for something running across days."
+                    ? "Tap one day, or tap a start and end day for a multi-day event."
                     : days.length === 1
                       ? formatShortDate(keyToDate(days[0]))
                       : `${days.length} days, ${formatShortDate(keyToDate(days[0]))} to ${formatShortDate(keyToDate(days[days.length - 1]))}. Each day runs on its own hours.`
@@ -976,7 +976,7 @@ function CreateEventForm({
             <>
               <Text className="text-[13px] text-muted-foreground">
                 Pick who to invite for each role. Anything you leave empty stays an open
-                slot you can fill later.
+                spot you can fill later.
               </Text>
 
               {roles.inOrder(rolesNeeded).map((role) => (
@@ -1014,10 +1014,10 @@ function CreateEventForm({
                     <AppIcon icon={Zap} size={17} color={theme.textMuted} />
                   </Box>
                   <VStack className="flex-1">
-                    <Text className="text-[15px] text-foreground">Smart scheduling</Text>
+                    <Text className="text-[15px] text-foreground">Smart Scheduling</Text>
                     <Text className="text-[12px] text-muted-foreground">
                       {autoFillAvailable
-                        ? "A decline auto-invites the next available member for that role."
+                        ? "Invites the next best available member when someone declines or drops out."
                         : "Not included in this organization's plan."}
                     </Text>
                   </VStack>

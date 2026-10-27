@@ -103,7 +103,7 @@ export default function ServiceTypesScreen() {
       >
         <VStack className="gap-4">
           <Text className="ml-1 text-[13px] text-muted-foreground">
-            Every event belongs to one. The colour is what tells them apart on the schedule.
+            Every event belongs to one. The color is what tells them apart on the schedule.
           </Text>
 
           {serviceTypes.isError ? (

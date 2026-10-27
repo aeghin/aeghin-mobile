@@ -218,7 +218,7 @@ export function AiSetlistPanel({ organizationId, eventId, colors, onApply }: AiS
             {/upgrade/i.test(error.message)
               ? "This organization's plan no longer includes AI setlists."
               : /catalog/i.test(error.message)
-                ? "Add songs to the library first — the agent works from your catalog."
+                ? "Add songs to the library first — the AI builds setlists from it."
                 : /AI requests/.test(error.message)
                   ? (refusalOf(error.message) ?? "This month's AI requests are used up.")
                   : "Something went wrong. Please try again."}
@@ -294,7 +294,7 @@ function ProposalCard({
   if (proposal.songs.length === 0) {
     return (
       <Text className="text-[13px] text-muted-foreground">
-        No matching songs found in your catalog.
+        No matching songs found in your library.
       </Text>
     );
   }
@@ -357,7 +357,7 @@ function ProposalCard({
 
       {proposal.skipped.length > 0 ? (
         <Text className="text-[11px] text-muted-foreground">
-          {`${proposal.skipped.length} suggestion(s) skipped — not in your catalog.`}
+          {`${proposal.skipped.length} suggestion(s) skipped — not in your library.`}
         </Text>
       ) : null}
     </VStack>
@@ -384,7 +384,7 @@ function EmptyState({ colors, onPick }: { colors: ServiceColors; onPick: (text: 
       <VStack className="items-center gap-1">
         <Text className="text-[15px] font-semibold text-foreground">Generate a setlist</Text>
         <Text className="text-center text-[13px] text-muted-foreground">
-          Describe the vibe and it will be built from your song catalog.
+          Describe the vibe and it will be built from your song library.
         </Text>
       </VStack>
       <VStack className="w-full gap-1.5">

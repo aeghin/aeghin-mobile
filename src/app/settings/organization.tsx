@@ -80,7 +80,7 @@ export default function OrganizationSettingsScreen() {
   const confirmUsePhoneZone = () =>
     Alert.alert(
       "Change time zone",
-      `Set ${name} to ${zoneName(phoneZone)}? Reminders and emails go out on this clock, and events end on it.`,
+      `Set ${name} to ${zoneName(phoneZone)}? Reminders are sent and events are marked as over using this time zone.`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -287,7 +287,7 @@ export default function OrganizationSettingsScreen() {
                     </Text>
                     <Text className="text-[15px] text-foreground">{zoneName(timeZone)}</Text>
                     <Text className="text-[12px] text-muted-foreground">
-                      Reminders and emails go out on this clock, and events end on it.
+                      Reminders are sent and events are marked as over using this time zone.
                     </Text>
                   </VStack>
                 ) : null}

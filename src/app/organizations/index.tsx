@@ -283,9 +283,9 @@ type LedeState = {
 };
 
 function ledeFor({ isPending, isError, count, invitations }: LedeState): string {
-  if (isPending) return "Loading your teams…";
+  if (isPending) return "Loading your organizations…";
   if (isError) return "Pull down to try again.";
-  if (count > 0) return "Choose a team to work in.";
-  if (invitations > 0) return "You've been invited to join a team.";
-  return "Create a team to get started.";
+  if (count > 0) return "Choose an organization to work in.";
+  if (invitations > 0) return "You've been invited to join an organization.";
+  return "Create an organization to get started.";
 }

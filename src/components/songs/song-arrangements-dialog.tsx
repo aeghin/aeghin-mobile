@@ -258,7 +258,7 @@ export function SongArrangementsDialog({
             <Field
               label="YouTube link"
               error={errors.youtubeUrl}
-              hint="Leave both empty to show only this arrangement's files."
+              hint="Leave the Spotify and YouTube links empty to show only this version's files."
             >
               <FormInput
                 value={draft.youtubeUrl}

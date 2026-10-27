@@ -31,14 +31,14 @@ export const PLAN_COPY: Record<PaidPlan, { name: string; price: string; blurb: s
       "Smart Scheduling and last-call staffing alerts",
       "AI setlist generation",
       "Matches themes, keys, and tempo arc",
-      "Works strictly from your song catalog",
+      "Works strictly from your song library",
       "Apply proposals straight into the editor",
     ],
   },
   pro: {
     name: "Pro",
     price: "$79.99/month",
-    blurb: "Drafts whole events, and researches beyond your catalog.",
+    blurb: "Drafts whole events, and researches beyond your library.",
     features: [
       "Everything in Premium",
       "AI event drafting with volunteer picks",

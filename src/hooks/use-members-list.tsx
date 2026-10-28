@@ -4,7 +4,7 @@ import { useEffect } from "react";
 
 import { teamNotificationsKey } from "@/hooks/use-team-notifications";
 import { apiDelete, apiGet, apiPatch } from "@/lib/api";
-import type { VolunteerRole } from "@/types/event";
+import type { VoiceType, VolunteerRole } from "@/types/event";
 import type { MemberStats, OrgRole, OrganizationMember } from "@/types/organization";
 
 type MembersResponse = {
@@ -47,7 +47,8 @@ const membersKey = (orgId: string) => ["organizations", orgId, "members"];
 /** One change to one member, as the dashboard's row menu offers them. */
 export type MemberChange =
   | { role: OrgRole }
-  | { toggleVolunteerRole: VolunteerRole };
+  | { toggleVolunteerRole: VolunteerRole }
+  | { voiceType: VoiceType | null };
 
 export function useUpdateMember(orgId: string) {
   const { userId } = useAuth();

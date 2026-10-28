@@ -18,6 +18,12 @@ import type { Team, TeamLeadPick } from "@/types/team-notifications";
 export type VolunteerRole = string;
 
 /**
+ * A singer's voice type's key, e.g. `"ALTO"`. A plain string for the same
+ * reason: read its label through `useRoles`.
+ */
+export type VoiceType = string;
+
+/**
  * How many people each role needs, for the roles needing more than one —
  * `{ BGVS: 3 }`. A role missing from it needs one. Every invite is somebody
  * wanted there, never a backup, so inviting past a role's open spots raises it.
@@ -162,6 +168,11 @@ export type EventDetailsAssignment = {
     lastName: string;
     userImageUrl: string | null;
   };
+  /**
+   * Their voice type, on a role that sings; null otherwise or when none is
+   * set. Absent from a server older than voice types.
+   */
+  voiceType?: VoiceType | null;
   /**
    * Who sent it. Null once they have left the organization; absent from a
    * server older than the invite screen's "already waiting" warning.

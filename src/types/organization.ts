@@ -1,4 +1,4 @@
-import type { InvitationStatus, VolunteerRole } from "@/types/event";
+import type { InvitationStatus, VoiceType, VolunteerRole } from "@/types/event";
 
 export type OrgRole = "OWNER" | "ADMIN" | "MEMBER";
 
@@ -50,6 +50,11 @@ export type OrganizationMember = {
   role: OrgRole;
   /** What they can be scheduled for. The event invite picker filters on it. */
   volunteerRoles: VolunteerRole[];
+  /**
+   * A singer's voice type: null unless they hold a role that sings and have
+   * one set. Absent from a server older than voice types.
+   */
+  voiceType?: VoiceType | null;
   joinedAt: string;
 };
 
@@ -64,6 +69,8 @@ export type OrganizationInput = {
 export type InvitationInput = {
   email: string;
   volunteerRoles: VolunteerRole[];
+  /** Kept only with a role that sings. */
+  voiceType: VoiceType | null;
 };
 
 export type OrganizationInvitation = {

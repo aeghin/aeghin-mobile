@@ -34,6 +34,7 @@ import type {
   EventTeamLead,
   NewEventDay,
   RoleSpots,
+  VoiceType,
   VolunteerRole,
 } from "@/types/event";
 import type { OrganizationMember } from "@/types/organization";
@@ -400,6 +401,7 @@ function InviteToEventBody({
                   {index > 0 ? <Divider style={{ marginLeft: 58 }} /> : null}
                   <MemberRow
                     member={member}
+                    voiceType={role && catalog.get(role).sings ? (member.voiceType ?? null) : null}
                     selected={userIds.includes(member.id)}
                     justInvited={justInvited.has(member.id)}
                     onEvent={live.get(member.id)}
@@ -442,6 +444,8 @@ function InviteToEventBody({
 
 type MemberRowProps = {
   member: OrganizationMember;
+  /** Their voice type, when the role being filled sings. */
+  voiceType: VoiceType | null;
   selected: boolean;
   /** Sent from this dialog into the role on show. */
   justInvited: boolean;
@@ -463,6 +467,7 @@ type MemberRowProps = {
  */
 function MemberRow({
   member,
+  voiceType,
   selected,
   justInvited,
   onEvent,
@@ -486,6 +491,11 @@ function MemberRow({
       <VStack className="flex-1">
         <Text className="text-[15px] font-medium text-foreground" numberOfLines={1}>
           {name}
+          {voiceType ? (
+            <Text className="font-normal text-muted-foreground">
+              {` · ${catalog.voiceTypeLabel(voiceType)}`}
+            </Text>
+          ) : null}
         </Text>
 
         {justInvited ? (

@@ -1,4 +1,4 @@
-import type { VolunteerRole } from "@/types/event";
+import type { VoiceType, VolunteerRole } from "@/types/event";
 import type { Team } from "@/types/team-notifications";
 
 /** One volunteer role, as `GET /api/mobile/v1/roles` describes it. */
@@ -16,10 +16,18 @@ export type CatalogTeam = {
   label: string;
 };
 
+/** One singer's voice type, as `GET /api/mobile/v1/roles` describes it. */
+export type CatalogVoiceType = {
+  voiceType: VoiceType;
+  label: string;
+};
+
 /** Every role and team, in roster order. Mirrors the NHC route's wire type. */
 export type RoleCatalog = {
   roles: CatalogRole[];
   teams: CatalogTeam[];
+  /** High to low. Absent from a server older than voice types. */
+  voiceTypes?: CatalogVoiceType[];
 };
 
 /**
@@ -54,6 +62,13 @@ export const BUILT_IN_CATALOG: RoleCatalog = {
     { team: "PRODUCTION", label: "Production" },
     { team: "HOSPITALITY", label: "Hospitality" },
   ],
+  voiceTypes: [
+    { voiceType: "SOPRANO", label: "Soprano" },
+    { voiceType: "ALTO", label: "Alto" },
+    { voiceType: "TENOR", label: "Tenor" },
+    { voiceType: "BARITONE", label: "Baritone" },
+    { voiceType: "BASS", label: "Bass" },
+  ],
 };
 
 /** Where a role the catalog doesn't know is grouped. */
@@ -86,6 +101,10 @@ export type Roles = {
   teamRolesLabel: (team: Team) => string;
   /** Whether any of these roles sings: the gate for My Keys and song assignment. */
   sings: (roles: VolunteerRole[] | undefined) => boolean;
+  /** Every singer's voice type, high to low. */
+  voiceTypes: VoiceType[];
+  /** One voice type's label. One the catalog doesn't know gets a readable stand-in. */
+  voiceTypeLabel: (voiceType: VoiceType) => string;
 };
 
 /** The catalog, with every question a screen asks of it. */
@@ -94,6 +113,9 @@ export function buildRoles(catalog: RoleCatalog): Roles {
   const labels = new Map(catalog.teams.map((entry) => [entry.team, entry.label]));
   const order = catalog.roles.map((entry) => entry.role);
   const teams = catalog.teams.map((entry) => entry.team);
+  // A server from before voice types sends none, so this build's own stand in.
+  const voiceTypeList = catalog.voiceTypes ?? BUILT_IN_CATALOG.voiceTypes ?? [];
+  const voiceLabels = new Map(voiceTypeList.map((entry) => [entry.voiceType, entry.label]));
 
   const get = (role: VolunteerRole): CatalogRole =>
     byRole.get(role) ?? {
@@ -135,5 +157,7 @@ export function buildRoles(catalog: RoleCatalog): Roles {
         .map((role) => get(role).label)
         .join(", "),
     sings: (roles) => roles?.some((role) => get(role).sings) ?? false,
+    voiceTypes: voiceTypeList.map((entry) => entry.voiceType),
+    voiceTypeLabel: (voiceType) => voiceLabels.get(voiceType) ?? humanize(voiceType),
   };
 }

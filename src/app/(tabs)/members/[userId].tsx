@@ -2,6 +2,7 @@ import { useUser } from "@clerk/expo";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import AtSign from "lucide-react-native/icons/at-sign";
 import CircleSlash from "lucide-react-native/icons/circle-slash";
+import MicVocal from "lucide-react-native/icons/mic-vocal";
 import Phone from "lucide-react-native/icons/phone";
 import Shield from "lucide-react-native/icons/shield";
 import Trash2 from "lucide-react-native/icons/trash-2";
@@ -23,6 +24,7 @@ import { HStack } from "@/components/ui/hstack";
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
+import { VoiceTypePicker } from "@/components/voice-type-picker";
 import { VolunteerRolePicker } from "@/components/volunteer-role-picker";
 import {
   useMemberStats,
@@ -36,7 +38,7 @@ import { canManageOrg, getRoleConfig } from "@/lib/config/roles";
 import { formatLocalShortDate } from "@/lib/events/format";
 import { failureMessage } from "@/lib/failure";
 import { personName } from "@/lib/names";
-import type { VolunteerRole } from "@/types/event";
+import type { VoiceType, VolunteerRole } from "@/types/event";
 import type { OrgRole } from "@/types/organization";
 
 const TAB_BAR_CLEARANCE = 64;
@@ -138,6 +140,15 @@ export default function MemberScreen() {
       { onError: (error) => Alert.alert("Couldn't update roles", failureMessage(error)) },
     );
 
+  const setVoiceType = (voiceType: VoiceType | null) =>
+    update.mutate(
+      { memberId: member!.id, change: { voiceType } },
+      { onError: (error) => Alert.alert("Couldn't update voice type", failureMessage(error)) },
+    );
+
+  // The same people who may change their roles, and only for a singer.
+  const canEditRoles = canManage && member !== undefined && (viewerRole === "OWNER" || member.role !== "OWNER");
+
   return (
     <VStack className="flex-1 bg-grouped">
       <Stack.Screen options={{ title: isYou ? "You" : fullName || "Member", headerBackTitle: "Members" }} />
@@ -188,6 +199,14 @@ export default function MemberScreen() {
                       </HStack>
                     );
                   })}
+                  {member.voiceType ? (
+                    <HStack className="items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1">
+                      <AppIcon icon={MicVocal} size={12} color={theme.textMuted} />
+                      <Text className="text-[12px] font-medium text-foreground" style={{ lineHeight: 17 }}>
+                        {roles.voiceTypeLabel(member.voiceType)}
+                      </Text>
+                    </HStack>
+                  ) : null}
                 </HStack>
               ) : null}
               <Text className="text-[12px] text-muted-foreground">
@@ -235,7 +254,7 @@ export default function MemberScreen() {
               )}
             </VStack>
 
-            {canManage && (viewerRole === "OWNER" || member.role !== "OWNER") ? (
+            {canEditRoles ? (
               <VStack>
                 <SectionLabel>Edit volunteer roles</SectionLabel>
                 <VStack className="gap-2">
@@ -245,6 +264,18 @@ export default function MemberScreen() {
                   />
                   <Text className="ml-1 text-[12px] text-muted-foreground">
                     Tap a role to add or remove it.
+                  </Text>
+                </VStack>
+              </VStack>
+            ) : null}
+
+            {canEditRoles && roles.sings(member.volunteerRoles) ? (
+              <VStack>
+                <SectionLabel>Voice type</SectionLabel>
+                <VStack className="gap-2">
+                  <VoiceTypePicker selected={member.voiceType ?? null} onChange={setVoiceType} />
+                  <Text className="ml-1 text-[12px] text-muted-foreground">
+                    Tap a voice type to set it, or tap it again to clear it.
                   </Text>
                 </VStack>
               </VStack>

@@ -831,6 +831,7 @@ function AssignmentRow({
   onRemoveRole?: () => void;
 }) {
   const theme = useTheme();
+  const roles = useRoles();
 
   // A lapsed invitation shows EXPIRED even while the sweep still has it PENDING.
   const status = getStatusConfig(expired ? "EXPIRED" : assignment.status);
@@ -903,17 +904,26 @@ function AssignmentRow({
         </Center>
       </Box>
 
-      <Text
-        className={`flex-1 text-[14px] font-semibold ${
-          inactive ? "text-muted-foreground" : "text-foreground"
-        }`}
-        style={
-          inactive && !expired ? { textDecorationLine: "line-through" } : undefined
-        }
-        numberOfLines={1}
-      >
-        {isCurrentUser ? "You" : fullName}
-      </Text>
+      {/* A singer's voice type rides after the name, as on the web. A long
+          name gives way first, so the voice type always shows whole. */}
+      <HStack className="flex-1 items-center">
+        <Text
+          className={`shrink text-[14px] font-semibold ${
+            inactive ? "text-muted-foreground" : "text-foreground"
+          }`}
+          style={
+            inactive && !expired ? { textDecorationLine: "line-through" } : undefined
+          }
+          numberOfLines={1}
+        >
+          {isCurrentUser ? "You" : fullName}
+        </Text>
+        {assignment.voiceType ? (
+          <Text className="shrink-0 text-[14px] text-muted-foreground" numberOfLines={1}>
+            {` · ${roles.voiceTypeLabel(assignment.voiceType)}`}
+          </Text>
+        ) : null}
+      </HStack>
 
       <HStack
         className="items-center gap-1 rounded-full px-2 py-[3px]"

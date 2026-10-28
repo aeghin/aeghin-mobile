@@ -4,8 +4,10 @@ import { useState } from "react";
 
 import { Dialog } from "@/components/dialog";
 import { ErrorBanner, Field, FormInput } from "@/components/form-fields";
+import { VoiceTypePicker } from "@/components/voice-type-picker";
 import { VolunteerRolePicker, toggleRole } from "@/components/volunteer-role-picker";
 import { useInviteMember } from "@/hooks/use-invitations";
+import { useRoles } from "@/hooks/use-roles";
 import { failureMessage } from "@/lib/failure";
 import type { InvitationInput } from "@/types/organization";
 
@@ -44,11 +46,14 @@ function InviteMemberBody({
   organizationName,
 }: InviteMemberDialogProps) {
   const invite = useInviteMember(organizationId);
+  const roles = useRoles();
 
   const [draft, setDraft] = useState<InvitationInput>({
     email: "",
     volunteerRoles: [],
+    voiceType: null,
   });
+  const sings = roles.sings(draft.volunteerRoles);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [sentTo, setSentTo] = useState<string | null>(null);
@@ -128,9 +133,23 @@ function InviteMemberBody({
       >
         <VolunteerRolePicker
           selected={draft.volunteerRoles}
-          onToggle={(role) => set("volunteerRoles", toggleRole(draft.volunteerRoles, role))}
+          onToggle={(role) => {
+            const next = toggleRole(draft.volunteerRoles, role);
+            set("volunteerRoles", next);
+            // Nothing left that sings, so there's no voice type to send.
+            if (!roles.sings(next)) set("voiceType", null);
+          }}
         />
       </Field>
+
+      {sings ? (
+        <Field label="Voice type" hint="Optional. You can change it later from Members.">
+          <VoiceTypePicker
+            selected={draft.voiceType}
+            onChange={(voiceType) => set("voiceType", voiceType)}
+          />
+        </Field>
+      ) : null}
     </Dialog>
   );
 }

@@ -75,11 +75,14 @@ export async function obtainPushToken(): Promise<string | null> {
 /**
  * Points this phone's notifications at the signed-in account. The zone times
  * the day-before reminder, and is re-sent every launch so it follows a move.
+ * The platform tells the server Android has no subtitle, so it puts the
+ * church name at the start of the message instead.
  */
 export function registerPushToken(token: string) {
   return apiPost<{ success: true }>("/api/mobile/v1/push-tokens", {
     token,
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    platform: Platform.OS,
   });
 }
 

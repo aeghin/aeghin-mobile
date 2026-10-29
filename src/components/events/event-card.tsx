@@ -2,12 +2,11 @@ import Calendar from "lucide-react-native/icons/calendar";
 import ChevronRight from "lucide-react-native/icons/chevron-right";
 import Clock from "lucide-react-native/icons/clock";
 import MapPin from "lucide-react-native/icons/map-pin";
-import Sparkles from "lucide-react-native/icons/sparkles";
+import Zap from "lucide-react-native/icons/zap";
 
-import { AppIcon } from "@/components/app-icon";
+import { AppIcon, STROKE } from "@/components/app-icon";
 import {
   MetaLine,
-  Pill,
   RoleChip,
   ServiceBadge,
   StaffingMeter,
@@ -99,7 +98,9 @@ export function EventCard({
     assignmentFor(event, "ACCEPTED") ?? assignmentFor(event, "PENDING");
   const staffing = showStaffing ? staffingFor(event) : null;
   const spansDays = isMultiDay(event.dates);
-  const serviceColor = getServiceColors(service?.color ?? "indigo", theme).base;
+  const serviceColors = getServiceColors(service?.color ?? "indigo", theme);
+  const smartScheduling =
+    showStaffing && autoFillAvailable && event.smartSchedulingEnabled;
 
   const content = (
     <HStack className="items-start gap-3 p-3">
@@ -113,7 +114,7 @@ export function EventCard({
       {/* The service's stripe splits the "when" from the "what". */}
       <Box
         className="w-[3px] self-stretch rounded-full"
-        style={{ backgroundColor: serviceColor }}
+        style={{ backgroundColor: serviceColors.base }}
       />
 
       <VStack className="flex-1 gap-1.5">
@@ -126,10 +127,18 @@ export function EventCard({
 
         <HStack className="flex-wrap items-center gap-1.5">
           <ServiceBadge service={service} />
-          {assignment ? <RoleChip role={assignment.role} /> : null}
-          {showStaffing && autoFillAvailable && event.smartSchedulingEnabled ? (
-            <Pill label="Smart Scheduling" tone="brand" icon={Sparkles} />
+          {/* The Team card's bolt, filled as it is when on, in the service's
+              colour beside the service it belongs with — a shape to scan
+              for rather than a label to read on every card. */}
+          {smartScheduling ? (
+            <Zap
+              size={13}
+              color={serviceColors.text}
+              fill={serviceColors.text}
+              strokeWidth={STROKE}
+            />
           ) : null}
+          {assignment ? <RoleChip role={assignment.role} /> : null}
         </HStack>
 
         {time ? <MetaLine icon={Clock}>{time}</MetaLine> : null}
@@ -167,6 +176,7 @@ export function EventCard({
     event.name,
     formatDayHeading(dayKey, today),
     time,
+    smartScheduling ? "Smart Scheduling on" : null,
     staffing ? describeStaffing(staffing) : null,
   ]
     .filter(Boolean)

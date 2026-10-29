@@ -49,7 +49,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { ApiError } from "@/lib/api";
 import { getServiceColors } from "@/lib/config/service-types";
 import type { Roles } from "@/lib/config/volunteer-roles";
-import { roleStanding, type RoleStanding } from "@/lib/events/spots";
+import { teamList } from "@/lib/events/fill";
 import { failureMessage } from "@/lib/failure";
 import { personName } from "@/lib/names";
 import type {
@@ -76,17 +76,15 @@ const NO_DATES: EventDate[] = [];
 type Confirm =
   | { kind: "deleteEvent"; name: string }
   | { kind: "removeAssignment"; assignment: EventDetailsAssignment }
-  | {
-      kind: "deleteInvite";
-      assignment: EventDetailsAssignment;
-      /** The role as it stood when Delete was tapped, for what the dialog promises. */
-      standing: RoleStanding;
-    }
+  | { kind: "deleteInvite"; assignment: EventDetailsAssignment }
   | {
       kind: "removeRole";
       role: VolunteerRole;
-      /** It still carries declined, removed or lapsed invites, which go with it. */
-      withInvites: boolean;
+      /**
+       * The statuses of the invites still on the role's card — declined,
+       * canceled or expired, as their pills read. They go with the role.
+       */
+      invites: EventDetailsAssignment["status"][];
     }
   | { kind: "withdraw"; name: string; role: VolunteerRole };
 
@@ -101,47 +99,57 @@ function describeConfirm(confirm: Confirm, roles: Roles) {
       };
 
     case "removeAssignment": {
-      const { user, role } = confirm.assignment;
+      const { user, role, status } = confirm.assignment;
       const name = personName(user);
+      const label = roles.get(role).label;
 
+      // Only live rows reach this, and only these tell the person: an
+      // accepted volunteer is taken off, a pending one's invite is withdrawn.
       return {
         title: "Remove from event",
-        description: `${name} will be taken off ${roles.get(role).label}.`,
+        description:
+          status === "ACCEPTED"
+            ? `Removes ${name} from ${label}. They'll be told.`
+            : `Removes ${name}'s pending invite from ${label}. They'll be told.`,
         label: "Remove",
       };
     }
 
     case "deleteInvite": {
-      const { user, role } = confirm.assignment;
-      const { needed, open } = confirm.standing;
-      const name = personName(user);
-      const label = roles.get(role).label;
+      const { user, role, status } = confirm.assignment;
 
-      // Their spot closes when it's still open and the role has others to keep.
-      const effect =
-        open === 0
-          ? ""
-          : needed > 1
-            ? `, and ${label} will need ${needed - 1} instead of ${needed}`
-            : `, and ${label} still needs someone`;
+      // In the words of the row's own status pill, so it's plain this is an
+      // invite that's already over. The open spot shows on the card. Only
+      // lapsed rows reach the last case.
+      const word =
+        status === "DECLINED" ? "declined" : status === "CANCELED" ? "canceled" : "expired";
 
-      // They declined, let it lapse, backed out or were taken off: there's no
-      // invite left to delete, only their crossed-out row.
       return {
         title: "Remove person",
-        description: `${name} comes off the roster${effect}.`,
+        description: `Removes ${personName(user)}'s ${word} invite from ${roles.get(role).label}.`,
         label: "Remove",
       };
     }
 
-    case "removeRole":
+    case "removeRole": {
+      const { invites } = confirm;
+
+      // "and its declined invite", in the pills' words, so it's plain nobody
+      // on the event goes with it.
+      const words = (["DECLINED", "CANCELED", "EXPIRED"] as const)
+        .filter((status) => invites.includes(status))
+        .map((status) => status.toLowerCase());
+      const alsoClears =
+        words.length === 0
+          ? ""
+          : ` and its ${teamList(words)} ${invites.length === 1 ? "invite" : "invites"}`;
+
       return {
         title: "Remove role",
-        description: `${roles.get(confirm.role).label} will come off this event's roster.${
-          confirm.withInvites ? " Its past invites go with it." : ""
-        }`,
+        description: `Removes ${roles.get(confirm.role).label}${alsoClears} from this event.`,
         label: "Remove",
       };
+    }
 
     case "withdraw":
       return {
@@ -508,9 +516,13 @@ export default function EventDetailScreen() {
                       ask({
                         kind: "removeRole",
                         role,
-                        withInvites: event.assignments.some(
-                          (assignment) => assignment.role === role,
-                        ),
+                        // A role is only offered for removal once nobody on it
+                        // is live, so a pending invite left on it has lapsed.
+                        invites: event.assignments
+                          .filter((assignment) => assignment.role === role)
+                          .map((assignment) =>
+                            assignment.status === "PENDING" ? "EXPIRED" : assignment.status,
+                          ),
                       })
                   : undefined
               }
@@ -526,16 +538,7 @@ export default function EventDetailScreen() {
               onDeleteInvite={
                 event.viewer.canManage
                   ? (assignment) =>
-                      ask({
-                        kind: "deleteInvite",
-                        assignment,
-                        standing: roleStanding(
-                          assignment.role,
-                          event.roleSpots,
-                          event.assignments,
-                          Date.now(),
-                        ),
-                      })
+                      ask({ kind: "deleteInvite", assignment })
                   : undefined
               }
               canWithdraw={canWithdraw}

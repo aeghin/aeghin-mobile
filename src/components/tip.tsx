@@ -19,11 +19,14 @@ export function Tip({
   title,
   message,
   onDismiss,
+  align = "start",
 }: {
   icon: AppIconName;
   title: string;
   message: string;
   onDismiss: () => void;
+  /** The end of the bubble its arrow sits at, under the thing it points to. */
+  align?: "start" | "end";
 }) {
   const theme = useTheme();
   const fill = theme.text;
@@ -72,7 +75,7 @@ export function Tip({
         {/* The arrow: a square turned on its point, half tucked into the
             bubble, and drawn after it so the bubble's shadow stays off it. */}
         <Box
-          className="absolute left-5 top-0.5 h-3 w-3"
+          className={`absolute top-0.5 h-3 w-3 ${align === "end" ? "right-5" : "left-5"}`}
           style={{ backgroundColor: fill, transform: [{ rotate: "45deg" }] }}
         />
       </VStack>

@@ -17,6 +17,7 @@ import { AvatarStack } from "@/components/events/event-detail-parts";
 import { EventsEmptyState } from "@/components/events/events-empty-state";
 import { SegmentedControl, type Segment } from "@/components/events/segmented-control";
 import { ErrorBanner, Field } from "@/components/form-fields";
+import { InfoTip } from "@/components/info-tip";
 import { InsetCard, InsetRow } from "@/components/inset-list";
 import { useCurrentOrganization } from "@/components/organization-provider";
 import { Button, ButtonText } from "@/components/ui/button";
@@ -195,7 +196,13 @@ export default function BlockoutsScreen() {
               />
 
               <VStack className="gap-2">
-                <SectionHeading>Your blockouts</SectionHeading>
+                {/* The web's line under its title, which this screen leaves off. */}
+                <HStack className="items-center gap-1.5">
+                  <SectionHeading>Your blockouts</SectionHeading>
+                  <InfoTip label="About blockouts">
+                    {"Days you're unavailable. You won't be scheduled on them."}
+                  </InfoTip>
+                </HStack>
 
                 {blockouts.isError ? (
                   <EventsEmptyState

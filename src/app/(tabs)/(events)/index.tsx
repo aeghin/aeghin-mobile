@@ -1,10 +1,14 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
+import ArrowLeftRight from "lucide-react-native/icons/arrow-left-right";
 import Calendar from "lucide-react-native/icons/calendar";
+import CalendarCheck from "lucide-react-native/icons/calendar-check";
 import CalendarPlus from "lucide-react-native/icons/calendar-plus";
 import CircleAlert from "lucide-react-native/icons/circle-alert";
 import CircleCheckBig from "lucide-react-native/icons/circle-check-big";
 import ListFilter from "lucide-react-native/icons/list-filter";
-import { useCallback, useMemo, useState } from "react";
+import PanelLeft from "lucide-react-native/icons/panel-left";
+import UserPlus from "lucide-react-native/icons/user-plus";
+import { Fragment, useCallback, useMemo, useState } from "react";
 import { Alert, RefreshControl, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -34,6 +38,7 @@ import {
 import { UpNextCard } from "@/components/events/up-next-card";
 import { HeaderCapsule } from "@/components/header-capsule";
 import { useCurrentOrganization } from "@/components/organization-provider";
+import { Tip } from "@/components/tip";
 import { useNowPlayingInset } from "@/components/track-player-provider";
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
@@ -49,8 +54,10 @@ import {
 } from "@/hooks/use-events";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
+import { useRoles } from "@/hooks/use-roles";
 import { useServiceTypes, useSetServiceTypeOrder } from "@/hooks/use-service-types";
 import { useTheme } from "@/hooks/use-theme";
+import { useTip } from "@/hooks/use-tip";
 import { ApiError } from "@/lib/api";
 import { canManageOrg } from "@/lib/config/roles";
 import { orderServiceTypes } from "@/lib/config/service-types";
@@ -94,6 +101,7 @@ export default function EventsScreen() {
   const insets = useSafeAreaInsets();
   const nowPlayingInset = useNowPlayingInset();
   const router = useRouter();
+  const roles = useRoles();
 
   // The organization comes from the provider, not from a route param: the tabs
   // are permanent and have no `[id]` segment above them to read.
@@ -353,6 +361,30 @@ export default function EventsScreen() {
     ? undefined
     : groups.find((group) => group.key >= today)?.key;
 
+  // ── Hints ─────────────────────────────────────────────────────────────
+  // Each asks for what `content()` below will actually draw, so a hint never
+  // waits its turn for something that isn't on the screen.
+  const listReady = !source.isError && !source.isPending && !serviceTypes.isPending;
+  // An organization with no events yet: people come first, since an event
+  // can only invite someone for a role they hold.
+  const startTip = useTip(
+    "getStarted",
+    canManage &&
+      activeTab !== "pending" &&
+      listReady &&
+      !orgEvents.isPending &&
+      allEvents.length === 0 &&
+      listed.length === 0 &&
+      !upNext,
+  );
+  // Managers can already open an invitation's event; everyone else waits on Accept.
+  const pendingTip = useTip(
+    "pendingInvite",
+    !canManage && activeTab === "pending" && listReady && visibleInvitations.length > 0,
+  );
+  const menuTip = useTip("menu", Boolean(organization));
+  const orderTip = useTip("orderServices", services.length > 1);
+
   // The tabs layout redirects when there is no organization; this is only the
   // frame between that decision and the redirect committing.
   if (!organization) {
@@ -360,6 +392,14 @@ export default function EventsScreen() {
   }
 
   const showPeriodControls = activeTab !== "pending";
+
+  // The sidebar's rows, in its order, as this person sees them.
+  const menuRows = [
+    "Blockouts",
+    ...(roles.sings(organization.volunteerRoles) ? ["My keys"] : []),
+    ...(canManage ? ["Templates", "Activity", "Service types", "Staffing alerts"] : []),
+    "Settings",
+  ];
 
   /**
    * The body under the controls, in the order the states rule each other out:
@@ -409,21 +449,30 @@ export default function EventsScreen() {
 
       return (
         <VStack className="gap-3 px-4">
-          {visibleInvitations.map((event) => (
-            <PendingEventCard
-              key={event.id}
-              event={event}
-              service={serviceById.get(event.serviceTypeId)}
-              today={readerToday}
-              busy={busy?.eventId === event.id ? busy.action : undefined}
-              onAccept={() => answer(event.id, "accept")}
-              onDecline={() => answer(event.id, "decline")}
-              // An invitation is not yet a way into the event: the detail
-              // route answers 404 to anyone without an *accepted* assignment,
-              // and the web's own invitation cards link there only for
-              // managers. Offering a tap that 404s would be worse than none.
-              onPress={canManage ? () => openEvent(event.id) : undefined}
-            />
+          {visibleInvitations.map((event, index) => (
+            <Fragment key={event.id}>
+              <PendingEventCard
+                event={event}
+                service={serviceById.get(event.serviceTypeId)}
+                today={readerToday}
+                busy={busy?.eventId === event.id ? busy.action : undefined}
+                onAccept={() => answer(event.id, "accept")}
+                onDecline={() => answer(event.id, "decline")}
+                // An invitation is not yet a way into the event: the detail
+                // route answers 404 to anyone without an *accepted* assignment,
+                // and the web's own invitation cards link there only for
+                // managers. Offering a tap that 404s would be worse than none.
+                onPress={canManage ? () => openEvent(event.id) : undefined}
+              />
+              {index === 0 && pendingTip.show ? (
+                <Tip
+                  icon={CalendarCheck}
+                  title="Accept to open the event"
+                  message="You'll see its team, setlist and chat once you accept."
+                  onDismiss={pendingTip.dismiss}
+                />
+              ) : null}
+            </Fragment>
           ))}
 
           {visibleLapsed.length > 0 ? (
@@ -458,15 +507,27 @@ export default function EventsScreen() {
 
         {listed.length === 0 ? (
           upNext ? null : (
-            <EventsEmptyState
-              {...emptyScheduleState({
-                tab: activeTab,
-                scope,
-                month,
-                filtered: serviceId !== null,
-                clearFilter: () => setServiceId(null),
-              })}
-            />
+            <VStack>
+              <EventsEmptyState
+                {...emptyScheduleState({
+                  tab: activeTab,
+                  scope,
+                  month,
+                  filtered: serviceId !== null,
+                  clearFilter: () => setServiceId(null),
+                })}
+              />
+              {startTip.show ? (
+                <Box className="px-4">
+                  <Tip
+                    icon={UserPlus}
+                    title="Invite people first"
+                    message="Invite people from Members and choose their volunteer roles. You can only invite someone to an event for a role they have."
+                    onDismiss={startTip.dismiss}
+                  />
+                </Box>
+              ) : null}
+            </VStack>
           )
         ) : (
           <VStack
@@ -542,6 +603,18 @@ export default function EventsScreen() {
         }
       >
         <VStack className="gap-3">
+          {/* First on the screen, right under the menu it points up at. */}
+          {menuTip.show ? (
+            <Box className="px-4">
+              <Tip
+                icon={PanelLeft}
+                title="More in the menu"
+                message={`Open it for ${menuRows.slice(0, -1).join(", ")} and ${menuRows.at(-1)}.`}
+                onDismiss={menuTip.dismiss}
+              />
+            </Box>
+          ) : null}
+
           <Box className="px-4">
             <SegmentedControl
               segments={segments}
@@ -572,6 +645,17 @@ export default function EventsScreen() {
                 })
               }
             />
+          ) : null}
+
+          {orderTip.show ? (
+            <Box className="px-4">
+              <Tip
+                icon={ArrowLeftRight}
+                title="Put your services in order"
+                message="Hold a service, then drag it to move it. Only you see your order."
+                onDismiss={orderTip.dismiss}
+              />
+            </Box>
           ) : null}
 
         </VStack>

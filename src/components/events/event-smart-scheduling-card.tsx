@@ -10,6 +10,7 @@ import type { ReactNode } from "react";
 
 import { AppIcon, type AppIconName } from "@/components/app-icon";
 import { DetailButton, DetailCard } from "@/components/events/event-detail-parts";
+import { InfoTip } from "@/components/info-tip";
 import { Center } from "@/components/ui/center";
 import { Divider } from "@/components/ui/divider";
 import { HStack } from "@/components/ui/hstack";
@@ -133,9 +134,18 @@ export function EventSmartSchedulingCard({
               </Text>
             </HStack>
 
-            <Text className="text-[15px] font-bold leading-[20px] tracking-[-0.2px] text-foreground">
-              Smart Scheduling
-            </Text>
+            <HStack className="items-center gap-1.5">
+              <Text className="text-[15px] font-bold leading-[20px] tracking-[-0.2px] text-foreground">
+                Smart Scheduling
+              </Text>
+              {/* The web's words, from its upgrade dialog. */}
+              <InfoTip label="About Smart Scheduling">
+                {"Invites the next best available member when someone declines or drops out, and warns whoever's in charge of the team 3 days and 1 day before an event that still has open spots." +
+                  (enabled && !running
+                    ? " Smart Scheduling stays saved on this event and turns back on after you upgrade."
+                    : "")}
+              </InfoTip>
+            </HStack>
           </VStack>
 
           {items.length > 0 ? (

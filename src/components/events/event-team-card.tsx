@@ -192,8 +192,6 @@ export function EventTeamCard({
 
   const [dialog, setDialog] = useState<"invite" | "roles" | "email" | null>(null);
 
-  const swipeTip = useTip("swipeRemoveRole", event.viewer.userId);
-
   const smart = useSetSmartScheduling(organizationId, event.id);
   const autoFillAvailable = useSmartSchedulingAvailable(organizationId);
 
@@ -240,13 +238,14 @@ export function EventTeamCard({
   const fillable = canManage ? fillableTeams(event, roles, now) : [];
 
   // Pointed at one role only: the first a manager can swipe in an open team.
-  const tipRole =
-    onRemoveRole && !swipeTip.seen
-      ? categories
-          .filter((category) => !collapsed.includes(category.key))
-          .flatMap((category) => category.groups)
-          .find((group) => isRemovable(group, now) && openSpotLabel(group, now))?.role
-      : undefined;
+  const swipeRole = onRemoveRole
+    ? categories
+        .filter((category) => !collapsed.includes(category.key))
+        .flatMap((category) => category.groups)
+        .find((group) => isRemovable(group, now) && openSpotLabel(group, now))?.role
+    : undefined;
+  const swipeTip = useTip("swipeRemoveRole", swipeRole !== undefined);
+  const tipRole = swipeTip.show ? swipeRole : undefined;
 
   const spotCount = categories.reduce((count, category) => count + category.needed, 0);
   const filledCount = categories.reduce((count, category) => count + category.filled, 0);

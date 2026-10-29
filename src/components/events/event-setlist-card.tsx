@@ -1,6 +1,7 @@
 import AudioLines from "lucide-react-native/icons/audio-lines";
 import FileText from "lucide-react-native/icons/file-text";
 import Info from "lucide-react-native/icons/info";
+import MicVocal from "lucide-react-native/icons/mic-vocal";
 import Music from "lucide-react-native/icons/music";
 import Pencil from "lucide-react-native/icons/pencil";
 
@@ -17,6 +18,7 @@ import {
 import { SongKeyCard } from "@/components/events/song-key-card";
 import { SpotifyIcon, YoutubeIcon } from "@/components/icons/brand-icons";
 import { OPEN_BUTTON_TAP, OpenButton } from "@/components/open-button";
+import { Tip } from "@/components/tip";
 import type { Track } from "@/components/track-player-provider";
 import { Box } from "@/components/ui/box";
 import { Center } from "@/components/ui/center";
@@ -28,6 +30,7 @@ import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { mediaTint, withAlpha } from "@/constants/branding";
 import { useTheme } from "@/hooks/use-theme";
+import { useTip } from "@/hooks/use-tip";
 import { formatKey } from "@/lib/config/keys";
 import {
   getServiceColors,
@@ -104,6 +107,9 @@ export function EventSetlistCard({
     ),
   );
 
+  // Under the first song only, pointing up at its ⋮.
+  const keyTip = useTip("saveKey", canSaveKeys && setlist.length > 0);
+
   return (
     <DetailCard>
       <DetailCardHeader
@@ -159,6 +165,18 @@ export function EventSetlistCard({
                 savedEntry={myKeyBySongId.get(song.songId) ?? null}
                 service={colors}
               />
+              {index === 0 && keyTip.show ? (
+                // Inset less than the rows, so the arrow lands under the ⋮.
+                <Box className="px-2 pb-2">
+                  <Tip
+                    icon={MicVocal}
+                    title="Save the key you sing"
+                    message="Open ⋮ on a song to keep its key in My keys."
+                    align="end"
+                    onDismiss={keyTip.dismiss}
+                  />
+                </Box>
+              ) : null}
             </VStack>
           ))}
         </VStack>

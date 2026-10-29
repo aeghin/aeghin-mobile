@@ -128,7 +128,7 @@ function InviteMemberBody({
         hint={
           draft.volunteerRoles.length > 0
             ? `${draft.volunteerRoles.length} selected`
-            : "Select one or more volunteer roles for this person."
+            : "Select one or more volunteer roles for this person. You can invite them to events for these roles."
         }
       >
         <VolunteerRolePicker

@@ -31,7 +31,7 @@ export type DraftWarning = {
   reason: string;
 };
 
-/** Who picks the people for one team on a draft. */
+/** Who's in charge of one team on a draft: its lead, a cover, or the person drafting. */
 export type DraftTeam = {
   team: Team;
   /** Their full name; the card says "You" when `you`. */
@@ -63,7 +63,7 @@ export type EventDraft = {
   summary: string;
   warnings: DraftWarning[];
   unfilledRoles: VolunteerRole[];
-  /** Who picks each team's people. Absent from an older server, which makes every team the drafter's. */
+  /** Who's in charge of each team. Absent from an older server, which makes every team the drafter's. */
   teams?: DraftTeam[];
   /** Absent from an older server. */
   covers?: DraftCover[];

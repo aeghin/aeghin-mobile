@@ -41,6 +41,7 @@ import {
   keyToDate,
   todayKey,
 } from "@/lib/events/format";
+import { teamList } from "@/lib/events/fill";
 import { failureMessage } from "@/lib/failure";
 import type { NewEvent, VolunteerRole } from "@/types/event";
 import type {
@@ -428,7 +429,7 @@ function DraftCard({
   const kept = draft.assignments.filter((a) => !removed.has(a.userId));
   const locked = create.isPending || created;
 
-  // Roles by team, each with whoever picks its people. A draft from an older
+  // Roles by team, each with whoever's in charge of it. A draft from an older
   // server carries no teams, which makes every team the drafter's.
   const groups = (
     draft.teams?.length
@@ -440,6 +441,9 @@ function DraftCard({
       teamRoles: draft.rolesNeeded.filter((role) => roles.teamOf(role) === entry.team),
     }))
     .filter((entry) => entry.teamRoles.length > 0);
+
+  // Whoever's in charge of a team the drafter isn't hears about it on Create.
+  const told = [...new Set(groups.filter((entry) => !entry.you).map((entry) => entry.name))];
 
   const toggleRemoved = (userId: string) =>
     setRemoved((current) => {
@@ -561,70 +565,64 @@ function DraftCard({
                 {roles.teamLabel(team)}
               </Text>
               <Text className="shrink text-[11px] text-muted-foreground" numberOfLines={1}>
-                {you ? (cover ? "You, covering" : "You") : `${name} picks`}
+                {you
+                  ? cover
+                    ? "You, covering"
+                    : "You"
+                  : cover
+                    ? `${name}, covering`
+                    : `${name} leads`}
               </Text>
             </HStack>
 
-            {you ? (
-              teamRoles.map((role) => {
-                const people = kept.filter((assignment) => assignment.role === role);
-                const { emoji, label } = roles.get(role);
-                const spots = draft.roleSpots?.[role] ?? 1;
+            {teamRoles.map((role) => {
+              const people = kept.filter((assignment) => assignment.role === role);
+              const { emoji, label } = roles.get(role);
+              const spots = draft.roleSpots?.[role] ?? 1;
 
-                return (
-                  <HStack key={role} className="items-start gap-2">
-                    <Text style={{ fontSize: 13, lineHeight: 18 }}>{emoji}</Text>
-                    <VStack className="flex-1 gap-0.5">
-                      <Text className="text-[13px] font-medium text-foreground">
-                        {label}
-                        {spots > 1 ? (
-                          <Text className="text-[12px] font-normal text-muted-foreground">
-                            {` ×${spots}`}
-                          </Text>
-                        ) : null}
-                        {people.length === 0 ? (
-                          <Text className="text-[12px] font-normal text-muted-foreground">
-                            {"  — left open"}
-                          </Text>
-                        ) : people.length < spots ? (
-                          <Text className="text-[12px] font-normal text-muted-foreground">
-                            {`  — ${spots - people.length} more open`}
-                          </Text>
-                        ) : null}
-                      </Text>
-                      {people.map((person) => (
-                        <HStack key={person.userId} className="items-start gap-1.5">
-                          <Text className="flex-1 text-[11.5px] text-muted-foreground">
-                            <Text className="text-[11.5px] text-foreground">{person.name}</Text>
-                            {` · ${person.reason}`}
-                          </Text>
-                          <Pressable
-                            onPress={() => toggleRemoved(person.userId)}
-                            disabled={locked}
-                            accessibilityRole="button"
-                            accessibilityLabel={`Remove ${person.name}`}
-                            hitSlop={8}
-                            style={{ opacity: locked ? 0.4 : 1 }}
-                          >
-                            <AppIcon icon={X} size={13} color={theme.textMuted} />
-                          </Pressable>
-                        </HStack>
-                      ))}
-                    </VStack>
-                  </HStack>
-                );
-              })
-            ) : (
-              // Somebody else's team: its spots wait for them, and they're told.
-              <Text className="text-[12.5px] text-muted-foreground">
-                {teamRoles
-                  .map((role) => {
-                    const spots = draft.roleSpots?.[role] ?? 1;
-                    return spots > 1 ? `${roles.get(role).label} ×${spots}` : roles.get(role).label;
-                  })
-                  .join(", ")}
-              </Text>
-            )}
+              return (
+                <HStack key={role} className="items-start gap-2">
+                  <Text style={{ fontSize: 13, lineHeight: 18 }}>{emoji}</Text>
+                  <VStack className="flex-1 gap-0.5">
+                    <Text className="text-[13px] font-medium text-foreground">
+                      {label}
+                      {spots > 1 ? (
+                        <Text className="text-[12px] font-normal text-muted-foreground">
+                          {` ×${spots}`}
+                        </Text>
+                      ) : null}
+                      {people.length === 0 ? (
+                        <Text className="text-[12px] font-normal text-muted-foreground">
+                          {"  — left open"}
+                        </Text>
+                      ) : people.length < spots ? (
+                        <Text className="text-[12px] font-normal text-muted-foreground">
+                          {`  — ${spots - people.length} more open`}
+                        </Text>
+                      ) : null}
+                    </Text>
+                    {people.map((person) => (
+                      <HStack key={person.userId} className="items-start gap-1.5">
+                        <Text className="flex-1 text-[11.5px] text-muted-foreground">
+                          <Text className="text-[11.5px] text-foreground">{person.name}</Text>
+                          {` · ${person.reason}`}
+                        </Text>
+                        <Pressable
+                          onPress={() => toggleRemoved(person.userId)}
+                          disabled={locked}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Remove ${person.name}`}
+                          hitSlop={8}
+                          style={{ opacity: locked ? 0.4 : 1 }}
+                        >
+                          <AppIcon icon={X} size={13} color={theme.textMuted} />
+                        </Pressable>
+                      </HStack>
+                    ))}
+                  </VStack>
+                </HStack>
+              );
+            })}
           </VStack>
         ))}
       </VStack>
@@ -694,9 +692,13 @@ function DraftCard({
         </HStack>
       </Pressable>
 
-      {!created && kept.length > 0 ? (
+      {!created && (kept.length > 0 || told.length > 0) ? (
         <Text className="text-center text-[11px] text-muted-foreground">
-          {`Sends ${kept.length === 1 ? "an invite" : "invites"} by email immediately`}
+          {kept.length > 0
+            ? `Sends ${kept.length === 1 ? "an invite" : "invites"} by email immediately${
+                told.length > 0 ? ` and lets ${teamList(told)} know` : ""
+              }`
+            : `Lets ${teamList(told)} know`}
         </Text>
       ) : null}
 

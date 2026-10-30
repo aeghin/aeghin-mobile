@@ -3,14 +3,17 @@ import { DefaultChatTransport, type UIMessage } from "ai";
 import { fetch as expoFetch } from "expo/fetch";
 import ArrowUp from "lucide-react-native/icons/arrow-up";
 import Check from "lucide-react-native/icons/check";
+import RotateCcw from "lucide-react-native/icons/rotate-ccw";
 import History from "lucide-react-native/icons/rotate-ccw-clock";
 import Sparkles from "lucide-react-native/icons/sparkles";
 import Square from "lucide-react-native/icons/square";
 import TriangleAlert from "lucide-react-native/icons/triangle-alert";
+import UserSearch from "lucide-react-native/icons/user-search";
 import X from "lucide-react-native/icons/x";
 import { useMemo, useRef, useState } from "react";
 import { ScrollView, TextInput } from "react-native";
 
+import { AgentStep } from "@/components/agent-steps";
 import { AppIcon } from "@/components/app-icon";
 import { Choice } from "@/components/form-fields";
 import { Markdown } from "@/components/markdown";
@@ -123,6 +126,12 @@ export function TeamFillPanel({
   const [input, setInput] = useState("");
   const [timedOut, setTimedOut] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  // Follows the reply to the bottom as it streams in, until somebody opens a
+  // step above it to read: then the list stays where they are.
+  const follow = useRef(true);
+  const stopFollowing = () => {
+    follow.current = false;
+  };
 
   const transport = useMemo(
     () =>
@@ -187,6 +196,7 @@ export function TeamFillPanel({
     const text = input.trim();
     if (!text || isStreaming) return;
     setTimedOut(false);
+    follow.current = true;
     sendMessage({ text }, { body: { teams: picked } });
     setInput("");
   };
@@ -221,7 +231,9 @@ export function TeamFillPanel({
         ref={scrollRef}
         className="flex-1"
         contentContainerStyle={{ paddingBottom: 8 }}
-        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+        onContentSizeChange={() => {
+          if (follow.current) scrollRef.current?.scrollToEnd({ animated: true });
+        }}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
       >
@@ -256,7 +268,21 @@ export function TeamFillPanel({
                     switch (part.state) {
                       case "input-streaming":
                       case "input-available":
-                        return <Busy key={index} label="Picking people…" tint={colors.text} />;
+                        return isStreaming ? (
+                          <AgentStep
+                            key={index}
+                            icon={UserSearch}
+                            title="Picking people"
+                            status="running"
+                          />
+                        ) : (
+                          <AgentStep
+                            key={index}
+                            icon={UserSearch}
+                            title="Stopped before the picks were ready"
+                            status="error"
+                          />
+                        );
                       case "output-available":
                         return part.output.ok ? (
                           <ProposalCard
@@ -270,19 +296,23 @@ export function TeamFillPanel({
                         ) : (
                           // The server turned the picks down; the agent fixes
                           // them and proposes again, so this is a step.
-                          <Text key={index} className="text-[12px] text-muted-foreground">
-                            {`Adjusting: ${part.output.error}`}
-                          </Text>
+                          <AgentStep
+                            key={index}
+                            icon={RotateCcw}
+                            title="Adjusting the picks"
+                            onToggle={stopFollowing}
+                          >
+                            {part.output.error}
+                          </AgentStep>
                         );
                       case "output-error":
                         return (
-                          <Text
+                          <AgentStep
                             key={index}
-                            className="text-[13px]"
-                            style={{ color: theme.destructive }}
-                          >
-                            {"Couldn't pick people. Try rephrasing."}
-                          </Text>
+                            icon={UserSearch}
+                            title="Couldn't pick people. Try rephrasing."
+                            status="error"
+                          />
                         );
                       default:
                         return null;
@@ -296,7 +326,11 @@ export function TeamFillPanel({
           </VStack>
         )}
 
-        {showBusy ? <Busy label="Thinking…" tint={colors.text} /> : null}
+        {showBusy ? (
+          <Box className="mt-3">
+            <AgentStep icon={Sparkles} title="Thinking" status="running" />
+          </Box>
+        ) : null}
 
         {timedOut ? (
           <Text className="mt-2 text-[13px]" style={{ color: theme.destructive }}>
@@ -470,13 +504,10 @@ function ProposalCard({
     const n = invitedCount ?? proposal.picks.length;
     const people = n === 1 ? "person" : "people";
 
-    return (
-      <HStack className="items-center gap-1.5 py-0.5">
-        <AppIcon icon={invited ? Check : History} size={12} color={theme.textMuted} />
-        <Text className="flex-1 text-[12px] text-muted-foreground">
-          {invited ? `Invited ${n} ${people}` : `Earlier picks: ${n} ${people}`}
-        </Text>
-      </HStack>
+    return invited ? (
+      <AgentStep icon={Check} title={`Invited ${n} ${people}`} />
+    ) : (
+      <AgentStep icon={History} title={`Earlier picks: ${n} ${people}`} />
     );
   }
 
@@ -629,15 +660,6 @@ function Notice({ title, lines }: { title: string; lines: string[] }) {
         </Text>
       ))}
     </VStack>
-  );
-}
-
-function Busy({ label, tint }: { label: string; tint: string }) {
-  return (
-    <HStack className="items-center gap-2 py-1">
-      <Spinner size="small" color={tint} />
-      <Text className="text-[13px] text-muted-foreground">{label}</Text>
-    </HStack>
   );
 }
 

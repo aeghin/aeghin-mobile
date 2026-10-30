@@ -4,19 +4,21 @@ import * as Crypto from "expo-crypto";
 import { fetch as expoFetch } from "expo/fetch";
 import ArrowUp from "lucide-react-native/icons/arrow-up";
 import Check from "lucide-react-native/icons/check";
+import Globe from "lucide-react-native/icons/globe";
+import ListMusic from "lucide-react-native/icons/list-music";
 import Music from "lucide-react-native/icons/music";
 import Sparkles from "lucide-react-native/icons/sparkles";
 import Square from "lucide-react-native/icons/square";
 import { useMemo, useRef, useState } from "react";
 import { ScrollView, TextInput } from "react-native";
 
+import { AgentSources, AgentStep } from "@/components/agent-steps";
 import { AppIcon } from "@/components/app-icon";
 import { Markdown } from "@/components/markdown";
 import { Box } from "@/components/ui/box";
 import { Center } from "@/components/ui/center";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
-import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
 import { withAlpha } from "@/constants/branding";
@@ -35,7 +37,10 @@ const SUGGESTIONS = [
 /** The two tools the agent calls, as the UI message stream carries them. */
 type SetlistTools = {
   proposeSetlist: { input: unknown; output: SetlistProposal };
-  web_search: { input: { query?: string } | undefined; output: unknown };
+  web_search: {
+    input: { query?: string } | undefined;
+    output: { url: string; title: string | null }[];
+  };
 };
 
 type SetlistUIMessage = UIMessage<unknown, Record<string, unknown>, SetlistTools>;
@@ -71,6 +76,12 @@ export function AiSetlistPanel({ organizationId, eventId, colors, onApply }: AiS
   const theme = useTheme();
   const [input, setInput] = useState("");
   const scrollRef = useRef<ScrollView>(null);
+  // Follows the reply to the bottom as it streams in, until somebody opens a
+  // step above it to read: then the list stays where they are.
+  const follow = useRef(true);
+  const stopFollowing = () => {
+    follow.current = false;
+  };
 
   const transport = useMemo(
     () =>
@@ -100,6 +111,7 @@ export function AiSetlistPanel({ organizationId, eventId, colors, onApply }: AiS
   const submit = () => {
     const text = input.trim();
     if (!text || isStreaming) return;
+    follow.current = true;
     sendMessage({ text });
     setInput("");
   };
@@ -130,7 +142,9 @@ export function AiSetlistPanel({ organizationId, eventId, colors, onApply }: AiS
         ref={scrollRef}
         className="flex-1"
         contentContainerStyle={{ paddingBottom: 8 }}
-        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+        onContentSizeChange={() => {
+          if (follow.current) scrollRef.current?.scrollToEnd({ animated: true });
+        }}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
       >
@@ -165,7 +179,21 @@ export function AiSetlistPanel({ organizationId, eventId, colors, onApply }: AiS
                     switch (part.state) {
                       case "input-streaming":
                       case "input-available":
-                        return <Busy key={index} label="Building setlist…" tint={colors.text} />;
+                        return isStreaming ? (
+                          <AgentStep
+                            key={index}
+                            icon={ListMusic}
+                            title="Building the setlist"
+                            status="running"
+                          />
+                        ) : (
+                          <AgentStep
+                            key={index}
+                            icon={ListMusic}
+                            title="Stopped before the setlist was built"
+                            status="error"
+                          />
+                        );
                       case "output-available":
                         return (
                           <ProposalCard
@@ -177,9 +205,12 @@ export function AiSetlistPanel({ organizationId, eventId, colors, onApply }: AiS
                         );
                       case "output-error":
                         return (
-                          <Text key={index} className="text-[13px]" style={{ color: theme.destructive }}>
-                            {"Couldn't build that setlist. Try rephrasing."}
-                          </Text>
+                          <AgentStep
+                            key={index}
+                            icon={ListMusic}
+                            title="Couldn't build that setlist. Try rephrasing."
+                            status="error"
+                          />
                         );
                       default:
                         return null;
@@ -187,17 +218,51 @@ export function AiSetlistPanel({ organizationId, eventId, colors, onApply }: AiS
                   }
 
                   if (part.type === "tool-web_search") {
+                    const query =
+                      typeof part.input?.query === "string" ? ` for “${part.input.query}”` : "";
+
                     switch (part.state) {
                       case "input-streaming":
                       case "input-available":
-                        return <Busy key={index} label="Searching the web…" tint={colors.text} />;
+                        return isStreaming ? (
+                          <AgentStep
+                            key={index}
+                            icon={Globe}
+                            title={`Searching the web${query}`}
+                            status="running"
+                          />
+                        ) : (
+                          <AgentStep key={index} icon={Globe} title="Search stopped" status="error" />
+                        );
                       case "output-available":
+                        return part.output.length > 0 ? (
+                          <AgentStep
+                            key={index}
+                            icon={Globe}
+                            title={`Searched the web${query}`}
+                            description={`${part.output.length} ${
+                              part.output.length === 1 ? "result" : "results"
+                            }`}
+                            onToggle={stopFollowing}
+                          >
+                            <AgentSources sources={part.output} />
+                          </AgentStep>
+                        ) : (
+                          <AgentStep
+                            key={index}
+                            icon={Globe}
+                            title={`Searched the web${query}`}
+                            description="No results"
+                          />
+                        );
+                      case "output-error":
                         return (
-                          <Text key={index} className="text-[12px] text-muted-foreground">
-                            {typeof part.input?.query === "string"
-                              ? `Searched the web for “${part.input.query}”`
-                              : "Searched the web"}
-                          </Text>
+                          <AgentStep
+                            key={index}
+                            icon={Globe}
+                            title="Web search failed"
+                            status="error"
+                          />
                         );
                       default:
                         return null;
@@ -211,7 +276,11 @@ export function AiSetlistPanel({ organizationId, eventId, colors, onApply }: AiS
           </VStack>
         )}
 
-        {showBusy ? <Busy label="Thinking…" tint={colors.text} /> : null}
+        {showBusy ? (
+          <Box className="mt-3">
+            <AgentStep icon={Sparkles} title="Thinking" status="running" />
+          </Box>
+        ) : null}
 
         {error ? (
           <Text className="mt-2 text-[13px]" style={{ color: theme.destructive }}>
@@ -361,15 +430,6 @@ function ProposalCard({
         </Text>
       ) : null}
     </VStack>
-  );
-}
-
-function Busy({ label, tint }: { label: string; tint: string }) {
-  return (
-    <HStack className="items-center gap-2 py-1">
-      <Spinner size="small" color={tint} />
-      <Text className="text-[13px] text-muted-foreground">{label}</Text>
-    </HStack>
   );
 }
 

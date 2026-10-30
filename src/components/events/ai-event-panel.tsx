@@ -7,9 +7,9 @@ import CalendarDays from "lucide-react-native/icons/calendar-days";
 import CalendarOff from "lucide-react-native/icons/calendar-off";
 import CalendarX2 from "lucide-react-native/icons/calendar-x-2";
 import Check from "lucide-react-native/icons/check";
-import ChevronDown from "lucide-react-native/icons/chevron-down";
 import MapPin from "lucide-react-native/icons/map-pin";
 import Pencil from "lucide-react-native/icons/pencil";
+import RotateCcw from "lucide-react-native/icons/rotate-ccw";
 import History from "lucide-react-native/icons/rotate-ccw-clock";
 import Sparkles from "lucide-react-native/icons/sparkles";
 import Square from "lucide-react-native/icons/square";
@@ -19,6 +19,7 @@ import X from "lucide-react-native/icons/x";
 import { useMemo, useRef, useState } from "react";
 import { ScrollView, TextInput } from "react-native";
 
+import { AgentStep } from "@/components/agent-steps";
 import { AppIcon } from "@/components/app-icon";
 import { Markdown } from "@/components/markdown";
 import { Box } from "@/components/ui/box";
@@ -43,7 +44,7 @@ import {
 } from "@/lib/events/format";
 import { teamList } from "@/lib/events/fill";
 import { failureMessage } from "@/lib/failure";
-import type { NewEvent, VolunteerRole } from "@/types/event";
+import type { NewEvent } from "@/types/event";
 import type {
   AvailabilityRole,
   CheckAvailabilityOutput,
@@ -162,6 +163,9 @@ export function AiEventPanel({
   // Follows the reply to the bottom as it streams in, until somebody opens a
   // step above it to read: then the list stays where they are.
   const follow = useRef(true);
+  const stopFollowing = () => {
+    follow.current = false;
+  };
 
   const transport = useMemo(
     () =>
@@ -266,15 +270,45 @@ export function AiEventPanel({
                     switch (part.state) {
                       case "input-streaming":
                       case "input-available":
-                        return <Busy key={index} label="Checking who's available…" />;
+                        return isStreaming ? (
+                          <AgentStep
+                            key={index}
+                            icon={UserSearch}
+                            title="Checking who's available"
+                            status="running"
+                          />
+                        ) : (
+                          <AgentStep
+                            key={index}
+                            icon={UserSearch}
+                            title="Stopped while checking who's available"
+                            status="error"
+                          />
+                        );
                       case "output-available":
                         return (
-                          <AvailabilityStep
+                          <AgentStep
                             key={index}
-                            checked={part.output.roles}
-                            onToggle={() => {
-                              follow.current = false;
-                            }}
+                            icon={UserSearch}
+                            title="Checked who's available"
+                            description={`${part.output.roles.length} ${
+                              part.output.roles.length === 1 ? "role" : "roles"
+                            }`}
+                            onToggle={stopFollowing}
+                          >
+                            <AvailabilityTrace
+                              checked={part.output.roles}
+                              onToggle={stopFollowing}
+                            />
+                          </AgentStep>
+                        );
+                      case "output-error":
+                        return (
+                          <AgentStep
+                            key={index}
+                            icon={UserSearch}
+                            title="Couldn't check who's available"
+                            status="error"
                           />
                         );
                       default:
@@ -286,7 +320,21 @@ export function AiEventPanel({
                     switch (part.state) {
                       case "input-streaming":
                       case "input-available":
-                        return <Busy key={index} label="Building the draft…" />;
+                        return isStreaming ? (
+                          <AgentStep
+                            key={index}
+                            icon={CalendarDays}
+                            title="Building the draft"
+                            status="running"
+                          />
+                        ) : (
+                          <AgentStep
+                            key={index}
+                            icon={CalendarDays}
+                            title="Stopped before the draft was built"
+                            status="error"
+                          />
+                        );
                       case "output-available":
                         return part.output.ok ? (
                           <DraftCard
@@ -298,19 +346,25 @@ export function AiEventPanel({
                             latest={part.toolCallId === latestDraftId}
                           />
                         ) : (
-                          <Text key={index} className="text-[12px] text-muted-foreground">
-                            {`Adjusting: ${part.output.error}`}
-                          </Text>
+                          // The server turned the draft down; the agent fixes it
+                          // and proposes again, so this is a step, not a failure.
+                          <AgentStep
+                            key={index}
+                            icon={RotateCcw}
+                            title="Adjusting the draft"
+                            onToggle={stopFollowing}
+                          >
+                            {part.output.error}
+                          </AgentStep>
                         );
                       case "output-error":
                         return (
-                          <Text
+                          <AgentStep
                             key={index}
-                            className="text-[13px]"
-                            style={{ color: theme.destructive }}
-                          >
-                            {"Couldn't build that draft. Try rephrasing."}
-                          </Text>
+                            icon={CalendarDays}
+                            title="Couldn't build that draft. Try rephrasing."
+                            status="error"
+                          />
                         );
                       default:
                         return null;
@@ -324,7 +378,11 @@ export function AiEventPanel({
           </VStack>
         )}
 
-        {showBusy ? <Busy label="Thinking…" /> : null}
+        {showBusy ? (
+          <Box className="mt-3">
+            <AgentStep icon={Sparkles} title="Thinking" status="running" />
+          </Box>
+        ) : null}
 
         {timedOut ? (
           <Text className="mt-2 text-[13px]" style={{ color: theme.destructive }}>
@@ -499,12 +557,11 @@ function DraftCard({
   // An earlier version in the same chat: one line, nothing to press.
   if (!latest) {
     return (
-      <HStack className="items-center gap-1.5 py-0.5">
-        <AppIcon icon={History} size={12} color={theme.textMuted} />
-        <Text className="flex-1 text-[12px] text-muted-foreground" numberOfLines={1}>
-          {`Earlier draft: ${draft.name} · ${formatShortDate(keyToDate(draft.days[0].date))}`}
-        </Text>
-      </HStack>
+      <AgentStep
+        icon={History}
+        title={`Earlier draft: ${draft.name}`}
+        description={formatShortDate(keyToDate(draft.days[0].date))}
+      />
     );
   }
 
@@ -733,125 +790,46 @@ function DraftCard({
  * opens to its names, so a big church's list only gets long where somebody
  * looks. The count is the people free, not everyone holding the role.
  */
-function AvailabilityStep({
+function AvailabilityTrace({
   checked,
   onToggle,
 }: {
   checked: AvailabilityRole[];
-  /** It opened or closed, which grows the chat above the reply: stop following it down. */
+  /** A role opened or shut, which changes the chat's height above the reply. */
   onToggle: () => void;
 }) {
-  const theme = useTheme();
   const roles = useRoles();
-  const [open, setOpen] = useState(false);
-  const [openRoles, setOpenRoles] = useState<Set<VolunteerRole>>(new Set());
-
-  const toggleRole = (role: VolunteerRole) => {
-    onToggle();
-    setOpenRoles((current) => {
-      const next = new Set(current);
-      if (next.has(role)) next.delete(role);
-      else next.add(role);
-      return next;
-    });
-  };
 
   return (
-    <VStack className="gap-1.5">
-      <Pressable
-        onPress={() => {
-          onToggle();
-          setOpen((shown) => !shown);
-        }}
-        accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
-        className="self-start data-[active=true]:opacity-60"
-      >
-        <HStack className="items-center gap-1.5">
-          <AppIcon icon={UserSearch} size={12} color={theme.textMuted} />
-          <Text className="text-[12px] text-muted-foreground">
-            {`Checked who's available · ${checked.length} ${checked.length === 1 ? "role" : "roles"}`}
-          </Text>
-          <Chevron open={open} />
-        </HStack>
-      </Pressable>
-
-      {open ? (
-        <VStack className="gap-1.5" style={{ marginLeft: 18 }}>
-          {checked.map((entry) => {
-            const roleOpen = openRoles.has(entry.role);
-            const line = (
-              <HStack className="items-center gap-1.5">
-                <Text className="text-[12px] text-foreground">{roles.get(entry.role).label}</Text>
-                <Text className="text-[12px] text-muted-foreground">
-                  {`${entry.eligible.length} free${
-                    entry.excluded.length > 0 ? ` · ${entry.excluded.length} can't` : ""
-                  }`}
-                </Text>
-                {entry.excluded.length > 0 ? <Chevron open={roleOpen} /> : null}
-              </HStack>
-            );
-
-            if (entry.excluded.length === 0) return <Box key={entry.role}>{line}</Box>;
-
-            return (
-              <VStack key={entry.role} className="gap-1">
-                <Pressable
-                  onPress={() => toggleRole(entry.role)}
-                  accessibilityRole="button"
-                  accessibilityState={{ expanded: roleOpen }}
-                  className="self-start data-[active=true]:opacity-60"
-                >
-                  {line}
-                </Pressable>
-
-                {roleOpen ? (
-                  <VStack className="gap-1" style={{ marginLeft: 12 }}>
-                    {entry.excluded.map((person, index) => (
-                      <HStack key={`${person.name}-${index}`} className="items-start gap-1.5">
-                        <Box style={{ marginTop: 2 }}>
-                          <AppIcon
-                            icon={person.reason === "blockout" ? CalendarOff : CalendarX2}
-                            size={11}
-                            color={theme.textMuted}
-                          />
-                        </Box>
-                        <Text className="flex-1 text-[11.5px] text-muted-foreground">
-                          <Text className="text-[11.5px] text-foreground">{person.name}</Text>
-                          {person.reason === "blockout"
-                            ? ` · blocked out ${formatBlockout(person.detail)}`
-                            : ` · serving ${person.detail}`}
-                        </Text>
-                      </HStack>
-                    ))}
-                  </VStack>
-                ) : null}
-              </VStack>
-            );
-          })}
-        </VStack>
-      ) : null}
+    <VStack className="gap-2">
+      {checked.map((entry) => (
+        <AgentStep
+          key={entry.role}
+          title={roles.get(entry.role).label}
+          description={`${entry.eligible.length} free${
+            entry.excluded.length > 0 ? ` · ${entry.excluded.length} can't` : ""
+          }`}
+          onToggle={onToggle}
+        >
+          {entry.excluded.length > 0 ? (
+            <VStack className="gap-2">
+              {entry.excluded.map((person, index) => (
+                <AgentStep
+                  key={`${person.name}-${index}`}
+                  icon={person.reason === "blockout" ? CalendarOff : CalendarX2}
+                  title={person.name}
+                  description={
+                    person.reason === "blockout"
+                      ? `blocked out ${formatBlockout(person.detail)}`
+                      : `serving ${person.detail}`
+                  }
+                />
+              ))}
+            </VStack>
+          ) : null}
+        </AgentStep>
+      ))}
     </VStack>
-  );
-}
-
-/** Points down when open, right when closed. */
-function Chevron({ open }: { open: boolean }) {
-  const theme = useTheme();
-
-  return (
-    <Box style={{ transform: [{ rotate: open ? "0deg" : "-90deg" }] }}>
-      <AppIcon icon={ChevronDown} size={12} color={theme.textMuted} />
-    </Box>
-  );
-}
-
-function Busy({ label }: { label: string }) {
-  return (
-    <HStack className="items-center gap-2 py-1">
-      <Spinner size="small" color={brand.orange} />
-      <Text className="text-[13px] text-muted-foreground">{label}</Text>
-    </HStack>
   );
 }
 
